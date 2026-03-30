@@ -1,4 +1,4 @@
-# Web-App Back-End Development Guide
+# Intoduction to Web-App Back-End Development
 
 This is my guide for web-app backend development, based on the [Meta Back-End Developer Professional Certificate](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/professional-certificates/meta-back-end-developer) specialization on Coursera. From that specializatuon, I have selected these topics/courses:
 
@@ -8,9 +8,6 @@ This is my guide for web-app backend development, based on the [Meta Back-End De
 4. [APIs](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/apis)
 5. [The Full Stack](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/the-full-stack?authProvider=deutschetelekom)
 
-Strong Python and Git/Version Control skills are required for these courses.
+This module deals with the fourth topic/course: **APIs**.
 
-Each of the topics/courses has its own sub-folder with the relevant materials, including notes, setup information, code snippets, and exercises.
-
-Mikel Sagardia, 2026.  
-No guarantees.  
+TBD.
