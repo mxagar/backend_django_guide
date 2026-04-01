@@ -9,6 +9,6 @@ This is my guide for web-app backend development, based on the [Meta Back-End De
 5. [The Full Stack](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/the-full-stack?authProvider=deutschetelekom)
 6. [Back-End Developer Capstone Project](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/back-end-developer-capstone)
 
-This module deals with the first topic/course: **Introduction to Back-End Development**.
+This module deals with the sixth topic/course: **Back-End Developer Capstone Project**.
 
 TBD.
