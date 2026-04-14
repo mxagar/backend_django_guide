@@ -27,8 +27,11 @@ Table of Contents:
       - [Exercise: Web is Inspected](#exercise-web-is-inspected)
       - [Libraries and Frameworks](#libraries-and-frameworks)
       - [APIs and Services](#apis-and-services)
+      - [Additional Resources](#additional-resources)
   - [Introduction to HTML and CSS](#introduction-to-html-and-css)
     - [Getting started with HTML](#getting-started-with-html)
+      - [What is HTML?](#what-is-html)
+      - [Exercise: Create a simple HTML page](#exercise-create-a-simple-html-page)
     - [CSS Basics](#css-basics)
     - [Creating a web page](#creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
@@ -346,7 +349,7 @@ And finally, the **optional response body** (the actual content):
 
 #### Exercise: Web is Inspected
 
-Website: [`assets/examine_the_page/index.html`](./assets/examine_the_page/index.html).
+  Website: [`lab/01_examine_the_page/index.html`](./lab/01_examine_the_page/index.html).
 
 Task:
 
@@ -412,10 +415,68 @@ Note:
 * Browser APIs extend capabilities without external services
 * Key idea: APIs enable communication and reuse of functionality across systems, forming the backbone of modern web apps
 
+#### Additional Resources
+
+* [HTTP Overview (Mozilla)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview)
+* [Introduction to Networking by Dr. Charles R Severance](https://www.amazon.com/Introduction-Networking-How-Internet-Works/dp/1511654945/)
+* [Chrome Developer Tools Overview (Google)](https://developer.chrome.com/docs/devtools/overview/)
+* [Firefox Developer Tools User Docs (Mozilla)](https://firefox-source-docs.mozilla.org/devtools-user/index.html)
+* [Getting Started with Visual Studio Code (Microsoft)](https://code.visualstudio.com/docs)
 
 ## Introduction to HTML and CSS
 
 ### Getting started with HTML
+
+#### What is HTML?
+
+* HTML = core structure of a web page (like a building frame)
+* Created by Tim Berners-Lee at CERN
+  * first version released in 1991
+* HTML = Hypertext Markup Language
+  * hypertext --> links between documents
+  * markup --> tags/elements defining structure
+* HTML document:
+  * plain text file (.html)
+  * built from elements and tags
+* Tags vs elements:
+  * tag --> syntax (<p>, </p>)
+  * element --> tag + content
+* Most elements:
+  * opening tag + closing tag
+  * contain content
+* Elements can:
+  * be nested inside others
+  * be self-closing (e.g., line break <br>)
+* HTML specification:
+  * defines rules/structure
+  * maintained by World Wide Web Consortium
+  * current standard --> HTML5
+* Browser role:
+  * reads HTML --> builds basic page structure
+  * styling requires CSS
+* Key idea: HTML defines structure and content; browser interprets it into a visible page
+
+Basic HTML structure:
+
+```html
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Little Lemon Restaurant</title>
+    </head>
+    <body>
+        <h1>Our Menu</h1>
+        <h2>Falafel</h2>
+        <p>Delicious falafel made with fresh ingredients.</p>
+        <h2>Pasta salad</h2>
+        <p>Refreshing pasta salad with a tangy dressing.</p>
+    </body>
+</html>
+```
+
+#### Exercise: Create a simple HTML page
+
+
 
 ### CSS Basics
 
