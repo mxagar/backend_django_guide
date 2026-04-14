@@ -23,6 +23,10 @@ Table of Contents:
       - [Intro to HTML, CSS, and JavaScript](#intro-to-html-css-and-javascript)
       - [Other Internet Protocols](#other-internet-protocols)
       - [Webpages, Websites and Web Apps](#webpages-websites-and-web-apps)
+      - [Browser Developer Tools](#browser-developer-tools)
+      - [Exercise: Web is Inspected](#exercise-web-is-inspected)
+      - [Libraries and Frameworks](#libraries-and-frameworks)
+      - [APIs and Services](#apis-and-services)
   - [Introduction to HTML and CSS](#introduction-to-html-and-css)
     - [Getting started with HTML](#getting-started-with-html)
     - [CSS Basics](#css-basics)
@@ -316,6 +320,97 @@ And finally, the **optional response body** (the actual content):
   * food ordering system --> web application (user interaction, personalization)
 * Reality: boundaries blur; many modern sites mix both
 * Key idea: difference driven by level of interactivity and dynamic behavior
+
+#### Browser Developer Tools
+
+* Browser dev tools = built-in debugging/inspection toolkit
+* Access: F12 / right-click --> inspect
+* Core capabilities:
+  * inspect HTML, CSS, JavaScript
+  * trace HTTP requests/responses
+  * analyze performance and memory
+  * check security aspects
+* Key tabs:
+  * Elements --> inspect/edit DOM and CSS
+  * Console --> logs, errors, JS execution
+  * Sources --> loaded files (HTML, CSS, JS, assets)
+  * Network --> request/response timeline and details
+  * Performance --> runtime profiling (slow functions)
+  * Memory --> resource usage
+* Elements tab:
+  * hover highlights elements in UI
+  * shows applied CSS and properties
+  * allows live editing of HTML/CSS
+* Edits are local only --> do not affect server
+* Key idea: dev tools = “open the hood” for frontend debugging
+
+#### Exercise: Web is Inspected
+
+Website: [`assets/examine_the_page/index.html`](./assets/examine_the_page/index.html).
+
+Task:
+
+- Log for logo id
+- Edit title locally
+
+Note:
+
+- Chrome and Firefox have developer tools enabled by default.
+- Safari: Settings / Preferences > Advanced > Show Develop menu in menu bar (then right-click --> inspect)
+
+#### Libraries and Frameworks
+
+* Frameworks and libraries = reusable tools to speed up development
+* Libraries:
+  * reusable code for specific tasks
+  * developer calls them when needed
+  * example --> email validation
+* Frameworks:
+  * provide structure and flow for applications
+  * handle common concerns (e.g., HTTP requests/responses)
+  * developer plugs code into framework
+* Key difference:
+  * library --> you control flow
+  * framework --> framework controls flow
+* Opinionatedness:
+  * frameworks --> more opinionated (less freedom, more structure)
+  * libraries --> less opinionated (more flexibility)
+* Relationship:
+  * frameworks often use multiple libraries internally
+  * apps can also use additional libraries
+* Trade-offs:
+  * frameworks --> faster dev, built-in best practices, but less flexible
+  * libraries only --> more control, but more setup and integration work
+* Maintainability:
+  * replacing a library is easier than replacing a framework
+* Key idea: reuse existing solutions --> faster development, fewer errors, focus on core features
+
+#### APIs and Services
+
+* API (Application Programming Interface) = interface to access data or functionality of another system
+* Role: bridge between components (client <-> server, app <-> service)
+* APIs are also known as gateways or middleware because they act as a bridge between systems.
+* Common types:
+  * Browser APIs --> built into browser (DOM, Fetch, Geolocation, Storage)
+    * DOM API turns HTML into a tree of nodes that JS can manipulate
+  * REST APIs --> web servers providing data to apps; MOST COMMON!
+  * Sensor-based APIs --> interact with physical devices (IoT)
+* REST APIs:
+  * based on principles for scalable systems
+  * central role --> send/receive data from backend/database
+  * accessed via endpoints (URLs)
+* Core operations (CRUD):
+  * GET --> retrieve data
+  * POST --> create data
+  * PUT --> update data
+  * DELETE --> remove data
+* Request flow:
+  * client calls endpoint (URL ending `/my-endpoint`) --> server processes --> returns response (e.g., JSON data)
+* Responses:
+  * data (commonly JSON)
+  * or full web content
+* Browser APIs extend capabilities without external services
+* Key idea: APIs enable communication and reuse of functionality across systems, forming the backbone of modern web apps
 
 
 ## Introduction to HTML and CSS
