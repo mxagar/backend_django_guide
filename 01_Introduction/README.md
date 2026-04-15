@@ -38,6 +38,7 @@ Table of Contents:
       - [Web Accessibility](#web-accessibility)
       - [Additional Resources](#additional-resources-1)
     - [CSS Basics](#css-basics)
+      - [Selecting and Styling](#selecting-and-styling)
     - [Creating a web page](#creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
     - [Intro to UI frameworks and libraries](#intro-to-ui-frameworks-and-libraries)
@@ -751,6 +752,67 @@ Note:
 * [ARIA Authoring Practices (W3C)](https://www.w3.org/TR/wai-aria-practices-1.2/)
 
 ### CSS Basics
+
+#### Selecting and Styling
+
+![CSS Rules](./assets/css_rules.png)
+
+* CSS = defines how HTML is displayed (style, layout, colors)
+* Analogy:
+  * HTML --> structure (building frame)
+  * CSS --> appearance (paint, decoration)
+* CSS rule structure:
+  * selector --> which elements to style
+  * declaration block --> { ... }
+  * declaration --> property + value
+* Example:
+  * selector: h1
+  * property: color
+  * value: purple
+* Multiple properties can be applied in one block
+* Linking CSS:
+  * done via `<link rel="stylesheet" href="style.css">` in HTML
+* Selectors:
+  * element selector (e.g., h1) --> applies to all elements
+  * id selector (e.g., #header1) --> applies to specific element
+* Specificity:
+  * more specific rules override general ones
+  * id selector overrides element selector
+* Key idea: CSS rules = selector + declaration block → control visual output
+
+`index.html`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1 id="header1">Chapter One</h1>
+  <p>The first chapter</p>
+  <h1>Chapter Two</h1>
+  <p>The second chapter</p>
+  <h1>Chapter Three</h1>
+  <p>The third chapter</p>
+</body>
+</html>
+```
+
+`style.css`:
+
+```css
+/* Element selector: applies to ALL h1 */
+h1 {
+  color: purple;
+}
+
+/* ID selector: applies only to one element */
+#header1 {
+  color: green;
+}
+```
+
 
 ### Creating a web page
 
