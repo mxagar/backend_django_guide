@@ -32,6 +32,11 @@ Table of Contents:
     - [Getting started with HTML](#getting-started-with-html)
       - [What is HTML?](#what-is-html)
       - [Exercise: Create a simple HTML page](#exercise-create-a-simple-html-page)
+      - [Basic HTML Tags](#basic-html-tags)
+      - [Forms](#forms)
+      - [The DOM: Document Object Model](#the-dom-document-object-model)
+      - [Web Accessibility](#web-accessibility)
+      - [Additional Resources](#additional-resources-1)
     - [CSS Basics](#css-basics)
     - [Creating a web page](#creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
@@ -349,7 +354,7 @@ And finally, the **optional response body** (the actual content):
 
 #### Exercise: Web is Inspected
 
-  Website: [`lab/01_examine_the_page/index.html`](./lab/01_examine_the_page/index.html).
+Website: [`lab/01_examine_the_page/index.html`](./lab/01_examine_the_page/index.html).
 
 Task:
 
@@ -476,7 +481,274 @@ Basic HTML structure:
 
 #### Exercise: Create a simple HTML page
 
+Website: [`lab/02_create_html_document/index.html`](./lab/02_create_html_document/index.html).
 
+Task:
+
+- Create an HTML document and visualize it in the browser.
+
+Note:
+
+- Install VSCode extension *Live Preview* if working locally
+
+`index.html`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My First HTML Document</title>
+</head>
+<body>
+  I successfully created my first document
+</body>
+</html>
+```
+
+#### Basic HTML Tags
+
+```html
+<!-- This is a comment in HTML -->
+
+<!-- Headings -->
+<body>
+  <h1>Heading 1</h1>
+  <h2>Heading 2</h2>
+  <h3>Heading 3</h3>
+  <h4>Heading 4</h4>
+  <h5>Heading 5</h5>
+  <h6>Heading 6</h6>
+</body>
+
+
+<!-- Paragraphs: contain text -->
+<p>
+   This paragraph
+   contains a lot of lines
+   but they are ignored.
+</p>
+
+
+<!-- Line break: forces a new line, no closing tag needed -->
+<p>
+   This paragraph<br>
+   contains a lot of lines<br>
+   and they are displayed.
+</p>
+
+<!-- Strong, bold, italic/emphasis -->
+<p>
+  No matter how much the dog barks: <strong>don't feed him chocolate</strong>.
+  The primary colors are <b>red</b>, <b>yellow</b> and <b>blue</b>.
+  Wake up <em>now</em>!
+  The term <i>HTML</i> stands for HyperText Markup Language.
+</p>
+
+<!-- Lists: unordered and ordered -->
+<ul>
+  <li>Item 1</li>
+  <li>Item 2</li>
+  <li>Item 3</li>
+</ul>
+<ol>
+   <li>Rocky</li>
+   <li>Rocky II</li>
+   <li>Rocky III</li>
+</ol>
+
+<!-- Divs: content division, no effect on the content unless it is styled by CSS -->
+<div>
+   <p>This is a paragraph inside a div</p>
+</div>
+<div>
+   <div>
+      <p>This is a paragraph inside a div that’s inside another div</p>
+   </div>
+</div>
+
+<!-- Example of divs styled by CSS -->
+<style>
+   div {
+      border: 1px solid black;
+      padding: 2px;
+   }
+</style>
+<div>
+   <div>
+      <p>This is a paragraph inside stylized divs</p>
+   </div>
+</div>
+
+<!-- Links or Anchor Tags: we can use URLs or filenames/filepaths -->
+<a href="https://www.example.com">Visit Example</a>
+<a href="location.html">Our Location</a>
+
+<!-- Images: self-closing tag, src = source URL or filepath, alt = alternative text -->
+<img src="image.jpg" alt="Description of image">
+<img src="image.jpg" alt="Description of image" width="200" height="100">
+
+<!-- Tables: structured data in rows and columns: tr = table row, th = table header, td = table data -->
+<style>
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+    }
+</style>
+<table>
+<tr>
+   <th>Name</th>
+   <th>Age</th>
+</tr>
+<tr>
+   <td>John</td>
+   <td>25</td>
+</tr>
+<tr>
+   <td>Jane</td>
+   <td>30</td>
+</tr>
+</table>
+```
+
+#### Forms
+
+* HTML forms collect user input and submit it to a server
+* Main container --> form tag
+* Key form attributes:
+  * action --> URL/path where form data is sent
+  * method --> HTTP method used to submit data
+* Common methods:
+  * GET --> retrieves information
+  * POST --> sends data to server
+* Basic text inputs use the input tag
+* Labels improve usability by describing each field
+* Example inputs in the HTML:
+  * text --> user name
+  * password --> hidden user input
+  * submit --> sends form data
+  * checkbox --> multiple selections allowed
+  * radio --> only one option in a group
+  * number --> numeric input
+  * email --> email-specific input
+  * file --> upload a file
+* Some form controls use different tags:
+  * textarea --> multi-line text
+  * select + option --> drop-down list
+* name and value attributes help define how data is sent to the server
+* Key idea: good forms use appropriate input types for better usability and clearer data handling
+
+```html
+<form action="/submit-form" method="post">
+  <fieldset>
+    <legend>Login information</legend>
+
+    <label for="username">User name</label>
+    <input type="text" id="username" name="username" placeholder="Enter your user name" />
+
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" placeholder="Enter your password" />
+  </fieldset>
+
+  <fieldset>
+    <legend>Preferences</legend>
+
+    <p>Checkbox example:</p>
+    <div class="inline-group">
+      <label><input type="checkbox" name="interests" value="books" /> Books</label>
+      <label><input type="checkbox" name="interests" value="music" /> Music</label>
+      <label><input type="checkbox" name="interests" value="sports" /> Sports</label>
+    </div>
+
+    <p>Radio button example:</p>
+    <div class="inline-group">
+      <label><input type="radio" name="plan" value="basic" /> Basic</label>
+      <label><input type="radio" name="plan" value="pro" /> Pro</label>
+      <label><input type="radio" name="plan" value="premium" /> Premium</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Other input types</legend>
+
+    <label for="age">Number</label>
+    <input type="number" id="age" name="age" min="1" max="120" />
+
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" placeholder="name@example.com" />
+
+    <label for="resume">File upload</label>
+    <input type="file" id="resume" name="resume" />
+
+    <label for="comments">Multi-line text</label>
+    <textarea id="comments" name="comments" rows="5" placeholder="Write your message here"></textarea>
+
+    <label for="country">Drop-down list</label>
+    <select id="country" name="country">
+      <option value="">Select a country</option>
+      <option value="spain">Spain</option>
+      <option value="germany">Germany</option>
+      <option value="france">France</option>
+    </select>
+  </fieldset>
+
+  <input type="submit" value="Submit form" />
+</form>
+```
+
+#### The DOM: Document Object Model
+
+![DOM Tree](./assets/dom_tree.png)
+
+* DOM (Document Object Model) = representation of HTML as a tree of objects
+* Browser builds the DOM from HTML automatically
+* Structure:
+  * root --> html
+  * children --> head, body
+  * nested elements --> tags become objects with content
+* Purpose: enable JavaScript to read and modify the page
+* Without DOM --> pages would be static (no interaction)
+* JavaScript + DOM enables:
+  * updating content (e.g., clock)
+  * handling user events (click, hover, scroll)
+  * enabling/disabling UI elements (e.g., login button)
+* Dynamic manipulation:
+  * add elements --> show new content (e.g., error messages)
+  * remove elements --> update UI (e.g., delete todo item)
+* Supports animations and interactive behavior
+* Modern frameworks (e.g., React) rely on DOM
+* Key idea: DOM = bridge between HTML and JavaScript for dynamic, interactive web pages
+
+#### Web Accessibility
+
+* Web accessibility = designing sites usable by everyone, including people with disabilities
+* Promoted by Web Accessibility Initiative and World Wide Web Consortium
+* Emphasized by Tim Berners-Lee as a core principle of the web
+* Covers multiple disabilities:
+  * visual, auditory
+  * cognitive, neurological
+  * physical, speech
+* Legal/industry importance:
+  * accessibility required in many sectors
+  * e.g., EU Web Accessibility Directive
+* Assistive technologies:
+  * screen readers --> read page content
+  * speech recognition --> voice input/control
+  * subtitles/transcripts --> support audio/visual access
+* Development best practices:
+  * consider accessibility from the start
+  * use proper HTML structure and semantic elements
+  * avoid hacks (e.g., excessive line breaks for layout)
+* Advanced support:
+  * ARIA (Accessible Rich Internet Applications) --> improves accessibility for complex UIs
+* Key idea: accessibility = inclusive design + correct structure + support for assistive technologies
+
+#### Additional Resources
+
+* [HTML Elements Reference (Mozilla)](https://developer.mozilla.org/en-US/docs/Web/HTML/Element)
+* [The Form Element (Mozilla)](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
+* [What is the Document Object Model? (W3C)](https://www.w3.org/TR/WD-DOM/introduction.html)
+* [ARIA in HTML (W3C via Github)](https://w3c.github.io/html-aria/)
+* [ARIA Authoring Practices (W3C)](https://www.w3.org/TR/wai-aria-practices-1.2/)
 
 ### CSS Basics
 
