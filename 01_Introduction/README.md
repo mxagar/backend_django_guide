@@ -45,6 +45,9 @@ Table of Contents:
         - [Text Formatting in CSS](#text-formatting-in-css)
       - [Box Model](#box-model)
       - [Document Flow: Block and Inline HTML Elements](#document-flow-block-and-inline-html-elements)
+      - [Alignment Basics](#alignment-basics)
+      - [Additional Resources](#additional-resources-2)
+      - [Assignment: Styling a Page](#assignment-styling-a-page)
     - [Creating a web page](#creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
     - [Intro to UI frameworks and libraries](#intro-to-ui-frameworks-and-libraries)
@@ -1159,6 +1162,90 @@ Similarly, we can change the behavior of the middle span element back to inline.
   display: inline;
 }
 ```
+
+#### Alignment Basics
+
+Text aligment is easy:
+
+```css
+/* Text Alignment */
+p {
+    text-align: center;  /* left (default), right, center, justify */
+}
+```
+
+To align HTML elements, we must consider the box model and document flow (block vs inline).
+
+```html
+<div class="parent">
+  <div class="child">
+  </div>
+</div>
+```
+
+```css
+.parent {
+  border: 4px solid red;
+}
+
+.child {
+  width: 50%;  /* 50% of the parent element's width */
+  padding: 20px;  /* all sides to 20px each */
+  border: 4px solid green;
+  margin: auto;  /* margin: auto centers the element horizontally within its parent */
+}
+```
+
+Result:
+
+![Box Alignment Result](./assets/box_aligment_result.png)
+
+If we want to align an inline element like `img`, we need to change it to a block-level element. Similar to the `div` example, we add the `img` to a parent element:
+
+```html
+<div class="parent">
+  <img src="photo.png" class="child">
+</div>
+```
+
+```css
+.child {
+  display: block;
+  width: 50%;
+  margin-left: auto;
+  margin-right: auto;
+}
+```
+
+The two most common ways to align left/right HTML elements are to use the `float` property and the `position` property.
+
+```html
+<div class="parent">
+  <img src="photo.png" class="child"> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur eu odio eget leo auctor porta sit amet sit amet justo. Donec fermentum quam in diam volutpat, at lacinia diam placerat. Aenean quis feugiat sem. Suspendisse a dui massa. Phasellus scelerisque, mi vestibulum iaculis tristique, orci tellus gravida nisi, in pellentesque elit massa ut lorem. Sed elementum ornare nunc vel cursus. Duis sed enim in nulla efficitur convallis sed eget dolor. Curabitur scelerisque eros erat, in vulputate dolor consequat vel. Praesent ac sapien condimentum, ultricies libero at, auctor orci. Curabitur ut augue ac massa convallis faucibus sed in magna. Phasellus scelerisque auctor est a auctor. Nam laoreet sem sapien, porta imperdiet urna laoreet eu. Morbi dolor turpis, congue id bibendum eget, viverra et risus. Quisque vitae erat id tortor ullamcorper maximus.
+</div>
+```
+
+```css
+.child {
+  float: right;
+}
+```
+
+Result:
+
+![CSS Float Right](./assets/css_float_right.png)
+
+#### Additional Resources
+
+* [CSS Reference (Mozilla)](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference)
+* [HTML and CSS: Design and Build Websites by Jon Duckett](https://www.amazon.com/HTML-CSS-Design-Build-Websites/dp/1118008189/)
+* [CSS Definitive Guide by Eric Meyer](https://www.amazon.com/CSS-Definitive-Guide-Visual-Presentation/dp/1449393195/)
+
+#### Assignment: Styling a Page
+
+Exercise: [`lab/03_styling_a_page/index.html`](./lab/03_styling_a_page/index.html).
+
+
 
 ### Creating a web page
 
