@@ -39,6 +39,11 @@ Table of Contents:
       - [Additional Resources](#additional-resources-1)
     - [CSS Basics](#css-basics)
       - [Selecting and Styling](#selecting-and-styling)
+      - [Basic Types of Selectors](#basic-types-of-selectors)
+      - [Text and Color in CSS](#text-and-color-in-css)
+        - [Colors in CSS](#colors-in-css)
+        - [Text Formatting in CSS](#text-formatting-in-css)
+      - [Box Model and Layout](#box-model-and-layout)
     - [Creating a web page](#creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
     - [Intro to UI frameworks and libraries](#intro-to-ui-frameworks-and-libraries)
@@ -813,6 +818,224 @@ h1 {
 }
 ```
 
+#### Basic Types of Selectors
+
+- Element selectors: select HTML elements based on their element type (e.g., p, h1, div)
+- ID selectors: select a single element based on its unique id attribute (e.g., #header1)
+- Class selectors: select elements based on their class attribute, which can be shared by multiple elements (e.g., .navigation)
+- Element with class selector: select elements that match both an element type and a class (e.g., p.introduction)
+- Descendant selectors: select elements that are descendants of a specified element (e.g., #blog h1)
+- Child selectors: select elements that are direct children of a specified element (e.g., #blog > h1)
+- Pseudo-class selectors: select elements based on their state or user interaction (e.g., a:hover)
+- Hover selector: select elements when the user hovers over them with a pointing device (e.g., mouse) (e.g., a:hover)
+
+```html
+<!-- Element Selectors: select HTML elements based on their element type -->
+<!-- p is a paragraph element in HTML and the p selector in CSS targets all paragraph elements -->
+<p>Once upon a time...</p>
+<p>In a hidden land...</p>
+```
+
+```css
+p { 
+  color: blue; 
+}
+```
+
+```html
+<!-- ID Selectors: select a single element based on its unique id attribute -->
+<!-- We define an id attribute in HTML and use the #id selector in CSS to target that specific element -->
+<span id="latest">New!</span>
+
+```
+
+```css
+#latest { 
+  background-color: purple; 
+}
+```
+
+```html
+<!-- Class Selectors: select elements based on their class attribute, which can be shared by multiple elements -->
+<!-- We define a class attribute in HTML and use the .class selector in CSS to target all elements with that class -->
+<a class="navigation">Go Back</a>
+<p class="navigation">Go Forward</p>
+```
+
+```css
+.navigation { 
+  margin: 2px;
+}
+```
+
+```html
+<!-- Element with class selector -->
+<p class="introduction"></p>
+```
+
+```css
+p.introduction { 
+  margin: 2px;
+}
+```
+
+```html
+<!-- Descendant selectors: select elements that are descendants of a specified element -->
+<!-- Example: we want to format all h1 elements in the #blog div -->
+<div id="blog">
+  <h1>Latest News</h1>
+  <div>
+    <h1>Today's Weather</h1>
+    <p>The weather will be sunny</p>
+  </div>
+  <p>Subscribe for more news</p>
+</div>
+<div>
+  <h1>Archives</h1>
+</div>
+```
+
+```css
+#blog h1 {
+  color: blue;
+}
+```
+
+```html
+<!-- Child selectors: select elements that are direct children of a specified element -->
+<!-- Child selectors only select elements that are immediate descendants (children) of a selector (the parent) -->
+<!-- Example: the CSS rule will be applied to "Latest News" but not to "Today's Weather" -->
+<div id="blog">
+  <h1>Latest News</h1>
+  <div>
+    <h1>Today's Weather</h1>
+    <p>The weather will be sunny</p>
+  </div>
+  <p>Subscribe for more news</p>
+</div>
+```
+
+```css
+#blog > h1 {
+  color: blue;
+}
+```
+
+
+```html
+<!-- :hover Pseudo-Class -->
+<!-- The :hover pseudo-class applies a style to an element when the user hovers over it with a pointing device (e.g., mouse) -->
+<!-- Example: we want to change the color of links when the user hovers over them -->
+<a href="https://www.example.com">Visit Example</a>
+```
+
+```css
+a:hover {
+  color: orange;
+}
+```
+
+#### Text and Color in CSS
+
+##### Colors in CSS
+
+From CSS Version 3, there are five main ways to reference a color.
+
+- By RGB value,
+- By RGBA value,
+- By HSL value (Hue-Saturation-Lightness),
+- By hex value and
+- By predefined color names.
+
+```css
+/* RGB */
+p { 
+  color: rgb(255, 0, 0); 
+}
+
+/* RGBA: Alpha channel added for transparency */
+p { 
+  color: rgba(255, 0, 0, 0.8); 
+}
+
+/* HSL: Hue-Saturation-Lightness */
+p { 
+  color: hsl(0, 100%, 50%);
+}
+
+/* Hexadecimal: Hex value, preceeded by # and followed by six hexadecimal digits (0-9, A-F) */
+p { 
+  color: #ff0000;
+}
+
+/* Predefined color names */
+p { 
+  color: red;
+}
+/*
+Common color names:
+  black
+  silver
+  gray
+  white
+  maroon
+  red
+  purple
+  fuchsia
+  green
+  lime
+  olive
+  yellow
+  navy
+  blue
+  teal
+  aqua
+*/
+```
+
+##### Text Formatting in CSS
+
+```css
+/* Text color */
+p { 
+  color: red;
+}
+
+/* Text font and size */
+p { 
+  font-family: "Courier New", monospace;
+}
+/* It is recommended to include several fonts when using the font-family property, as fallback options */
+p { 
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+}
+
+/* Text transformation: uppercase, lowercase, capitalize, none */
+p { 
+  text-transform: uppercase;
+}
+
+/* Text decoration: none, underline, overline, line-through */
+p { 
+  text-decoration: none;
+}
+/* Text decoration with color, style, and thickness */
+p { 
+  text-decoration: underline red solid 5px;
+}
+/* Text decoration with individual properties */
+p { 
+  text-decoration-line: underline;
+  text-decoration-color: red;
+  text-decoration-style: solid;  /* solid (default), double, dotted, dashed, wavy */
+  text-decoration-thickness: 5px;
+}
+```
+
+#### Box Model and Layout
+
+![Box Model](./assets/box_model.png)
 
 ### Creating a web page
 
