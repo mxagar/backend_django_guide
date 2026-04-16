@@ -43,7 +43,8 @@ Table of Contents:
       - [Text and Color in CSS](#text-and-color-in-css)
         - [Colors in CSS](#colors-in-css)
         - [Text Formatting in CSS](#text-formatting-in-css)
-      - [Box Model and Layout](#box-model-and-layout)
+      - [Box Model](#box-model)
+      - [Document Flow: Block and Inline HTML Elements](#document-flow-block-and-inline-html-elements)
     - [Creating a web page](#creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
     - [Intro to UI frameworks and libraries](#intro-to-ui-frameworks-and-libraries)
@@ -1033,9 +1034,131 @@ p {
 }
 ```
 
-#### Box Model and Layout
+#### Box Model
 
 ![Box Model](./assets/box_model.png)
+
+* Every HTML element is rendered as a rectangular box (CSS box model).
+* The box model has four layers: content, padding, border, and margin.
+* Content is the actual text or image and defines the base size.
+* Padding adds space inside the element, around the content.
+* Border wraps the padding and content and defines the visible outline.
+* Margin adds space outside the element, separating it from others.
+* Total element size is calculated by combining these layers.
+* Developers control layout using width, height, padding, border, and margin.
+* Shorthand properties can simplify CSS definitions.
+
+Parts in the box model:
+
+| Layer   | Description                  |
+| ------- | ---------------------------- |
+| Content | Inner content (text, image)  |
+| Padding | Space inside, around content |
+| Border  | Outline around padding       |
+| Margin  | Outer space between elements |
+
+Formulas for width (height is analogous):
+
+* Padding box width = content width + padding left + padding right
+* Border box width = padding box width + border left + border right
+* Margin box width = border box width + margin left + margin right
+
+
+```css
+/* Content (size control) */
+.box {
+  width: 200px;
+  height: 100px;
+  min-width: 150px;
+  max-width: 300px;
+}
+
+/* Padding */
+.box {
+  padding-top: 10px;
+  padding-right: 15px;
+  padding-bottom: 10px;
+  padding-left: 15px;
+}
+
+/* Border */
+.box {
+  border-width: medium;
+  border-style: solid;
+}
+
+/* Margin */
+.box {
+  margin-top: 20px;
+  margin-right: 10px;
+  margin-bottom: 20px;
+  margin-left: 10px;
+}
+
+```
+
+![Box Content Size](./assets/box_content_size.png)
+
+![Padding and Margins](./assets/padding_margins.png)
+
+![Padding Box Width](./assets/padding_box_width.png)
+
+![Border Types](./assets/border_types.png)
+
+![Border Width](./assets/border_width.png)
+
+![Border Width 2](./assets/border_width_2.png)
+
+![Margin Size](./assets/margin_size.png)
+
+![Margin Box Width](./assets/margin_box_width.png)
+
+#### Document Flow: Block and Inline HTML Elements
+
+![Block and Inline HTML Elements](./assets/block_inline_html_elements.png)
+
+* Browsers position HTML elements using the document flow.
+* Elements are categorized as block or inline by default.
+* Block elements take full width and start on a new line.
+* Multiple block elements stack vertically.
+* Inline elements only take the space of their content.
+* Inline elements stay on the same line and form horizontal flows.
+* **Examples of block elements (by default): div, form, headings.**
+* **Examples of inline elements (by default): span, a, img, input, label.**
+* The display property in CSS can change an element’s behavior (block ↔ inline).
+
+Example:
+
+```html
+<div>
+  <span>First sentence.</span>
+  <span id="middle">Second sentence.</span>
+  <span>Third sentence.</span>
+</div>
+```
+
+Default Behavior: All span elements are inline -> appear in one line.
+
+But, we can change the behavior of the middle span element using CSS.
+
+```css
+#middle {
+  display: block;
+}
+```
+
+Result:
+
+* The middle element moves to a new line.
+* It takes full width like a block element.
+
+Similarly, we can change the behavior of the middle span element back to inline.
+
+```css
+#middle {
+  display: inline;
+}
+```
 
 ### Creating a web page
 
