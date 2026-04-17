@@ -48,7 +48,7 @@ Table of Contents:
       - [Alignment Basics](#alignment-basics)
       - [Additional Resources](#additional-resources-2)
       - [Assignment: Styling a Page](#assignment-styling-a-page)
-    - [Creating a web page](#creating-a-web-page)
+    - [Assignment: Creating a web page](#assignment-creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
     - [Intro to UI frameworks and libraries](#intro-to-ui-frameworks-and-libraries)
     - [Introduction to React](#introduction-to-react)
@@ -1316,10 +1316,9 @@ h2 > span {
 }
 ```
 
-### Creating a web page
+### Assignment: Creating a web page
 
 Assignment: [`lab/04_create_a_web_page`](./lab/04_create_a_web_page).
-
 
 Tasks:
 
