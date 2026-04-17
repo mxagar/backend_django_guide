@@ -51,6 +51,17 @@ Table of Contents:
     - [Assignment: Creating a web page](#assignment-creating-a-web-page)
   - [UI Frameworks](#ui-frameworks)
     - [Intro to UI frameworks and libraries](#intro-to-ui-frameworks-and-libraries)
+      - [Working with Libraries](#working-with-libraries)
+    - [Summary](#summary)
+      - [Responsive Design](#responsive-design)
+      - [What Is Bootstrap?](#what-is-bootstrap)
+      - [Getting Started with Bootstrap](#getting-started-with-bootstrap)
+      - [Using Bootstrap Styles](#using-bootstrap-styles)
+        - [Infixes (Responsive Design)](#infixes-responsive-design)
+        - [Modifiers (Styling Variations)](#modifiers-styling-variations)
+        - [Example](#example)
+      - [Bootstrap Grid System](#bootstrap-grid-system)
+      - [Exercise: Working with Bootstrap](#exercise-working-with-bootstrap)
     - [Introduction to React](#introduction-to-react)
   - [Assessment](#assessment)
 
@@ -110,8 +121,8 @@ Web browsers:
   5. Browser renders page
 - URL structure: protocol (HTTP), domain, path
 - Request–response cycle = fundamental abstraction of the web
-- Dynamic requests: user actions (e.g., search) → new requests with parameters
-- Server side: logic + database lookup → builds response
+- Dynamic requests: user actions (e.g., search) --> new requests with parameters
+- Server side: logic + database lookup --> builds response
 - Browser side: renders returned code into UI
 - Same pattern applies to search, chat, streaming, etc.
 
@@ -572,7 +583,7 @@ Note:
 </div>
 <div>
    <div>
-      <p>This is a paragraph inside a div that’s inside another div</p>
+      <p>This is a paragraph inside a div that's inside another div</p>
    </div>
 </div>
 
@@ -787,7 +798,7 @@ Note:
 * Specificity:
   * more specific rules override general ones
   * id selector overrides element selector
-* Key idea: CSS rules = selector + declaration block → control visual output
+* Key idea: CSS rules = selector + declaration block --> control visual output
 
 `index.html`:
 
@@ -1128,7 +1139,7 @@ Formulas for width (height is analogous):
 * Inline elements stay on the same line and form horizontal flows.
 * **Examples of block elements (by default): div, form, headings.**
 * **Examples of inline elements (by default): span, a, img, input, label.**
-* The display property in CSS can change an element’s behavior (block ↔ inline).
+* The display property in CSS can change an element's behavior (block ↔ inline).
 
 Example:
 
@@ -1336,6 +1347,401 @@ Result:
 ## UI Frameworks
 
 ### Intro to UI frameworks and libraries
+
+#### Working with Libraries
+
+### Summary
+
+* Developers can either build everything from scratch or reuse existing libraries and frameworks.
+* Libraries and frameworks provide reusable functionality via APIs.
+* These external resources are called dependencies because the application relies on them.
+* Dependencies must be included in the project (e.g., via HTML) for the app to work.
+* CSS libraries are added using the `<link>` tag in the `<head>`.
+* JavaScript libraries are added using the `<script>` tag, usually in the `<body>`.
+* Example: Bootstrap provides ready-made styles and interactive components.
+* Real-world projects often have many dependencies forming a dependency tree.
+* Managing dependencies manually is complex and error-prone.
+* Package managers (e.g., npm) automate installation and version control of dependencies.
+* Bundlers (e.g., Webpack, Gulp) combine multiple files into optimized bundles.
+* Bundling improves performance and simplifies inclusion in HTML.
+
+Example of including Bootstrap CSS and JS in HTML:
+
+```html
+<head>
+  <!-- Required meta tags -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+
+<body>
+
+  <!-- Example Bootstrap button -->
+  <button class="btn btn-primary">Click this button</button>
+
+  <!-- Bootstrap JS (with Popper) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+  </script>
+
+</body>
+```
+
+#### Responsive Design
+
+* Responsive design allows websites to adapt automatically to different screen sizes (mobile, tablet, desktop).
+  * It ensures a good user experience across devices with varying resolutions.
+* Screen resolution refers to the number of pixels (e.g., 1920 × 1080).
+* Modern devices may use logical pixels (grouped physical pixels) for smoother visuals.
+* Breakpoints: Screen sizes where layout changes occur.
+* Responsive design combines grids, images, and media queries to adapt layouts dynamically.
+* We use percentages instead of pixels for flexible layouts.
+* We ensure images scale properly within containers.
+
+Core Techniques of Responsive Design:
+
+| Technique      | Description                                                    |
+| -------------- | -------------------------------------------------------------- |
+| Flexible grids | Layouts use percentages instead of fixed pixels                |
+| Fluid images   | Images scale within their containers (e.g., `max-width: 100%`) |
+| Media queries  | CSS rules applied based on screen size or device properties    |
+
+Media Queries Example:
+
+```css
+@media (max-width: 700px) {
+  body {
+    background-color: blue;
+  }
+}
+```
+
+Grid Types:
+
+| Grid Type   | Description                            |
+| ----------- | -------------------------------------- |
+| Fixed grid  | Fixed content width, flexible margins  |
+| Fluid grid  | Flexible width, expands to full screen |
+| Hybrid grid | Mix of fixed and fluid elements        |
+
+#### What Is Bootstrap?
+
+* Bootstrap is a library of CSS and JavaScript used to build websites quickly.
+* It is often called a front-end framework, CSS framework, or CSS library.
+* It provides pre-written styles and components for rapid development.
+* Components are reusable pieces of code (e.g., buttons, forms, layouts).
+* Bootstrap includes a responsive grid system for adapting layouts to different devices.
+* It enables fast prototyping and iteration of website designs.
+* Developers can create visually appealing sites without deep CSS expertise.
+* It promotes consistency through a shared design system across teams.
+* Its popularity makes it widely used and valuable to learn in industry.
+* Once understood, developers can customize and extend its default styles.
+
+| Advantage      | Description                                             |
+| -------------- | ------------------------------------------------------- |
+| Speed          | Pre-built styles and components reduce development time |
+| Responsiveness | Built-in grid system adapts to all devices              |
+| Reusability    | Component-based approach simplifies development         |
+| Consistency    | Shared design system across teams                       |
+| Accessibility  | Lower barrier to building good-looking websites         |
+
+#### Getting Started with Bootstrap
+
+* Bootstrap helps developers build websites faster by providing pre-written CSS and JavaScript.
+* It is especially useful for layout, positioning, and common UI elements.
+* A Bootstrap page usually starts with a container, which is required to use the grid system.
+* Inside the container, content is organized into rows.
+* Inside rows, content is split into columns using Bootstrap column classes.
+* This grid system makes it easy to place related content side by side.
+* Images can be made responsive with the `img-fluid` class, which scales them to fit their parent column.
+* Tables can be styled quickly using Bootstrap's `table` class.
+* By combining containers, rows, columns, images, and tables, you can build a clean and responsive page with little code.
+
+Example:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bootstrap Menu Example</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col">
+        <h1>Our Menu</h1>
+
+        <h2>Falafel</h2>
+        <p>Chickpea, herbs, and spices.</p>
+        <img src="falafel.jpeg" class="img-fluid" alt="Falafel">
+
+        <h2>Pasta Salad</h2>
+        <p>Lettuce, vegetables, and mozzarella.</p>
+        <img src="salad.jpeg" class="img-fluid" alt="Pasta Salad">
+      </div>
+
+      <div class="col">
+        <h1>Prices</h1>
+        <table class="table">
+          <tr>
+            <td>Falafel</td>
+            <td>$12.00</td>
+          </tr>
+          <tr>
+            <td>Pasta Salad</td>
+            <td>$10.00</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+#### Using Bootstrap Styles
+
+* Bootstrap provides a large set of pre-built CSS classes to speed up development.
+* It uses **infixes** and **modifiers** to create flexible and reusable styles.
+  * Both help reuse code and avoid writing custom CSS.
+* Bootstrap components (e.g., alerts) combine base classes + modifiers.
+
+##### Infixes (Responsive Design)
+
+* Infixes are used for **responsive breakpoints** in the grid system.
+* They define how layouts change across screen sizes.
+* Bootstrap is **mobile-first**, so extra small (default) has no infix.
+
+| Breakpoint        | Screen Size | Infix  |
+| ----------------- | ----------- | ------ |
+| Extra small       | < 576px     | (none) |
+| Small             | ≥ 576px     | sm     |
+| Medium            | ≥ 768px     | md     |
+| Large             | ≥ 992px     | lg     |
+| Extra large       | ≥ 1200px    | xl     |
+| Extra extra large | ≥ 1400px    | xxl    |
+
+Example:
+
+`col-lg-6` --> column takes half width on large screens
+
+![Breakpoints](./assets/breakpoints.png)
+
+##### Modifiers (Styling Variations)
+
+* Modifiers change the **appearance or meaning** of components.
+* They are added as suffixes to class names.
+
+| Modifier  | Purpose           |
+| --------- | ----------------- |
+| primary   | Main color (blue) |
+| secondary | Neutral           |
+| success   | Positive (green)  |
+| info      | Informational     |
+| warning   | Caution (yellow)  |
+| danger    | Error (red)       |
+| light     | Light theme       |
+| dark      | Dark theme        |
+
+Examples:
+
+* `alert-primary` --> blue alert
+* `alert-danger` --> red alert
+
+![Modifiers](./assets/modifiers.png)
+
+##### Example
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bootstrap Infixes and Modifiers Example</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body>
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col-lg-6">
+        <h1>Little Lemon Restaurant</h1>
+        <p>
+          This column uses the class <code>col-lg-6</code>, which means it
+          takes half the row width on large screens and above.
+        </p>
+      </div>
+
+      <div class="col-lg-6">
+        <h2>Responsive Layout</h2>
+        <p>
+          On smaller screens, these columns will stack vertically. On large
+          screens, they will appear side by side.
+        </p>
+      </div>
+    </div>
+
+    <div class="alert alert-primary mt-4" role="alert">
+      A message
+    </div>
+
+    <div class="alert alert-danger mt-3" role="alert">
+      Error: Please check your reservation details.
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+![Bootstrap Styles](./assets/bootstrap_styles.png)
+
+#### Bootstrap Grid System
+
+![Bootstrap Grid](./assets/bootstrap_grid.png)
+
+* Bootstrap includes a responsive grid system with containers, rows, and columns.
+* The grid is based on 12 columns.
+* A container is the root element and aligns the page content.
+* Rows are placed inside containers.
+* Columns are placed inside rows.
+* If no size is specified, Bootstrap automatically divides the available space equally.
+* You can control column width by adding numeric suffixes such as `col-4` or `col-8`.
+* Bootstrap also supports breakpoint-specific classes, such as `col-lg-6`.
+* This allows layouts to change depending on screen size.
+* A common pattern is to stack content vertically on mobile and place it side by side on desktop.
+* For example, `col-12 col-lg-6` makes a column full width on small screens and half width on large screens.
+* If columns exceed 12 total units, they wrap onto a new line.
+* Bootstrap's grid system saves time by avoiding separate layouts for each device.
+
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bootstrap Grid Example</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body>
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col-12 col-lg-6">
+        <h1>Our Menu</h1>
+
+        <h2>Falafel</h2>
+        <p>Chickpea, herbs, and spices.</p>
+
+        <h2>Pasta Salad</h2>
+        <p>Lettuce, vegetables, and mozzarella.</p>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <h1>Prices</h1>
+        <table class="table">
+          <tr>
+            <td>Falafel</td>
+            <td>$12</td>
+          </tr>
+          <tr>
+            <td>Pasta Salad</td>
+            <td>$10</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+#### Exercise: Working with Bootstrap
+
+Exercise: [`lab/05_bootstrap_example`](./lab/05_bootstrap_example).
+
+Task:
+
+- Create a Bootstrap `container` with three `row` sections:
+  - the first row centers the Little Lemon logo,
+  - the second row centers the `Our Menu` heading,
+  - the third row displays the menu content.
+- Build a responsive two-column menu using `col-12 col-lg-6`:
+  - left column: `Falafel` and `Fried Calamari`
+  - right column: `Pasta Salad` and `Greek Salad`
+- Use Bootstrap utility classes:
+  - `text-center` to center the logo and heading
+  - `img-fluid` to make the logo responsive
+- Keep the structure aligned with the lab requirements so it stacks on smaller screens and becomes two columns on large screens.
+
+Result: [`lab/05_bootstrap_example/index.html`](./lab/05_bootstrap_example/index.html):
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Little Lemon</title>
+    <link href="bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center">
+                    <img src="logo.png" alt="Little Lemon logo" class="img-fluid">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center">
+                    <h1>Our Menu</h1>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-lg-6">
+                <h2>Falafel</h2>
+                <p>Chickpea, herbs, spices.</p>
+                <h2>Fried Calamari</h2>
+                <p>Squid, buttermilk.</p>
+            </div>
+            <div class="col-12 col-lg-6">
+                <h2>Pasta Salad</h2>
+                <p>Lettuce, vegetables, mozzarella.</p>
+                <h2>Greek Salad</h2>
+                <p>Cucumbers, onion, feta cheese.</p>
+            </div>
+        </div>
+    </div>
+    <script src="bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+```
 
 ### Introduction to React
 
