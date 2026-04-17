@@ -75,6 +75,9 @@ Table of Contents:
       - [Other CSS Frameworks and Libraries](#other-css-frameworks-and-libraries)
       - [Additional Resources](#additional-resources-3)
     - [Introduction to React](#introduction-to-react)
+    - [Static and Dynamic Content](#static-and-dynamic-content)
+      - [Web Server vs Application Server](#web-server-vs-application-server)
+      - [Caching (Performance Optimization)](#caching-performance-optimization)
   - [Assessment](#assessment)
 
 ## Intoduction
@@ -2053,6 +2056,48 @@ Key Differences:
 - [Bootstrap Themes](https://themes.getbootstrap.com/)
 
 ### Introduction to React
+
+### Static and Dynamic Content
+
+* Websites deliver **static or dynamic content**.
+* **Static content**:
+  * Sent exactly as stored on the web server
+  * Examples: images, videos, HTML files
+  * Fast to deliver
+* **Dynamic content**:
+  * Generated at request time
+  * Depends on user data, inputs, or context (e.g., recommendations, login content)
+  * Slower due to processing
+
+#### Web Server vs Application Server
+
+We have the web server and the application server (backend) working together to deliver content.
+
+| Component          | Role                                                            |
+| ------------------ | --------------------------------------------------------------- |
+| Web server         | Handles HTTP requests and serves content to the browser         |
+| Application server (Backend) | Generates dynamic content, runs logic, interacts with databases |
+
+* Web server communicates with the application server for dynamic content.
+* Application server performs complex tasks like authentication, personalization, and data retrieval.
+
+Example:
+
+* Static: Clicking “Play” → server sends a video file directly
+* Dynamic: Logging in → server generates personalized content
+
+#### Caching (Performance Optimization)
+
+* Dynamic content is slower and resource-intensive.
+* Web servers use **caching** to store generated content and serve it faster on subsequent requests (i.e., it reduces the load on the application server).
+
+**Process:**
+
+1. First request → fetch from application server + store in cache
+2. Next requests → serve cached content instantly
+3. Cache updates periodically
+
+![Web Server Cache](./assets/web_server_cache.png)
 
 ## Assessment
 
