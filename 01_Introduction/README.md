@@ -1245,9 +1245,94 @@ Result:
 
 Exercise: [`lab/03_styling_a_page/index.html`](./lab/03_styling_a_page/index.html).
 
+Task: Apply the styling specified in the task description in the `style.css` file.
 
+Result:
+
+[`lab/03_styling_a_page/index.html`](./lab/03_styling_a_page/index.html):
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Little Lemon</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div>
+        <img src="logo.png" id="logo">
+    </div>
+    <div class="center-text">
+        <h1>Our Menu</h1>
+        <h2>Falafel <span>NEW</span></h2>
+        <p>Chickpea, herbs, spices.</p>
+        <h2>Pasta Salad</h2>
+        <p>Pasta, vegetables, mozzarella.</p>
+        <h2>Fried Calamari</h2>
+        <p>Squid, buttermilk.</p>
+    </div>
+    <div class="center-text">
+        <p id="copyright">
+            Copyright Little Lemon
+        </p>
+    </div>
+</body>
+</html>
+```
+
+[`lab/03_styling_a_page/styles.css`](./lab/03_styling_a_page/styles.css):
+
+```css
+body {
+  background-color: #E0E0E2;
+}
+
+h1 {
+  color: #721817;
+}
+
+h2 {
+  color: #721817;
+}
+
+.center-text {
+  text-align: center;
+}
+
+#logo {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+h2 > span {
+  color: #FA9F42;
+  font-size: 0.75em;
+}
+
+#copyright {
+  padding-top: 12px;
+  font-size: 0.75em;
+}
+```
 
 ### Creating a web page
+
+Assignment: [`lab/04_create_a_web_page`](./lab/04_create_a_web_page).
+
+
+Tasks:
+
+- Build the webpage structure in `index.html`: add the page title, your name as an `h1`, the `photo.jpg` image with `id="photo"`, a list of five favorite music artists, a list of five favorite films, and a `My Profile` link to `https://www.meta.com/`.
+
+- Style the webpage in `styles.css`: add a `2px solid blue` border to the image, make the `h1` text blue, make all `h2` headings grey, and apply `4px` margin to each `div`.
+
+Result:
+
+- [`lab/04_create_a_web_page/index.html`](./lab/04_create_a_web_page/index.html)
+- [`lab/04_create_a_web_page/styles.css`](./lab/04_create_a_web_page/styles.css)
+
+![Assignment: Website Creation](./assets/assignment_website_creation.png)
 
 ## UI Frameworks
 
