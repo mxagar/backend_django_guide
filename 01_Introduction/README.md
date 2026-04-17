@@ -61,7 +61,19 @@ Table of Contents:
         - [Modifiers (Styling Variations)](#modifiers-styling-variations)
         - [Example](#example)
       - [Bootstrap Grid System](#bootstrap-grid-system)
-      - [Exercise: Working with Bootstrap](#exercise-working-with-bootstrap)
+      - [Exercise: Working with Bootstrap Grid](#exercise-working-with-bootstrap-grid)
+      - [Bootstrap Components](#bootstrap-components)
+      - [Exercise: Working with Bootstrap Components](#exercise-working-with-bootstrap-components)
+      - [Bootstrap Documentation](#bootstrap-documentation)
+        - [Common Bootstrap Form Elements](#common-bootstrap-form-elements)
+        - [Example: Basic Form Styling](#example-basic-form-styling)
+        - [Example: Switch](#example-switch)
+        - [Example: Input Group](#example-input-group)
+        - [Example: Floating Label](#example-floating-label)
+        - [Example: Responsive Image](#example-responsive-image)
+        - [Example: Grid Layout](#example-grid-layout)
+      - [Other CSS Frameworks and Libraries](#other-css-frameworks-and-libraries)
+      - [Additional Resources](#additional-resources-3)
     - [Introduction to React](#introduction-to-react)
   - [Assessment](#assessment)
 
@@ -1679,7 +1691,7 @@ Examples:
 </html>
 ```
 
-#### Exercise: Working with Bootstrap
+#### Exercise: Working with Bootstrap Grid
 
 Exercise: [`lab/05_bootstrap_example`](./lab/05_bootstrap_example).
 
@@ -1742,6 +1754,303 @@ Result: [`lab/05_bootstrap_example/index.html`](./lab/05_bootstrap_example/index
 </html>
 
 ```
+
+#### Bootstrap Components
+
+* Bootstrap provides **pre-built UI components** (e.g., badges, cards, alerts, tables).
+* These components improve visual design and speed up development.
+* A **badge** highlights important info (e.g., “New”).
+* A **card** organizes content (image, title, text) in a clean layout.
+* Cards can be arranged responsively using the grid system.
+* Images inside cards use `card-img-top` for better styling.
+* Text inside cards uses `card-body`, `card-title`, and `card-text`.
+* Tables can be extended easily to include new items.
+* **Alerts** display important messages to users (e.g., promotions).
+* Combining components improves both usability and appearance.
+
+Example:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Little Lemon Menu</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body>
+  <div class="container mt-4">
+
+    <!-- Alert -->
+    <div class="alert alert-info" role="alert">
+      Try our new fried calamari!
+    </div>
+
+    <div class="row">
+      
+      <!-- Menu Column -->
+      <div class="col-12 col-lg-8">
+        <h1>Our Menu</h1>
+
+        <div class="row">
+
+          <!-- Falafel Card -->
+          <div class="col-12 col-lg-6">
+            <div class="card mb-4">
+              <img src="falafel.jpeg" class="card-img-top" alt="Falafel">
+              <div class="card-body">
+                <h5 class="card-title">Falafel</h5>
+                <p class="card-text">Chickpea, herbs, and spices.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pasta Salad Card -->
+          <div class="col-12 col-lg-6">
+            <div class="card mb-4">
+              <img src="salad.jpeg" class="card-img-top" alt="Pasta Salad">
+              <div class="card-body">
+                <h5 class="card-title">Pasta Salad</h5>
+                <p class="card-text">Lettuce, vegetables, and mozzarella.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fried Calamari Card -->
+          <div class="col-12 col-lg-6">
+            <div class="card mb-4">
+              <img src="calamari.jpeg" class="card-img-top" alt="Fried Calamari">
+              <div class="card-body">
+                <h5 class="card-title">
+                  Fried Calamari 
+                  <span class="badge bg-primary">New</span>
+                </h5>
+                <p class="card-text">Squid and buttermilk.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Prices Column -->
+      <div class="col-12 col-lg-4">
+        <h1>Prices</h1>
+        <table class="table">
+          <tr>
+            <td>Falafel</td>
+            <td>$12</td>
+          </tr>
+          <tr>
+            <td>Pasta Salad</td>
+            <td>$10</td>
+          </tr>
+          <tr>
+            <td>Fried Calamari</td>
+            <td>$12</td>
+          </tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+#### Exercise: Working with Bootstrap Components
+
+Exercise: [`lab/06_bootstrap_components`](./lab/06_bootstrap_components).
+
+Task:
+
+- **Goal:** Extend the Little Lemon menu page with three Bootstrap UI components.
+- **Alert** – A `<div class="alert alert-info" role="alert">` was added directly below the *Our Menu* heading to inform customers the restaurant is closed on New Year's Day.
+- **Badge** – A `<span class="badge bg-secondary">New</span>` was inserted inside the *Falafel* `<h2>` to highlight it as a new dish.
+- **Button** – A new `.row > .col-12 > .text-center` block was appended at the bottom of the container, containing a `<button type="button" class="btn btn-primary">Order Online</button>`.
+- **Bootstrap layout** – All additions follow the existing 12-column grid pattern (`container --> row --> col-*`).
+- **Files changed:**
+  - index.html – updated with the three components.
+  - README.md – created with step-by-step instructions and expected results. 
+
+Final Result: [`lab/06_bootstrap_components/index.html`](./lab/06_bootstrap_components/index.html)
+
+![Bootstrap Components Exercise Result](./assets/bootstrap_components_exercise_result.png)
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Little Lemon</title>
+    <link href="bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center">
+                    <img src="logo.png" class="img-fluid">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center">
+                    <h1>Our Menu</h1>
+                </div>
+                <div class="alert alert-info" role="alert">
+                    Our restaurant will be closed on New Year's Day
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-lg-6">
+                <h2>Falafel <span class="badge bg-secondary">New</span></h2>
+                <p>Chickpea, herbs, spices.</p>
+                <h2>Fried Calamari</h2>
+                <p>Squid, buttermilk.</p>
+            </div>
+            <div class="col-12 col-lg-6">
+                <h2>Pasta Salad</h2>
+                <p>Lettuce, vegetables, mozzarella.</p>
+                <h2>Greek Salad</h2>
+                <p>Cucumbers, onion, feta cheese.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center">
+                    <button type="button" class="btn btn-primary">Order Online</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+#### Bootstrap Documentation
+
+Bootstrap Documentation: [https://getbootstrap.com/docs](https://getbootstrap.com/docs)
+
+* Bootstrap provides extensive documentation to help developers use its features effectively.
+  * Use documentation as the primary reference when working with Bootstrap.
+* Apply predefined classes instead of writing custom CSS!
+* The documentation includes navigation via sidebar and search for quick access.
+* Key sections include Layout, Content, Forms, and Components.
+* The Layout section explains the grid system and advanced layout techniques.
+* The Content section covers text styling, images, and tables.
+* The Forms section provides styled inputs and enhanced user experience features.
+* The Components section includes reusable UI elements (some require JavaScript).
+* Documentation includes many examples, making it easy to learn and apply.
+
+##### Common Bootstrap Form Elements
+
+| Element          | Class            |
+| ---------------- | ---------------- |
+| input            | form-control     |
+| checkbox / radio | form-check-input |
+| range            | form-range       |
+| select           | form-select      |
+
+##### Example: Basic Form Styling
+
+```html
+<div class="mb-3">
+  <label class="form-label">Email</label>
+  <input type="email" class="form-control" placeholder="Enter email">
+</div>
+```
+
+##### Example: Switch
+
+```html
+<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox">
+  <label class="form-check-label">Enable notifications</label>
+</div>
+```
+
+##### Example: Input Group
+
+```html
+<div class="input-group mb-3">
+  <span class="input-group-text">$</span>
+  <input type="text" class="form-control" placeholder="Amount">
+  <span class="input-group-text">.00</span>
+</div>
+```
+
+##### Example: Floating Label
+
+```html
+<div class="form-floating mb-3">
+  <input type="email" class="form-control" id="emailInput" placeholder="name@example.com">
+  <label for="emailInput">Email address</label>
+</div>
+```
+
+##### Example: Responsive Image
+
+```html
+<img src="example.jpg" class="img-fluid" alt="Responsive image">
+```
+
+##### Example: Grid Layout
+
+```html
+<div class="container">
+  <div class="row">
+    <div class="col-6">Left</div>
+    <div class="col-6">Right</div>
+  </div>
+</div>
+```
+
+#### Other CSS Frameworks and Libraries
+
+* Developers should be familiar with multiple CSS frameworks, not just Bootstrap.
+* Different frameworks offer trade-offs in size, flexibility, features, and design approach.
+* Choosing the right framework depends on project needs (performance, customization, simplicity).
+
+Popular CSS Frameworks:
+
+| Framework                                    | Description                                                                | When to Use                  |
+| -------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------- |
+| [Foundation](https://get.foundation/)        | Full-featured UI framework used by large companies; supports email styling | Large, professional projects |
+| [Pure.css](https://purecss.io/)              | Minimal, lightweight library with small file size                          | Performance-critical sites   |
+| [Tailwind CSS](https://tailwindcss.com/)     | Utility-first framework with single-purpose classes                        | Highly customizable designs  |
+| [UIKit](https://getuikit.com/)               | Lightweight framework with simple responsive components                    | Easy customization           |
+| [MVP.css](https://andybrewer.github.io/mvp/) | Automatically styles HTML without classes                                  | Fast prototyping             |
+
+Key Differences:
+
+* **Feature-rich vs minimal**:
+
+  * Bootstrap, Foundation --> many components
+  * Pure.css, MVP.css --> lightweight
+
+* **Styling approach**:
+
+  * Tailwind --> utility-based (fine control)
+  * MVP.css --> automatic styling (no classes needed)
+
+* **Flexibility vs consistency**:
+
+  * Tailwind --> very flexible but can become inconsistent in teams
+  * Component frameworks --> more consistent design systems
+
+#### Additional Resources
+
+- [Bootstrap Official Website](https://getbootstrap.com/)
+- [Bootstrap Themes](https://themes.getbootstrap.com/)
 
 ### Introduction to React
 
