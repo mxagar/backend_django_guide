@@ -2083,8 +2083,8 @@ We have the web server and the application server (backend) working together to 
 
 Example:
 
-* Static: Clicking “Play” → server sends a video file directly
-* Dynamic: Logging in → server generates personalized content
+* Static: Clicking “Play” --> server sends a video file directly
+* Dynamic: Logging in --> server generates personalized content
 
 #### Caching (Performance Optimization)
 
@@ -2093,11 +2093,14 @@ Example:
 
 **Process:**
 
-1. First request → fetch from application server + store in cache
-2. Next requests → serve cached content instantly
+1. First request --> fetch from application server + store in cache
+2. Next requests --> serve cached content instantly
 3. Cache updates periodically
 
 ![Web Server Cache](./assets/web_server_cache.png)
+
+
+
 
 ## Assessment
 
