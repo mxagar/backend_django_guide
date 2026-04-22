@@ -1385,7 +1385,7 @@ Result:
 * Real-world projects often have many dependencies forming a dependency tree.
 * Managing dependencies manually is complex and error-prone.
 * Package managers (e.g., npm) automate installation and version control of dependencies.
-* Bundlers (e.g., Webpack, Gulp) combine multiple files into optimized bundles.
+* Bundlers (e.g., Webpack, Gulp) combine multiple files into optimized bundles, i.e., single CSS and JS files for production.
 * Bundling improves performance and simplifies inclusion in HTML.
 
 Example of including Bootstrap CSS and JS in HTML:
@@ -2351,5 +2351,11 @@ That's why we need complimentary libraries to build full applications.
 ## End-of-Course Graded Assessment
 
 ### Bio Page
+
+Lab: [`lab/07_bio_page`](./lab/07_bio_page)
+
+In `index.html`, build a biographical page about yourself using Bootstrap. Result:
+
+![Bio Page](./assets/bio_page.png)
 
 
