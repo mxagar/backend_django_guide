@@ -78,7 +78,15 @@ Table of Contents:
     - [Static and Dynamic Content](#static-and-dynamic-content)
       - [Web Server vs Application Server](#web-server-vs-application-server)
       - [Caching (Performance Optimization)](#caching-performance-optimization)
-  - [Assessment](#assessment)
+    - [Single Page Applications (SPAs)](#single-page-applications-spas)
+    - [What is React?](#what-is-react)
+    - [How React Works](#how-react-works)
+    - [The Virtual DOM](#the-virtual-dom)
+    - [Component Hierarchy](#component-hierarchy)
+    - [React and Complimentary Libraries](#react-and-complimentary-libraries)
+    - [Additional Resources](#additional-resources-4)
+  - [End-of-Course Graded Assessment](#end-of-course-graded-assessment)
+    - [Bio Page](#bio-page)
 
 ## Intoduction
 
@@ -2099,8 +2107,249 @@ Example:
 
 ![Web Server Cache](./assets/web_server_cache.png)
 
+### Single Page Applications (SPAs)
+
+![SPA Views](./assets/spa_views.png)
+
+* Single Page Applications (SPAs) provide fast, responsive user experiences by updating content dynamically without reloading full pages.
+* Traditional multi-page applications reload the entire HTML page on each request, consuming more bandwidth and server resources.
+* SPAs send one initial HTML page and update it as users interact, improving performance.
+* Resource loading strategies in SPAs:
+  * Bundling: load all HTML, CSS, and JS upfront.
+  * Lazy loading: load minimal resources first, fetch more as needed.
+  * Large bundles can slow initial load for complex apps.
+* In traditional apps, user actions return full HTML pages.
+* In SPAs, user actions return JSON data, and the page updates dynamically.
+* For navigation between sections (e.g., we have a site with 2 pages: news page vs profile page):
+  * Traditional apps reload entire pages from the server.
+  * SPAs use templates (views) and update them with data from JSON responses.
+  * Only the required data (e.g., username, first name, last name) is transferred, reducing payload size.
+* SPAs may preload all views or load them dynamically and cache them.
+* Choice between SPA and traditional apps depends on complexity and performance needs.
+
+```javascript
+// Traditional approach: full page reload
+POST /random-movie
+
+// Server response (HTML)
+<html>
+  <body>
+    <button>What to watch next</button>
+    <p>Inception</p>
+  </body>
+</html>
 
 
+// SPA approach: fetch data and update UI
+POST /random-movie
 
-## Assessment
+// Server response (JSON)
+{
+  "movie": "Inception"
+}
+
+// Update UI dynamically
+document.querySelector("#movie").innerText = data.movie
+
+
+// SPA navigation example
+GET /profile
+
+// Server response (JSON)
+{
+  "username": "mikel",
+  "firstName": "Mikel",
+  "lastName": "Sagardia"
+}
+
+// Update view
+document.querySelector("#username").innerText = data.username
+document.querySelector("#firstName").innerText = data.firstName
+document.querySelector("#lastName").innerText = data.lastName
+```
+
+### What is React?
+
+* [React](https://react.dev/) is an open-source JavaScript library (since 2013) used to build user interfaces, especially for 
+  * single-page applications 
+  * and mobile apps via React Native.
+* React focuses on a component-based approach, allowing developers to build UIs from reusable, modular pieces.
+  * Components represent small parts of the UI (e.g., a user profile picture, music player, or gallery).
+  * This approach reduces code duplication, improves maintainability, and simplifies testing by enabling development in isolation.
+* React is only responsible for the UI layer; additional libraries are needed for routing, data fetching, and full application functionality.
+* Components can be reused across different parts of an application (e.g., a user icon used in navigation, search results, and notifications).
+* A large ecosystem of tools and libraries supports React, including pre-built components (e.g., video players, maps).
+* Developer tools help inspect behavior and optimize performance.
+* The React community contributes improvements, making it a central technology in modern frontend development.
+
+```javascript
+// Example: reusable React component for a user profile picture
+
+function UserIcon({ imageUrl }) {
+  return (
+    <img src={imageUrl} alt="User profile" />
+  );
+}
+
+// Reusing the component in different parts of the app
+
+function Navbar() {
+  return <UserIcon imageUrl="/user.png" />;
+}
+
+function SearchResult() {
+  return <UserIcon imageUrl="/user.png" />;
+}
+
+function Notifications() {
+  return <UserIcon imageUrl="/user.png" />;
+}
+```
+
+### How React Works
+
+* Updating the browser DOM is expensive because it requires recomputing the page.
+* React improves performance by using a virtual DOM, an in-memory representation of the real DOM.
+* Each React component corresponds to an HTML element in the browser.
+* React builds a virtual DOM tree from components and uses it to track changes.
+* React compares the virtual DOM with the browser DOM and updates only when necessary.
+* This comparison process is called reconciliation.
+* When a component updates:
+  * The virtual DOM is updated.
+  * React compares the new virtual DOM with the previous version.
+  * Only the changed elements are applied to the real DOM.
+* This selective updating makes applications faster and more responsive.
+
+![React Components and Virtual DOM](./assets/react_components_virtual_dom.png)
+
+![Virtual DOM](./assets/virtual_dom.png)
+
+![Browser DOM](./assets/browser_dom.png)
+
+### The Virtual DOM
+
+* React uses a virtual DOM to track changes and minimize expensive updates to the browser DOM.
+* Reconciliation process:
+  * Virtual DOM is updated.
+  * Compared with previous virtual DOM.
+  * Only changed elements are identified.
+  * Changes are applied to the browser DOM, updating the page.
+* This reduces unnecessary DOM updates and improves performance.
+* However, updating many elements at once can still be costly.
+* React Fiber Architecture improves this by enabling incremental rendering.
+  * Updates are spread over time instead of applied all at once.
+  * React prioritizes updates based on visibility and importance.
+  * Visible elements are updated first; non-visible elements are deferred.
+* This priority-based scheduling improves responsiveness and user experience.
+* Developers typically do not interact directly with virtual DOM or Fiber but should understand them for debugging.
+* React Developer Tools help inspect rendering behavior and performance.
+
+### Component Hierarchy
+
+* React applications are built as a hierarchy (tree) of components starting from a root component (App).
+* Components are nested to form parent-child relationships that represent the structure of the UI.
+* Breaking an application into components can be challenging initially but becomes easier with practice.
+* Components enable reuse of UI logic and structure across different parts of the application.
+* Example (shopping list):
+  * App component contains NewItemBar and ShoppingList components.
+  * ShoppingList contains multiple ShoppingItem components.
+  * ShoppingItem is reused for each list element.
+  * When items are removed, corresponding components are removed from the tree.
+* Example (blog website):
+  * App component contains Navbar and Page components.
+  * Navbar includes title, navigation links, and Search component.
+  * Page contains MainFeature and multiple SmallFeature components.
+  * SmallFeature components reuse the same structure with different data (props).
+* Component reuse allows efficient development and consistent UI design.
+
+![Shopping List Components](./assets/shopping_list_components.png)
+![Blog Components](./assets/blog_components.png)
+
+```javascript
+// Example: component hierarchy (simplified)
+
+// Root component
+function App() {
+  return (
+    <>
+      <Navbar />
+      <Page />
+    </>
+  );
+}
+
+// Navbar with child components
+function Navbar() {
+  return (
+    <>
+      <Title />
+      <NavLinks />
+      <Search />
+    </>
+  );
+}
+
+// Page with reusable components
+function Page() {
+  return (
+    <>
+      <MainFeature />
+      <SmallFeature title="Post 1" />
+      <SmallFeature title="Post 2" />
+    </>
+  );
+}
+
+// Reusable component with props
+function SmallFeature({ title }) {
+  return (
+    <div>
+      <h2>{title}</h2>
+      <Thumbnail />
+    </div>
+  );
+}
+```
+
+### React and Complimentary Libraries
+
+React is a library, not a framework.
+
+That's why we need complimentary libraries to build full applications.
+
+* Lodash
+  * [https://lodash.com](https://lodash.com)
+  * Provides utility functions for common programming tasks such as sorting, filtering, and number manipulation, reducing repetitive code.
+
+* Luxon
+  * [https://moment.github.io/luxon/](https://moment.github.io/luxon/)
+  * Simplifies working with dates and times, including formatting, parsing, and handling different locales and time zones.
+
+* Redux
+  * [https://redux.js.org](https://redux.js.org)
+  * Manages application state in a predictable way, useful for handling shared data (e.g., shopping cart) and supporting features like undo/redo.
+
+* Axios
+  * [https://axios-http.com](https://axios-http.com)
+  * Simplifies HTTP requests to APIs, with features like request cancellation and response transformation.
+
+* Jest
+  * [https://jestjs.io](https://jestjs.io)
+  * Enables automated testing of code, including unit tests and coverage reporting to measure how much code is tested.
+
+### Additional Resources
+
+* React Official Website: [https://reactjs.org/](https://reactjs.org/)
+
+* Choosing between Traditional Web Apps and Single Page Apps (Microsoft): [https://docs.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/choose-between-traditional-web-and-single-page-apps](https://docs.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/choose-between-traditional-web-and-single-page-apps)
+
+* React Source Code (GitHub): [https://github.com/facebook/react](https://github.com/facebook/react)
+
+* Introduction to React.js (2013 talk at Facebook): [https://youtu.be/XxVg_s8xAms](https://youtu.be/XxVg_s8xAms)
+
+
+## End-of-Course Graded Assessment
+
+### Bio Page
+
 
