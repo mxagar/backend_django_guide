@@ -12,3 +12,6 @@ This is my guide for web-app backend development, based on the [Meta Back-End De
 This module deals with the second topic/course: **Introduction to Databases for Back-End Development**.
 
 TBD.
+
+
+[`mxagar/sql_guide`](https://github.com/mxagar/sql_guide)
