@@ -14,6 +14,7 @@ This module deals with the second topic/course: **Introduction to Databases for 
 Table of Contents:
 
 - [Intoduction to Web-App Back-End Development](#intoduction-to-web-app-back-end-development)
+  - [0. Setup](#0-setup)
   - [1. Introduction to Databases](#1-introduction-to-databases)
     - [Databases and Data](#databases-and-data)
       - [What is a Database?](#what-is-a-database)
@@ -21,7 +22,12 @@ Table of Contents:
       - [Charts for Relational Data](#charts-for-relational-data)
       - [Other Types of Databases](#other-types-of-databases)
     - [Introduction to SQL](#introduction-to-sql)
+      - [SQL Syntax Introduction](#sql-syntax-introduction)
+      - [Common SQL (DQL) Commands](#common-sql-dql-commands)
     - [Basic Database Structure](#basic-database-structure)
+      - [Tables in Databases](#tables-in-databases)
+      - [Database Structure](#database-structure)
+      - [Type of Keys in a Database Table](#type-of-keys-in-a-database-table)
   - [2. CRUD Operations: Create, Read, Update, Delete](#2-crud-operations-create-read-update-delete)
     - [SQL Data Types](#sql-data-types)
     - [Create and Read](#create-and-read)
@@ -34,6 +40,16 @@ Table of Contents:
     - [Relational Database Design](#relational-database-design)
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
+
+## 0. Setup
+
+My guide on SQL: [`mxagar/sql_guide`](https://github.com/mxagar/sql_guide).
+
+The course uses [MySQL](https://www.mysql.com/).
+
+Here's a guide on how to use MySQL with Python on our local machine (installation, connection, and basic operations):
+
+[`mxagar/sql_guide/SQL_Guide.md/MySQL-with-Python`](https://github.com/mxagar/sql_guide/blob/main/SQL_Guide.md#11-mysql-with-python)
 
 ## 1. Introduction to Databases
 
@@ -107,7 +123,267 @@ My guide on SQL: [`mxagar/sql_guide`](https://github.com/mxagar/sql_guide).
 
 ### Introduction to SQL
 
+* To work with data, engineers must interact with databases using **SQL (Structured Query Language)**, the standard language for database operations.
+* SQL is used to build and manage databases by performing **CRUD operations**: create, read, update, and delete data.
+* SQL is mainly used with **relational databases** such as MySQL, PostgreSQL, Oracle Database, and Microsoft SQL Server.
+* SQL instructions are processed through a **Database Management System (DBMS)**.
+  * The DBMS translates SQL commands into operations the database can execute.
+* SQL is essential for interacting with structured data and is a core skill for data engineers and backend developers.
+* SQL is divided into sublanguages based on functionality:
+  * **DDL (Data Definition Language)** is used to define and modify database structure.
+    * Includes commands like `CREATE`, `ALTER`, and `DROP`.
+  * **DML (Data Manipulation Language)** is used to manipulate data within tables.
+    * Includes `INSERT`, `UPDATE`, and `DELETE` (core CRUD operations).
+  * **DQL (Data Query Language)** is used to retrieve data.
+    * Includes the `SELECT` command with filtering and multi-table queries.
+  * **DCL (Data Control Language)** is used to manage access and permissions.
+    * Includes `GRANT` and `REVOKE`.
+* SQL acts as the interface between users and the database, enabling both data management and access control.
+* Advantages of SQL:
+  * SQL is **simple and user-friendly**, requiring minimal coding since it relies on a small set of keywords for CRUD operations.
+  * SQL is **interactive and efficient**, allowing complex queries to be written and executed quickly.
+  * SQL is a **standard language** supported across relational databases like MySQL, ensuring broad compatibility and strong community support.
+  * SQL is **portable**, meaning the same code can run across different hardware, operating systems, and environments without modification.
+  * SQL is **comprehensive**, covering all aspects of database management through sublanguages like DDL, DML, DQL, and DCL.
+  * SQL is **efficient at processing large datasets**, enabling fast and scalable data operations.
+
+#### SQL Syntax Introduction
+
+* SQL is the standard language for interacting with relational databases, enabling data access, definition, manipulation, querying, and permission management.
+* SQL operations are grouped into five main sublanguages based on functionality:
+  * **DDL (Data Definition Language)** defines and modifies database structure (e.g., tables).
+  * **DML (Data Manipulation Language)** handles inserting, updating, and deleting data (CRUD).
+  * **DQL (Data Query Language)** retrieves data from the database.
+  * **DCL (Data Control Language)** manages user permissions and access.
+  * **TCL (Transaction Control Language)** manages transactions and ensures data consistency.
+* Typical database workflow:
+  * Create database and tables (structure).
+  * Insert and manage data.
+  * Query data for insights.
+  * Control access and manage transactions.
+* Core concepts and operations include:
+  * Creating and modifying tables and schemas.
+  * Inserting, updating, deleting, and querying records.
+  * Managing permissions (grant/revoke).
+  * Handling transactions (commit/rollback).
+  * Using comments for documentation.
+
+```sql
+-- =====================
+-- DDL: Define structure
+-- =====================
+
+CREATE DATABASE college;
+-- Creates a new database
+
+CREATE TABLE student (id INT, name VARCHAR(100), dob DATE);
+-- Creates a table with columns and data types
+
+ALTER TABLE student ADD (email VARCHAR(100));
+-- Adds a new column to an existing table
+
+ALTER TABLE student ADD PRIMARY KEY (id);
+-- Defines a primary key for unique identification
+
+DROP TABLE student;
+-- Deletes the table entirely
+
+TRUNCATE TABLE student;
+-- Removes all rows but keeps the table structure
+
+-- Comment example
+-- This query retrieves all students
+SELECT * FROM student;
+
+
+-- =====================
+-- DML: Manipulate data
+-- =====================
+
+INSERT INTO student (id, name, dob)
+VALUES (1, 'John Murphy', '2000-01-01');
+-- Inserts a new record
+
+UPDATE student
+SET dob = '2001-02-02'
+WHERE id = 2;
+-- Updates specific records based on condition
+
+DELETE FROM student
+WHERE id = 3;
+-- Deletes specific records
+
+
+-- =====================
+-- DQL: Query data
+-- =====================
+
+SELECT * FROM student;
+-- Retrieves all data from the table
+
+SELECT name FROM student WHERE id = 1;
+-- Retrieves specific data with filtering
+
+
+-- =====================
+-- DCL: Permissions
+-- =====================
+
+GRANT SELECT, INSERT ON student TO user1;
+-- Gives user permissions
+
+REVOKE INSERT ON student FROM user1;
+-- Removes permissions
+
+
+-- =====================
+-- TCL: Transactions
+-- =====================
+
+COMMIT;
+-- Saves all changes permanently
+
+ROLLBACK;
+-- Reverts changes to last committed state
+```
+
+#### Common SQL (DQL) Commands
+
+Source: [`mxagar/sql_guide/SQL_Nutshell.md`](https://github.com/mxagar/sql_guide/blob/main/SQL_Nutshell.md).
+
+```sql
+-- Get all the contents from the table my_table: we get a table
+SELECT * FROM my_table;
+
+-- Get specified columns and compute a new column value: we get a table
+SELECT origin, dest, air_time / 60 FROM flights;
+
+-- Filter according to value in column: we get a table
+SELECT * FROM students
+WHERE grade = 'A';
+
+-- Get the table which contains the destination and tail number of flights that last +10h
+SELECT dest, tail_num FROM flights WHERE air_time > 600;
+
+-- Group by: group by category values and apply an aggregation function for each group
+-- In this case: number of flights for each unique origin
+SELECT COUNT(*) FROM flights
+GROUP BY origin;
+
+-- Group by all unique combinations of origin and dest columns
+SELECT origin, dest, COUNT(*) FROM flights
+GROUP BY origin, dest;
+
+-- Group by unique origin-carrier combinations and for each
+-- compute average air time in hrs
+SELECT AVG(air_time) / 60 FROM flights
+GROUP BY origin, carrier;
+
+-- Flight duration in hrs, new column name
+SELECT air_time / 60 AS duration_hrs
+FROM flights
+
+-- INNER JOIN: note it is symmetrical, we can interchange TableA and B
+SELECT * FROM TableA
+INNER JOIN TableB
+ON TableA.col_match = TableB.col_match;
+
+-- FULL OUTER JOIN
+SELECT * FROM TableA
+FULL OUTER JOIN TableB
+ON TableA.col_match = Table_B.col_match
+
+-- LEFT OUTER JOIN
+-- Left table: TableA; Right table: TableB
+SELECT * FROM TableA
+LEFT OUTER JOIN TableB
+ON TableA.col_match = Table_B.col_match
+
+-- RIGHT OUTER JOIN
+-- Left table: TableA; Right table: TableB
+SELECT * FROM TableA
+RIGHT OUTER JOIN TableB
+ON TableA.col_match = Table_B.col_match
+```
+
 ### Basic Database Structure
+
+#### Tables in Databases
+
+* A **table** is the fundamental structure in a relational database, used to store data in a logical format of rows and columns.
+  * Rows (records/tuples) represent individual instances (e.g., one student).
+  * Columns (fields/attributes) define the structure and type of data stored (e.g., name, date of birth).
+  * A **cell** is the intersection of a row and column, where a single data value is stored.
+* Tables are also called **relations**, and each table has a **schema**, which defines its structure (table name, columns, and data types).
+  * In real systems, multiple related tables exist (e.g., Student, Teacher, Class, Subject).
+* Every column has a **data type**, which defines what values it can store and how SQL handles them.
+  * Common types include:
+    * Numeric: `INT`, `FLOAT`, `BIGINT`
+    * Date/time: `DATE`, `DATETIME`
+    * Strings: `CHAR`, `VARCHAR`
+    * Binary: `BINARY`, `VARBINARY`
+    * Large objects: `CLOB` (text), `BLOB` (binary data like images)
+* A **domain** defines the valid set of values for a column, ensuring data consistency (e.g., numeric-only fields, length limits).
+
+![DB Structure: Types](./assets/db_structure_types.png)
+
+* Each table must have a **primary key**, a column (or combination of columns) that uniquely identifies each row.
+  * It cannot be NULL and must be unique.
+  * It can be **composite** (multiple columns) if one column is not sufficient.
+* Tables are connected through **foreign keys**, which reference the primary key of another table.
+  * This creates relationships between tables and enables meaningful queries across them.
+
+![DB Structure: Primary Keys](./assets/db_structure_primary_key.png)
+
+![DB Structure: Foreign Keys](./assets/db_structure_foreign_key.png)
+
+* Databases enforce **integrity constraints** to maintain correct and consistent data:
+  * **Key constraints**: ensure primary keys are unique and not null.
+  * **Domain constraints**: restrict allowed values in columns.
+  * **Referential integrity constraints**: ensure foreign key values exist in the referenced table.
+* Together, these concepts (tables, schema, data types, keys, relationships, and constraints) define how relational databases structure, link, and validate data.
+
+#### Database Structure
+
+* **Database structure** refers to how data is organized within a database, typically in tables composed of rows (records/tuples) and columns (fields/attributes).
+* The main structural components of a database include:
+  * **Tables (entities)**: store data about a specific concept.
+  * **Attributes/fields (columns)**: describe properties of the entity.
+  * **Records (rows)**: represent individual instances of the entity.
+  * **Data elements (cell values)**: individual pieces of data in each field.
+  * **Primary key**: uniquely identifies each record.
+* Each column has a **data type**, which defines the kind of data it can store and how it is processed.
+  * Common types include numeric, date/time, string, binary, and large object types (CLOB, BLOB).
+
+![Elements in a Table](./assets/elements_in_table.png)
+
+* The **logical database structure** is represented using an **Entity Relationship Diagram (ERD)**.
+  * It visually shows entities, attributes, and relationships.
+  * Relationships have **cardinality**: one-to-one, one-to-many, and many-to-many.
+
+![Logical Structure ERD](./assets/logical_structure_erd.png)
+
+* The **physical database structure** implements the logical design using actual tables in a DBMS (e.g., MySQL or Oracle Database).
+  * Relationships are created using **foreign keys**, which reference primary keys in other tables.
+* Together, tables, fields, records, keys, data types, and relationships define how data is structured, linked, and stored in a relational database.
+
+![Physical Structure](./assets/physical_structure.png)
+
+#### Type of Keys in a Database Table
+
+* The relational database model is based on **entities (tables)** and **relationships** between them, which are established using keys.
+* Tables contain attributes (columns), which can be:
+  * **Simple attributes** (single value per row).
+  * **Multi-valued attributes** (multiple values), which should generally be avoided in relational design.
+* A **key attribute** is any column used to uniquely identify a record in a table (e.g., staff ID).
+* There are several types of keys in relational databases:
+  * **Primary key**: the main unique identifier for each record; cannot be duplicated or null.
+  * **Candidate keys**: all columns that could uniquely identify a record.
+  * **Alternate (secondary) key**: a candidate key not chosen as the primary key.
+  * **Composite key**: a combination of multiple columns used as a unique identifier when a single column is insufficient.
+  * **Foreign key**: a column that references the primary key in another table, establishing relationships between tables.
+* Non-key attributes are columns that do not uniquely identify records and may contain duplicate values.
+* Relationships between tables are built by linking **primary keys** in one table to **foreign keys** in another, enabling structured and connected data across the database.
 
 ## 2. CRUD Operations: Create, Read, Update, Delete
 
