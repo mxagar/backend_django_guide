@@ -29,7 +29,10 @@ Table of Contents:
       - [Database Structure](#database-structure)
       - [Type of Keys in a Database Table](#type-of-keys-in-a-database-table)
   - [2. CRUD Operations: Create, Read, Update, Delete](#2-crud-operations-create-read-update-delete)
+    - [MySQL Setup](#mysql-setup)
     - [SQL Data Types](#sql-data-types)
+      - [Numeric Data Types](#numeric-data-types)
+      - [Exercise: Working with Numbers](#exercise-working-with-numbers)
     - [Create and Read](#create-and-read)
     - [Update and Delete](#update-and-delete)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
@@ -387,7 +390,107 @@ ON TableA.col_match = Table_B.col_match
 
 ## 2. CRUD Operations: Create, Read, Update, Delete
 
+### MySQL Setup
+
+This module uses MySQL as the relational database management system (RDBMS) for practicing SQL commands and CRUD operations.
+
+See my note on [MySQL Installation on Windows](https://github.com/mxagar/sql_guide/blob/main/SQL_Guide.md#windows-1).
+
+After that, the exercises can be carried out using MySQL Workbench or the MySQL command line interface.
+
 ### SQL Data Types
+
+#### Numeric Data Types
+
+* **Data types** define what kind of values each column in a table can store and how the database interprets them.
+* When creating a table, each column must be assigned a data type to ensure data consistency and correct formatting.
+* Common data type categories include:
+  * Numeric
+  * String
+  * Date and time
+* **Numeric data types** are used to store numbers and include two main types:
+  * **Integer**: stores whole numbers (e.g., product quantity).
+  * **Decimal**: stores numbers with fractional values (e.g., prices).
+* Integer columns automatically round fractional inputs to whole numbers, while decimal columns preserve fractional values.
+* Different database systems provide multiple variants of numeric types with different ranges (e.g., `TINYINT`, `INT`).
+* Numeric types can typically store both positive and negative values, and some systems allow restricting values to positive only.
+* Choosing the correct data type ensures accurate data storage, efficient processing, and proper validation of input values.
+
+#### Exercise: Working with Numbers
+
+See the instructions in [02_Databases/lab/01_numbers/Instructions.md](./lab/01_numbers/Instructions.md).
+
+In the example, the following is done:
+
+- A new database called `cm_devices` is created.
+- The `cm_devices` database is selected with `USE`.
+- A table called `devices` is created to store mobile device information.
+- The table contains:
+  * `deviceID`: an integer value for the device identifier.
+  * `deviceName`: a string value for the device name.
+  * `price`: a decimal value for the device price.
+- The created table and its columns are checked with `SHOW TABLES` and `SHOW COLUMNS`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database
+CREATE DATABASE cm_devices;
+
+-- Select database
+USE cm_devices;
+
+-- Create table for mobile devices
+CREATE TABLE devices (
+  deviceID INT,
+  deviceName VARCHAR(50),
+  price DECIMAL
+);
+
+-- Check that the table was created
+SHOW TABLES;
+--- +----------------------+
+--- | Tables_in_cm_devices |
+--- +----------------------+
+--- | devices              |
+--- +----------------------+
+
+-- Check the table structure
+SHOW COLUMNS FROM devices;
+--- +------------+---------------+------+-----+---------+-------+
+--- | Field      | Type          | Null | Key | Default | Extra |
+--- +------------+---------------+------+-----+---------+-------+
+--- | deviceID   | int           | YES  |     | NULL    |       |
+--- | deviceName | varchar(50)   | YES  |     | NULL    |       |
+--- | price      | decimal(10,0) | YES  |     | NULL    |       |
+--- +------------+---------------+------+-----+---------+-------+
+```
+
+The optional additional task asks us to create another table for device stock. The appropriate table name is `stock`, with the following columns:
+
+- `deviceID`: integer device identifier.
+- `quantity`: integer number of devices in stock.
+- `totalCost`: decimal total cost of that quantity.
+
+The SQL statement is:
+
+```sql
+CREATE TABLE stock (
+  deviceID INT,
+  quantity INT,
+  totalCost DECIMAL
+);
+```
 
 ### Create and Read
 
