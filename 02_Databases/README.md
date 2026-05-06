@@ -33,6 +33,8 @@ Table of Contents:
     - [SQL Data Types](#sql-data-types)
       - [Numeric Data Types](#numeric-data-types)
       - [Exercise: Working with Numbers](#exercise-working-with-numbers)
+      - [String Data Types](#string-data-types)
+      - [Exercise: Working with Strings](#exercise-working-with-strings)
     - [Create and Read](#create-and-read)
     - [Update and Delete](#update-and-delete)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
@@ -489,6 +491,122 @@ CREATE TABLE stock (
   deviceID INT,
   quantity INT,
   totalCost DECIMAL
+);
+```
+
+#### String Data Types
+
+* **String data types** are used for columns that store text or mixed character data, including letters, numbers, and special characters.
+* Assigning the correct string data type helps maintain **data integrity** by ensuring valid values are stored in each column.
+* Common examples of string-based fields include names, usernames, passwords, and email addresses.
+* The two most common string data types are:
+  * `CHAR`: fixed-length character storage.
+  * `VARCHAR`: variable-length character storage.
+* `CHAR(n)` reserves exactly `n` characters of storage, regardless of the actual text length.
+  * Best used when the size of the stored data is predictable and constant.
+* `VARCHAR(n)` stores only the actual number of characters entered, up to a maximum length of `n`.
+  * Best used when text lengths vary.
+* Additional text data types support larger amounts of text:
+  * `TINYTEXT`: short text (<255 characters).
+  * `TEXT`: medium-sized text (<65k characters).
+  * `MEDIUMTEXT`: very large text (~16.7 million characters).
+  * `LONGTEXT`: extremely large text (up to several GB).
+
+```sql
+-- Fixed-length string: always reserves 50 characters
+username CHAR(50);
+
+-- Variable-length string: stores only used characters, up to 50
+student_name VARCHAR(50);
+
+-- Short text content
+description TINYTEXT;
+
+-- Article-sized text
+article TEXT;
+
+-- Book-sized text
+book_content MEDIUMTEXT;
+
+-- Very large text storage
+large_document LONGTEXT;
+```
+
+#### Exercise: Working with Strings
+
+See the instructions in [02_Databases/lab/02_strings/Instructions.md](./lab/02_strings/Instructions.md) and the tips in [02_Databases/lab/02_strings/README.md](./lab/02_strings/README.md).
+
+In the example, the following is done:
+
+- The existing `cm_devices` database is used. If it does not exist yet, it is created first.
+- A table called `customers` is created to store customer information.
+- The table contains:
+  * `username`: a fixed-length string value for the customer username.
+  * `fullName`: a variable-length string value for the customer's full name.
+  * `email`: a variable-length string value for the customer's email address.
+- `CHAR` is used for values with a fixed length, while `VARCHAR` is used for values whose length can vary.
+- The created table and its columns are checked with `SHOW TABLES` and `SHOW COLUMNS`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database if needed
+CREATE DATABASE cm_devices;
+
+-- Select database
+USE cm_devices;
+
+-- Create table for customer information
+CREATE TABLE customers (
+  username CHAR(9),
+  fullName VARCHAR(100),
+  email VARCHAR(255)
+);
+
+-- Check that the table was created
+SHOW TABLES;
+--- +----------------------+
+--- | Tables_in_cm_devices |
+--- +----------------------+
+--- | customers            |
+--- | devices              |
+--- | stock                |
+--- +----------------------+
+
+-- Check the table structure
+SHOW COLUMNS FROM customers;
+--- +----------+--------------+------+-----+---------+-------+
+--- | Field    | Type         | Null | Key | Default | Extra |
+--- +----------+--------------+------+-----+---------+-------+
+--- | username | char(9)      | YES  |     | NULL    |       |
+--- | fullName | varchar(100) | YES  |     | NULL    |       |
+--- | email    | varchar(255) | YES  |     | NULL    |       |
+--- +----------+--------------+------+-----+---------+-------+
+```
+
+The optional additional task asks us to create another table for customer feedback. The appropriate table name is `feedback`, with the following columns:
+
+- `feedbackID`: fixed-length string value for the feedback identifier.
+- `feedbackType`: variable-length string value for the feedback category.
+- `comment`: text value for the feedback comment.
+
+The SQL statement is:
+
+```sql
+CREATE TABLE feedback (
+  feedbackID CHAR(8),
+  feedbackType VARCHAR(100),
+  comment TEXT(500)
 );
 ```
 
