@@ -39,6 +39,11 @@ Table of Contents:
       - [Exercise: Working with Default Values](#exercise-working-with-default-values)
       - [Exercise: Choosing Types](#exercise-choosing-types)
     - [Create and Read](#create-and-read)
+      - [CREATE and DROP Database](#create-and-drop-database)
+      - [CREATE TABLE](#create-table)
+      - [ALTER TABLE](#alter-table)
+      - [INSERT](#insert)
+      - [Exercise: Create and Populate a Table](#exercise-create-and-populate-a-table)
     - [Update and Delete](#update-and-delete)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
     - [SQL Operators](#sql-operators)
@@ -48,6 +53,7 @@ Table of Contents:
     - [Relational Database Design](#relational-database-design)
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
+  - [Extra: Database Migrations and Backups](#extra-database-migrations-and-backups)
 
 ## 0. Setup
 
@@ -812,6 +818,211 @@ CREATE TABLE contact_details (
 
 ### Create and Read
 
+#### CREATE and DROP Database
+
+* Before creating a database, developers must understand its purpose and determine what data needs to be stored and organized into tables.
+* Databases for real applications (e.g., an online bookstore) may store information such as books, authors, customers, and sales.
+* SQL provides commands to create and remove databases:
+  * `CREATE DATABASE` creates a new database.
+  * `DROP DATABASE` deletes an existing database.
+* Database names should be meaningful, unique, and follow database naming rules (e.g., maximum length restrictions).
+* SQL statements typically end with a semicolon (`;`).
+
+```sql
+-- Create a new database
+CREATE DATABASE bookstore_db;
+-- Creates a database named "bookstore_db"
+
+-- Delete an existing database
+DROP DATABASE bookstore_db;
+-- Permanently removes the database
+```
+
+#### CREATE TABLE
+
+* Tables are used to organize and structure data within a database so that information can be stored and retrieved efficiently.
+* Before creating tables, a database must already exist on the server.
+* SQL uses the `CREATE TABLE` statement to define a new table.
+  * The statement includes the table name, column names, and the data type of each column.
+* Columns define what data is stored in the table and what type of values are allowed.
+  * Example data types include `VARCHAR` for text and `INT` for whole numbers.
+* The table structure is written inside parentheses, with columns separated by commas.
+
+```sql
+-- Create a customer table
+CREATE TABLE customers (
+    customer_name VARCHAR(100),
+    phone_number INT
+);
+-- Creates a table with:
+-- - customer_name: text up to 100 characters
+-- - phone_number: integer values only
+
+-- Another example with more columns
+CREATE TABLE customers
+    (CustomerId INT, 
+    FirstName VARCHAR(40), 
+    LastName VARCHAR(20), 
+    Company VARCHAR(80), 
+    Address VARCHAR(70), 
+    City VARCHAR(40),
+    State VARCHAR(40), 
+    Country VARCHAR(40), 
+    PostalCode VARCHAR(10), 
+    Phone VARCHAR(24), 
+    Fax VARCHAR(24), 
+    Email VARCHAR(60), 
+    SupportRapid INT );   
+```
+
+#### ALTER TABLE
+
+* Database tables are not static and often need to be modified as requirements evolve.
+* SQL uses the `ALTER TABLE` statement to change the structure of existing tables.
+* Common table modifications include:
+  * Adding new columns.
+  * Removing existing columns.
+  * Changing column definitions or attributes (e.g., data type or size).
+* To alter a table, the database and target table must already exist.
+* The `ADD` command is used to insert new columns into a table, including their data types and constraints.
+* The `DROP COLUMN` command removes unnecessary columns from a table.
+* The `MODIFY` command changes the definition of an existing column, such as increasing the maximum allowed length of a `VARCHAR` field.
+
+```sql
+-- Add new columns to a table
+ALTER TABLE students
+ADD (
+    age INT,
+    country VARCHAR(50),
+    nationality VARCHAR(255)
+);
+-- Adds three new columns with specified data types
+
+
+-- Remove a column from a table
+ALTER TABLE students
+DROP COLUMN nationality;
+-- Deletes the nationality column
+
+
+-- Modify an existing column
+ALTER TABLE students
+MODIFY country VARCHAR(100);
+-- Changes the maximum length of the country column
+```
+
+#### INSERT
+
+* SQL uses the `INSERT INTO` statement to add new rows of data into existing database tables.
+* An insert statement specifies:
+  * The table name.
+  * The target columns.
+  * The values to insert.
+* Values must match the order and data types of the specified columns.
+* Non-numeric values such as strings and dates are typically enclosed in quotation marks.
+* Multiple rows can be inserted in a single statement by separating value groups with commas.
+* Dates should follow the correct database date format (commonly `YYYY-MM-DD`) to avoid errors.
+* SQL functions such as `CURRENT_DATE()` can automatically insert the current date.
+* Existing table contents can be retrieved using the `SELECT` statement with `*` to return all columns.
+
+```sql
+-- Insert a single row into a table
+INSERT INTO players (id, name, age, start_date)
+VALUES (1, 'Yuval', 25, '2020-10-15');
+
+
+-- Insert multiple rows at once
+INSERT INTO players (id, name, age, start_date)
+VALUES
+    (2, 'Mark', 27, '2020-10-12'),
+    (3, 'Karl', 26, '2020-10-07');
+
+
+-- Insert current date automatically
+INSERT INTO players (id, name, age, start_date)
+VALUES (4, 'Anna', 24, CURRENT_DATE());
+
+
+-- Retrieve all rows and columns from a table
+SELECT * FROM players;
+```
+
+#### Exercise: Create and Populate a Table
+
+See the instructions in [02_Databases/lab/05_create_populate_table/Instructions.md](./lab/05_create_populate_table/Instructions.md) and the tips in [02_Databases/lab/05_create_populate_table/README.md](./lab/05_create_populate_table/README.md).
+
+In the example, the following is done:
+
+- A new database called `bookshop` is created.
+- The `bookshop` database is selected with `USE`.
+- A table called `customers` is created to store customer information.
+- The table contains:
+  * `customerID`: an integer value for the customer identifier.
+  * `customerName`: a variable-length string value for the customer name.
+  * `customerAddress`: a variable-length string value for the customer address.
+- One customer record is inserted into the `customers` table.
+- The inserted data is checked with `SELECT`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database
+CREATE DATABASE bookshop;
+
+-- Select database
+USE bookshop;
+
+-- Create table for bookshop customers
+CREATE TABLE customers (
+  customerID INT,
+  customerName VARCHAR(50),
+  customerAddress VARCHAR(255)
+);
+
+-- Check that the table was created
+SHOW TABLES;
+--- +--------------------+
+--- | Tables_in_bookshop |
+--- +--------------------+
+--- | customers          |
+--- +--------------------+
+
+-- Insert one customer record
+INSERT INTO customers (customerID, customerName, customerAddress)
+VALUES (1, 'Jack', '115 Old street Belfast');
+
+-- Read the inserted data
+SELECT * FROM customers;
+--- +------------+--------------+-------------------------+
+--- | customerID | customerName | customerAddress         |
+--- +------------+--------------+-------------------------+
+--- |          1 | Jack         | 115 Old street Belfast  |
+--- +------------+--------------+-------------------------+
+```
+
+The optional additional task asks us to insert another customer record into the `customers` table:
+
+- `customerID`: `2`
+- `customerName`: `James`
+- `customerAddress`: `24 Carlson Rd London`
+
+The SQL statement is:
+
+```sql
+INSERT INTO customers (customerID, customerName, customerAddress)
+VALUES (2, 'James', '24 Carlson Rd London');
+```
+
 ### Update and Delete
 
 ## 3. SQL Operators and Sorting and Filtering Data
@@ -829,3 +1040,8 @@ CREATE TABLE contact_details (
 ### Database Normalization
 
 ## 5. Assessment
+
+## Extra: Database Migrations and Backups
+
+
+
