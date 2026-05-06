@@ -37,6 +37,7 @@ Table of Contents:
       - [Exercise: Working with Strings](#exercise-working-with-strings)
       - [Default Values](#default-values)
       - [Exercise: Working with Default Values](#exercise-working-with-default-values)
+      - [Exercise: Choosing Types](#exercise-choosing-types)
     - [Create and Read](#create-and-read)
     - [Update and Delete](#update-and-delete)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
@@ -722,6 +723,90 @@ CREATE TABLE address (
   street VARCHAR(255),
   postcode VARCHAR(10) DEFAULT 'HA97DE',
   town VARCHAR(30) DEFAULT 'Harrow'
+);
+```
+
+#### Exercise: Choosing Types
+
+See the instructions in [02_Databases/lab/04_choosing_types/Instructions.md](./lab/04_choosing_types/Instructions.md) and the tips in [02_Databases/lab/04_choosing_types/README.md](./lab/04_choosing_types/README.md).
+
+In the example, the following is done:
+
+- The existing `cm_devices` database is used. If it does not exist yet, it is created first.
+- A table called `invoice` is created to store customer order information.
+- The table contains:
+  * `customerID`: a variable-length string value for the customer identifier.
+  * `orderDate`: a date value for the order date.
+  * `quantity`: an integer value for the number of products ordered.
+  * `price`: a decimal value for the total price.
+- A suitable data type is chosen for each kind of data: string, date, whole number, and decimal number.
+- The created table and its columns are checked with `SHOW TABLES` and `SHOW COLUMNS`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database if needed
+CREATE DATABASE cm_devices;
+
+-- Select database
+USE cm_devices;
+
+-- Create table for customer invoices
+CREATE TABLE invoice (
+  customerID VARCHAR(50),
+  orderDate DATE,
+  quantity INT,
+  price DECIMAL
+);
+
+-- Check that the table was created
+SHOW TABLES;
+--- +----------------------+
+--- | Tables_in_cm_devices |
+--- +----------------------+
+--- | address              |
+--- | customers            |
+--- | devices              |
+--- | feedback             |
+--- | invoice              |
+--- | stock                |
+--- +----------------------+
+
+-- Check the table structure
+SHOW COLUMNS FROM invoice;
+--- +------------+---------------+------+-----+---------+-------+
+--- | Field      | Type          | Null | Key | Default | Extra |
+--- +------------+---------------+------+-----+---------+-------+
+--- | customerID | varchar(50)   | YES  |     | NULL    |       |
+--- | orderDate  | date          | YES  |     | NULL    |       |
+--- | quantity   | int           | YES  |     | NULL    |       |
+--- | price      | decimal(10,0) | YES  |     | NULL    |       |
+--- +------------+---------------+------+-----+---------+-------+
+```
+
+The optional additional task asks us to choose data types for a new table that stores customer contact details. A suitable table name is `contact_details`, with the following columns:
+
+- `accountNumber`: integer value for the customer's account number.
+- `phoneNumber`: integer value for the customer's phone number.
+- `email`: variable-length string value for the customer's email address.
+
+The SQL statement is:
+
+```sql
+CREATE TABLE contact_details (
+  accountNumber INT,
+  phoneNumber INT,
+  email VARCHAR(255)
 );
 ```
 
