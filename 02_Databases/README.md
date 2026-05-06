@@ -35,6 +35,8 @@ Table of Contents:
       - [Exercise: Working with Numbers](#exercise-working-with-numbers)
       - [String Data Types](#string-data-types)
       - [Exercise: Working with Strings](#exercise-working-with-strings)
+      - [Default Values](#default-values)
+      - [Exercise: Working with Default Values](#exercise-working-with-default-values)
     - [Create and Read](#create-and-read)
     - [Update and Delete](#update-and-delete)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
@@ -607,6 +609,119 @@ CREATE TABLE feedback (
   feedbackID CHAR(8),
   feedbackType VARCHAR(100),
   comment TEXT(500)
+);
+```
+
+#### Default Values
+
+* **Database constraints** enforce rules on tables and columns to ensure data accuracy, consistency, and reliability.
+* Constraints can operate at:
+  * **Column level**: apply rules to a specific column.
+  * **Table level**: enforce rules involving multiple columns or relationships between tables.
+* If inserted or updated data violates a constraint, the database rejects the operation.
+* Two common constraints are:
+  * `NOT NULL`: prevents columns from containing empty (`NULL`) values.
+  * `DEFAULT`: automatically assigns a predefined value when no value is provided.
+* `NOT NULL` is typically used for mandatory fields such as IDs or names, ensuring records are always complete.
+* `DEFAULT` is useful when many rows share a common value, reducing repeated manual input.
+  * Example: automatically assigning `"Barcelona"` as the default city for players.
+* Constraints help maintain data integrity and prevent invalid or incomplete data from entering the database.
+
+```sql
+-- Create a table with NOT NULL constraints
+CREATE TABLE customer (
+    customer_id INT NOT NULL,
+    customer_name VARCHAR(100) NOT NULL
+);
+-- Ensures both columns always contain values
+
+-- Create a table with a DEFAULT constraint
+CREATE TABLE player (
+    player_name VARCHAR(100) NOT NULL,
+    city VARCHAR(100) DEFAULT 'Barcelona'
+);
+-- Automatically inserts 'Barcelona' if no city is provided
+```
+
+#### Exercise: Working with Default Values
+
+See the instructions in [02_Databases/lab/03_default_values/Instructions.md](./lab/03_default_values/Instructions.md) and the tips in [02_Databases/lab/03_default_values/README.md](./lab/03_default_values/README.md).
+
+In the example, the following is done:
+
+- The existing `cm_devices` database is used. If it does not exist yet, it is created first.
+- A table called `address` is created to store customer address information.
+- The table contains:
+  * `id`: an integer value for the customer identifier, which must not be `NULL`.
+  * `street`: a variable-length string value for the street address.
+  * `postcode`: a variable-length string value for the postcode.
+  * `town`: a variable-length string value for the town name.
+- The `town` column uses the `DEFAULT` constraint so that `Harrow` is inserted automatically when no town is provided.
+- The created table and its columns are checked with `SHOW TABLES` and `SHOW COLUMNS`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database if needed
+CREATE DATABASE cm_devices;
+
+-- Select database
+USE cm_devices;
+
+-- Create table for customer addresses
+CREATE TABLE address (
+  id INT NOT NULL,
+  street VARCHAR(255),
+  postcode VARCHAR(10),
+  town VARCHAR(30) DEFAULT 'Harrow'
+);
+
+-- Check that the table was created
+SHOW TABLES;
+--- +----------------------+
+--- | Tables_in_cm_devices |
+--- +----------------------+
+--- | address              |
+--- | customers            |
+--- | devices              |
+--- | feedback             |
+--- | stock                |
+--- +----------------------+
+
+-- Check the table structure
+SHOW COLUMNS FROM address;
+--- +----------+--------------+------+-----+---------+-------+
+--- | Field    | Type         | Null | Key | Default | Extra |
+--- +----------+--------------+------+-----+---------+-------+
+--- | id       | int          | NO   |     | NULL    |       |
+--- | street   | varchar(255) | YES  |     | NULL    |       |
+--- | postcode | varchar(10)  | YES  |     | NULL    |       |
+--- | town     | varchar(30)  | YES  |     | Harrow  |       |
+--- +----------+--------------+------+-----+---------+-------+
+```
+
+The optional additional task asks us to create the `address` table again, this time with default values for both `postcode` and `town`. Before recreating the table, the existing `address` table must be dropped.
+
+The SQL statements are:
+
+```sql
+DROP TABLE address;
+
+CREATE TABLE address (
+  id INT NOT NULL,
+  street VARCHAR(255),
+  postcode VARCHAR(10) DEFAULT 'HA97DE',
+  town VARCHAR(30) DEFAULT 'Harrow'
 );
 ```
 
