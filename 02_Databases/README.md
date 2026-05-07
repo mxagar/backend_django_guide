@@ -15,6 +15,7 @@ Table of Contents:
 
 - [Intoduction to Web-App Back-End Development](#intoduction-to-web-app-back-end-development)
   - [0. Setup](#0-setup)
+    - [Chinook Database](#chinook-database)
   - [1. Introduction to Databases](#1-introduction-to-databases)
     - [Databases and Data](#databases-and-data)
       - [What is a Database?](#what-is-a-database)
@@ -53,6 +54,8 @@ Table of Contents:
       - [Exercise: Record Deletion](#exercise-record-deletion)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
     - [SQL Operators](#sql-operators)
+      - [SQL Arithmetic Operators](#sql-arithmetic-operators)
+      - [SQL Comparison Operators](#sql-comparison-operators)
     - [Sorting and Filtering Data](#sorting-and-filtering-data)
   - [4. Database Design](#4-database-design)
     - [Designing Database Schema](#designing-database-schema)
@@ -71,6 +74,51 @@ The course uses [MySQL](https://www.mysql.com/).
 Here's a guide on how to use MySQL with Python on our local machine (installation, connection, and basic operations):
 
 [`mxagar/sql_guide/SQL_Guide.md/MySQL-with-Python`](https://github.com/mxagar/sql_guide/blob/main/SQL_Guide.md#11-mysql-with-python)
+
+After setting up MySQL, we can start using it as follows:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+```
+
+In the MySQL CLI, we can execute SQL commands to create databases, tables, and manipulate data:
+
+```sql
+-- Create database if needed
+CREATE DATABASE my_database;
+-- ...
+```
+
+### Chinook Database
+
+Even though it is not heavily used in the course, a popular sample database is the [Chinook Database](https://github.com/lerocha/chinook-database). It is a sample database that contains data about a digital media store, including tables for artists, albums, customers, invoices, and more. It is often used for learning and practicing SQL queries.
+
+We can download the SQL setup files from the [Chinook Database Releases](https://github.com/lerocha/chinook-database/releases):
+
+- [`Chinook_MySql.sql`](https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_MySql.sql)
+- [`Chinook_PostgreSql.sql`](https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_PostgreSql.sql)
+- [`Chinook_Sqlite.sql`](https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql)
+
+Then, each file can be executed in the corresponding database system to set up the Chinook database.
+
+PostgreSQL:
+
+```bash
+psql -U postgres -d chinook -f Chinook_PostgreSql.sql
+```
+
+MySQL:
+
+```bash
+mysql -u root -p chinook < Chinook_MySql.sql
+```
+
+SQLite:
+
+```bash
+sqlite3 chinook.db < Chinook_Sqlite.sql
+```
 
 ## 1. Introduction to Databases
 
@@ -1332,6 +1380,239 @@ WHERE customerID = 6;
 ## 3. SQL Operators and Sorting and Filtering Data
 
 ### SQL Operators
+
+#### SQL Arithmetic Operators
+
+* SQL operators are special symbols or keywords used to manipulate data and perform operations within a database.
+* Arithmetic operators in SQL allow mathematical calculations to be performed directly in queries.
+* Common SQL arithmetic operators include:
+  * `+` for addition
+  * `-` for subtraction
+  * `*` for multiplication
+  * `/` for division
+  * `%` for modulus (remainder of division)
+* Arithmetic operations work by applying an operator to two operands and returning a result.
+* SQL arithmetic operators can be used inside both the `SELECT` clause and the `WHERE` clause.
+  * In `SELECT`, they calculate and return derived values.
+  * In `WHERE`, they filter rows based on computed conditions.
+* Arithmetic operators are useful for practical database tasks such as salary calculations, allowances, leave balances, and other numeric analyses.
+  * Columns can be used as operands in arithmetic expressions to compute new values or filter data based on calculated criteria.
+
+
+```sql
+-- Addition
+SELECT 10 + 15;
+-- Returns 25
+
+
+-- Subtraction
+SELECT 10 - 5;
+-- Returns 5
+
+
+-- Multiplication
+SELECT 5 * 5;
+-- Returns 25
+
+
+-- Division
+SELECT 10 / 2;
+-- Returns 5
+
+
+-- Modulus (remainder)
+SELECT 100 % 10;
+-- Returns 0 because 100 divided by 10 has no remainder
+
+
+-- Addition: calculate total salary
+SELECT salary + allowance
+FROM employee;
+
+
+-- Addition in WHERE clause
+SELECT *
+FROM employee
+WHERE salary + allowance = 25000;
+-- Returns employees whose total salary is 25000
+
+
+-- Subtraction: salary after tax
+SELECT salary - tax
+FROM employee;
+
+
+-- Subtraction in WHERE clause
+SELECT *
+FROM employee
+WHERE salary - tax = 50000;
+-- Returns employees with post-tax salary of 50000
+
+
+-- Multiplication: double tax values
+SELECT tax * 2
+FROM employee;
+
+
+-- Multiplication in WHERE clause
+SELECT *
+FROM employee
+WHERE tax * 2 = 4000;
+-- Returns employees whose doubled tax equals 4000
+
+
+-- Division: calculate allowance percentage
+SELECT allowance / salary * 100
+FROM employee;
+
+
+-- Division in WHERE clause
+SELECT *
+FROM employee
+WHERE allowance / salary * 100 >= 5;
+-- Returns employees receiving at least 5% allowance
+
+
+-- Modulus: check even/odd values
+SELECT hours % 2
+FROM employee;
+-- 0 = even, 1 = odd
+
+
+-- Modulus in WHERE clause
+SELECT *
+FROM employee
+WHERE hours % 2 = 0;
+-- Returns employees with even working hours
+
+
+-- Add a $500 bonus to salaries
+SELECT salary + 500
+FROM employee;
+
+
+-- Deduct $500 from salaries
+SELECT salary - 500
+FROM employee;
+
+
+-- Double employee salaries
+SELECT salary * 2
+FROM employee;
+
+
+-- Calculate monthly salary
+SELECT salary / 12
+FROM employee;
+
+
+-- Determine whether employee IDs are even or odd
+SELECT id % 2
+FROM employee;
+-- 0 = even ID
+-- 1 = odd ID
+```
+
+#### SQL Comparison Operators
+
+* SQL comparison operators are used to compare values or expressions and return either `TRUE` or `FALSE`.
+* Comparison operators are commonly used in the `WHERE` clause to filter records in queries.
+* SQL supports the following comparison operators:
+  * `=` equal to
+  * `<` less than
+  * `>` greater than
+  * `<=` less than or equal to
+  * `>=` greater than or equal to
+  * `<>` or `!=` not equal to
+* Comparison operators help include or exclude rows based on conditions, such as filtering employees by salary ranges.
+* Queries often combine `SELECT *` with `WHERE` conditions to retrieve matching records from a table.
+
+
+```sql
+-- Equal to
+SELECT *
+FROM employee
+WHERE salary = 18000;
+-- Returns employees earning exactly 18000
+
+
+-- Less than
+SELECT *
+FROM employee
+WHERE salary < 24000;
+-- Returns employees earning less than 24000
+
+
+-- Less than or equal to
+SELECT *
+FROM employee
+WHERE salary <= 24000;
+-- Returns employees earning 24000 or less
+
+
+-- Greater than or equal to
+SELECT *
+FROM employee
+WHERE salary >= 24000;
+-- Returns employees earning 24000 or more
+
+
+-- Not equal to
+SELECT *
+FROM employee
+WHERE salary <> 24000;
+-- Returns employees whose salary is not 24000
+
+
+-- Equality with numeric data
+SELECT *
+FROM employee
+WHERE employee_ID = 1;
+-- Returns the employee with ID 1
+
+
+-- Equality with text data
+SELECT *
+FROM employee
+WHERE employee_name = 'James';
+-- Text values use single quotes
+
+
+-- Inequality
+SELECT *
+FROM employee
+WHERE salary <> 24000;
+-- Same as: salary != 24000
+
+
+-- Greater than
+SELECT *
+FROM employee
+WHERE salary > 50000;
+-- Returns employees earning more than 50000
+
+
+-- Greater than or equal
+SELECT *
+FROM employee
+WHERE tax >= 1000;
+-- Returns employees with tax of at least 1000
+
+
+-- Less than
+SELECT *
+FROM employee
+WHERE allowance < 2500;
+-- Returns employees with allowance below 2500
+
+
+-- Less than or equal
+SELECT *
+FROM employee
+WHERE hours <= 10;
+-- Returns employees working 10 hours or fewer
+```
+
 
 ### Sorting and Filtering Data
 
