@@ -60,6 +60,7 @@ Table of Contents:
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
+  - [7. Extra: Other Topics](#7-extra-other-topics)
 
 ## 0. Setup
 
@@ -1235,7 +1236,98 @@ DELETE FROM student;
 
 #### Exercise: Record Deletion
 
+See the instructions in [02_Databases/lab/07_record_deletion/Instructions.md](./lab/07_record_deletion/Instructions.md) and the tips in [02_Databases/lab/07_record_deletion/README.md](./lab/07_record_deletion/README.md).
 
+In the example, the following is done:
+
+- The existing `bookshop` database is used.
+- The existing `customers` table is prepared with customer data.
+- The table contains:
+  * `customerID`: an integer value for the customer identifier.
+  * `customerName`: a variable-length string value for the customer name.
+  * `customerAddress`: a variable-length string value for the customer address.
+- The `customers` table is emptied with `TRUNCATE TABLE` to avoid duplicate records.
+- Six customer records are inserted into the table.
+- Jimmy's record is deleted from the table using `DELETE`.
+- The remaining table contents are checked with `SELECT`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database if needed
+CREATE DATABASE IF NOT EXISTS bookshop;
+
+-- Select database
+USE bookshop;
+
+-- Create table if needed
+CREATE TABLE IF NOT EXISTS customers (
+  customerID INT,
+  customerName VARCHAR(50),
+  customerAddress VARCHAR(255)
+);
+
+-- Empty the table to avoid duplicate records
+TRUNCATE TABLE customers;
+
+-- Insert customer records
+INSERT INTO customers (customerID, customerName, customerAddress)
+VALUES
+  (1, 'Jack', '115 Old street Belfast'),
+  (2, 'James', '24 Carlson Rd London'),
+  (4, 'Maria', '5 Fredrik Rd, Bedford'),
+  (5, 'Jade', '10 Copland Ave Portsmouth'),
+  (6, 'Yasmine', '15 Fredrik Rd, Bedford'),
+  (3, 'Jimmy', '110 Copland Ave Portsmouth');
+
+-- Check the table before deleting the record
+SELECT * FROM customers;
+--- +------------+--------------+----------------------------+
+--- | customerID | customerName | customerAddress            |
+--- +------------+--------------+----------------------------+
+--- |          1 | Jack         | 115 Old street Belfast     |
+--- |          2 | James        | 24 Carlson Rd London       |
+--- |          4 | Maria        | 5 Fredrik Rd, Bedford      |
+--- |          5 | Jade         | 10 Copland Ave Portsmouth  |
+--- |          6 | Yasmine      | 15 Fredrik Rd, Bedford     |
+--- |          3 | Jimmy        | 110 Copland Ave Portsmouth |
+--- +------------+--------------+----------------------------+
+
+-- Delete Jimmy's record
+DELETE FROM customers
+WHERE customerID = 3;
+
+-- Check that Jimmy's record was deleted
+SELECT * FROM customers;
+--- +------------+--------------+---------------------------+
+--- | customerID | customerName | customerAddress           |
+--- +------------+--------------+---------------------------+
+--- |          1 | Jack         | 115 Old street Belfast    |
+--- |          2 | James        | 24 Carlson Rd London      |
+--- |          4 | Maria        | 5 Fredrik Rd, Bedford     |
+--- |          5 | Jade         | 10 Copland Ave Portsmouth |
+--- |          6 | Yasmine      | 15 Fredrik Rd, Bedford    |
+--- +------------+--------------+---------------------------+
+```
+
+The optional additional task asks us to delete Yasmine's record from the `customers` table. In the inserted data above, Yasmine's `customerID` is `6`.
+
+The SQL statement is:
+
+```sql
+DELETE FROM customers
+WHERE customerID = 6;
+```
 
 ## 3. SQL Operators and Sorting and Filtering Data
 
@@ -1260,3 +1352,12 @@ Explain two options:
 - Django migrations (very beginner-friendly)
 - SQLAlchemy + Alembic (FastAPI world)
 
+## 7. Extra: Other Topics
+
+Which other topics?
+
+- Docker PostgreSQL container
+- Docker MySQL container
+- Create a DB in the cloud: AWS RDS, Azure SQL Database
+- Database security and user management
+- ...
