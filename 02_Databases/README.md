@@ -44,7 +44,13 @@ Table of Contents:
       - [ALTER TABLE](#alter-table)
       - [INSERT](#insert)
       - [Exercise: Create and Populate a Table](#exercise-create-and-populate-a-table)
+      - [SELECT](#select)
+      - [INSERT INTO SELECT](#insert-into-select)
+      - [Exercise: Practicing Table Creation](#exercise-practicing-table-creation)
     - [Update and Delete](#update-and-delete)
+      - [Updating Data](#updating-data)
+      - [DELETE](#delete)
+      - [Exercise: Record Deletion](#exercise-record-deletion)
   - [3. SQL Operators and Sorting and Filtering Data](#3-sql-operators-and-sorting-and-filtering-data)
     - [SQL Operators](#sql-operators)
     - [Sorting and Filtering Data](#sorting-and-filtering-data)
@@ -53,7 +59,7 @@ Table of Contents:
     - [Relational Database Design](#relational-database-design)
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
-  - [Extra: Database Migrations and Backups](#extra-database-migrations-and-backups)
+  - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
 
 ## 0. Setup
 
@@ -1023,7 +1029,213 @@ INSERT INTO customers (customerID, customerName, customerAddress)
 VALUES (2, 'James', '24 Carlson Rd London');
 ```
 
+#### SELECT
+
+* The SQL `SELECT` statement is used to query and retrieve data from database tables.
+* A basic `SELECT` query specifies:
+  * The column(s) to retrieve.
+  * The table containing the data using the `FROM` keyword.
+* Queries can retrieve:
+  * A single column.
+  * Multiple columns separated by commas.
+  * All columns using the `*` wildcard.
+* The result of a `SELECT` query is a result set displayed in table form.
+* `SELECT` can also be used for tasks such as calculations, date/time queries, and string operations.
+* SQL statements commonly end with a semicolon (`;`).
+
+```sql
+-- Retrieve a single column
+SELECT name
+FROM players;
+
+-- Retrieve multiple columns
+SELECT name, level
+FROM players;
+
+-- Retrieve all columns by listing them explicitly
+SELECT id, name, age, level
+FROM players;
+
+-- Retrieve all columns using wildcard shorthand
+SELECT *
+FROM players;
+```
+
+#### INSERT INTO SELECT
+
+* The SQL `INSERT INTO ... SELECT` statement is used to copy or transfer data from one table (source table) into another table (target table).
+* This statement combines querying (`SELECT`) and insertion (`INSERT INTO`) in a single operation.
+* The workflow is:
+  * Select data from a column in the source table.
+  * Insert the query results into a column in the target table.
+* The target column and source column should usually have compatible data types and matching logical structure.
+* `INSERT INTO ... SELECT` is useful for populating tables, migrating data, or duplicating information between related tables.
+
+```sql
+-- Copy data from one table into another
+INSERT INTO country (countryName)
+SELECT country
+FROM players;
+-- Retrieves values from the "country" column
+-- in the players table and inserts them
+-- into the countryName column of the country table:
+-- country.countryName <- players.country
+```
+
+#### Exercise: Practicing Table Creation
+
+See the instructions in [02_Databases/lab/06_table_creation/Instructions.md](./lab/06_table_creation/Instructions.md) and the tips in [02_Databases/lab/06_table_creation/README.md](./lab/06_table_creation/README.md).
+
+In the example, the following is done:
+
+- A new database called `football_club` is created.
+- The `football_club` database is selected with `USE`.
+- A table called `players` is created to store basic player information.
+- The table contains:
+  * `playerID`: an integer value for the player identifier.
+  * `playerName`: a variable-length string value for the player name.
+  * `age`: an integer value for the player's age.
+- The created table is checked with `SHOW TABLES`.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database
+CREATE DATABASE football_club;
+
+-- Select database
+USE football_club;
+
+-- Create table for football club players
+CREATE TABLE players (
+  playerID INT,
+  playerName VARCHAR(50),
+  age INT
+);
+
+-- Check that the table was created
+SHOW TABLES;
+--- +-------------------------+
+--- | Tables_in_football_club |
+--- +-------------------------+
+--- | players                 |
+--- +-------------------------+
+
+-- Check the table structure
+SHOW COLUMNS FROM players;
+--- +------------+-------------+------+-----+---------+-------+
+--- | Field      | Type        | Null | Key | Default | Extra |
+--- +------------+-------------+------+-----+---------+-------+
+--- | playerID   | int         | YES  |     | NULL    |       |
+--- | playerName | varchar(50) | YES  |     | NULL    |       |
+--- | age        | int         | YES  |     | NULL    |       |
+--- +------------+-------------+------+-----+---------+-------+
+```
+
+The optional additional task asks us to create another table for the games the team will play. The appropriate table name is `games`, with the following columns:
+
+- `gameID`: integer value for the game identifier.
+- `gameDate`: date value for when the game is played.
+- `score`: integer value for the game score.
+
+The SQL statement is:
+
+```sql
+CREATE TABLE games (
+  gameID INT,
+  gameDate DATE,
+  score INT
+);
+```
+
 ### Update and Delete
+
+#### Updating Data
+
+* The SQL `UPDATE` statement is used to modify existing data in a table.
+* The basic structure of an update query includes:
+  * `UPDATE` to specify the target table.
+  * `SET` to define which columns and values should change.
+  * `WHERE` to specify which records should be updated.
+* Column-value assignments in the `SET` clause are written as `column = value` pairs and separated by commas.
+* The `WHERE` clause is critical because it limits updates to specific rows; without it, all rows in the table may be modified.
+* `UPDATE` can modify:
+  * A single row.
+  * Multiple rows matching a condition.
+  * Multiple columns at once.
+* String values are enclosed in quotation marks.
+
+```sql
+-- Update one student's address and contact number
+UPDATE student
+SET
+    home_address = 'New Address',
+    contact_number = '123456789'
+WHERE id = 3;
+-- Updates only the student with id = 3
+
+
+-- Update all engineering students
+UPDATE student
+SET college_address = 'Harper Building'
+WHERE department = 'Engineering';
+-- Updates multiple rows matching the condition
+
+
+-- Update multiple columns in multiple rows
+UPDATE student
+SET
+    college_address = 'Harper Building',
+    home_address = 'Updated Address'
+WHERE department = 'Engineering';
+-- Updates two columns for all engineering students
+```
+
+#### DELETE
+
+* The SQL `DELETE` statement is used to remove records (rows) from a table.
+* The basic syntax includes:
+  * `DELETE FROM` to specify the target table.
+  * `WHERE` to define which records should be deleted.
+* The `WHERE` clause is essential because it limits deletion to matching rows.
+  * Without a `WHERE` clause, all rows in the table are deleted.
+* `DELETE` can remove:
+  * A single record.
+  * Multiple records matching a condition.
+  * All records in a table.
+* After executing a delete operation, the table structure remains intact; only the data rows are removed.
+
+```sql
+-- Delete a single record
+DELETE FROM student
+WHERE last_name = 'Miller';
+-- Removes the student whose last name is Miller
+
+
+-- Delete multiple records
+DELETE FROM student
+WHERE department = 'Engineering';
+-- Removes all students in the Engineering department
+
+
+-- Delete all records from a table
+DELETE FROM student;
+-- Removes every row from the student table
+```
+
+#### Exercise: Record Deletion
+
+
 
 ## 3. SQL Operators and Sorting and Filtering Data
 
@@ -1041,7 +1253,10 @@ VALUES (2, 'James', '24 Carlson Rd London');
 
 ## 5. Assessment
 
-## Extra: Database Migrations and Backups
+## 6. Extra: Database Migrations and Backups
 
+Explain two options:
 
+- Django migrations (very beginner-friendly)
+- SQLAlchemy + Alembic (FastAPI world)
 
