@@ -78,6 +78,13 @@ Table of Contents:
       - [Types of Database Schemas](#types-of-database-schemas)
       - [Example: Database Schema Design](#example-database-schema-design)
     - [Relational Database Design](#relational-database-design)
+      - [Table Relationships](#table-relationships)
+        - [Types of Relationships](#types-of-relationships)
+        - [ER Diagrams (ERD)](#er-diagrams-erd)
+      - [Relational Model](#relational-model)
+      - [Primary Key](#primary-key)
+      - [Foreign Key](#foreign-key)
+      - [Example: Keys in Depth](#example-keys-in-depth)
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
@@ -2210,7 +2217,7 @@ CREATE TABLE employee (
 
 ##### 3. External / View Schema
 
-* Different users can see different “views” of the database.
+* Different users can see different "views" of the database.
 * Each user only sees relevant data.
 * Used for:
   * simplicity
@@ -2492,7 +2499,441 @@ CREATE TABLE order_menu_item (
 
 ### Relational Database Design
 
+#### Table Relationships
 
+The **relational model** defines how data is structured and how tables relate to each other in a database. Understanding these relationships helps you design databases correctly and query data efficiently.
+
+Example Scenario: A college database contains:
+
+* A **student** table
+* A **course** table
+
+Questions arise such as:
+
+* Which student studies which course?
+* Can a student study multiple courses?
+
+These questions are answered through **relationships between tables**.
+
+##### Types of Relationships
+
+1. One-to-Many (1:N): One record in one table is linked to multiple records in another table.
+  * Example: One student can enroll in many courses.
+  * ERD Concept: * `Student` --> enrolled in --> many `Courses`
+  * Keys
+     * The related table contains a **foreign key (FK)**.
+     * The referenced table contains the **primary key (PK)**.
+ * Example:
+   * `course_id` in `student` table = foreign key
+   * `course_id` in `course` table = primary key
+
+![One-to-Many Relationship](./assets/one_to_many.png)
+
+2. One-to-One (1:1): One record in a table is associated with exactly one record in another table.
+   * Example: One department head manages one department location.
+   * ERD Concept: One `DepartmentHead` <--> one `Department`
+
+![One-to-One Relationship](./assets/one_to_one.png)
+
+3. Many-to-Many (M:N): Multiple records in one table relate to multiple records in another table.
+   * Example
+     * One student can work on many research projects.
+     * One staff member can supervise many students.
+   * ERD Concept: Many `Students` <--> many `Staff`
+   * Usually implemented with an intermediate/junction table.
+
+![Many-to-Many Relationship](./assets/many_to_many.png)
+
+##### ER Diagrams (ERD)
+
+An **Entity Relationship Diagram (ERD)** visually represents:
+
+* Tables/entities
+* Relationships
+* Primary keys (PK)
+* Foreign keys (FK)
+
+Common Symbols:
+
+| Symbol      | Meaning             |
+| ----------- | ------------------- |
+| Rectangle   | Entity/Table        |
+| Diamond     | Relationship        |
+| Crow's foot | "Many" relationship |
+| PK          | Primary Key         |
+| FK          | Foreign Key         |
+
+#### Relational Model
+
+* The **relational model** is the most widely used model for relational databases.
+  * It is based on three main concepts:
+    * Data
+    * Relationships
+    * Constraints
+  * A relational database is essentially a collection of related tables.
+  * SQL is the language used to retrieve and manipulate data in relational databases.
+* A **relation** is another name for a database table.
+  * A table contains:
+    * Rows (records or tuples)
+    * Columns (attributes or fields)
+  * Each row represents one complete record.
+  * Each column represents one type of data.
+* A **column (attribute)** stores one specific type of information.
+  * Examples:
+    * `ID`
+    * `FirstName`
+    * `LastName`
+  * Each column has:
+    * A name
+    * A datatype
+  * Datatypes define what values can be stored:
+    * Integer
+    * Text
+    * Date
+    * Decimal
+    * etc.
+* A **domain** defines the set of valid values for a column.
+  * Numeric columns only allow numeric values.
+  * Text columns only allow text values.
+  * Invalid values violate domain constraints.
+* A **record (tuple)** is a single row in a table.
+  * A tuple contains a complete set of values for one entity.
+* A **key** uniquely identifies a row.
+  * Usually implemented as a **primary key (PK)**.
+  * Primary keys:
+    * Must be unique
+    * Cannot contain `NULL`
+* The **degree** of a relation is the number of columns in the table.
+  * Example:
+    * A table with `name`, `address`, `phone`, and `email`
+    * Degree = 4
+* The **cardinality** of a relation is the number of rows in the table.
+  * Example:
+    * 100 student records
+    * Cardinality = 100
+* Relational databases enforce **integrity constraints** to keep data valid and consistent.
+  * Three major types exist:
+    * Key constraints
+    * Domain constraints
+    * Referential integrity constraints
+* **Key constraints** ensure that primary keys are valid.
+  * Primary keys:
+    * Must be unique
+    * Cannot be `NULL`
+
+```sql
+-- PRIMARY KEY guarantees uniqueness and NOT NULL
+CREATE TABLE student (
+    student_id INT PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+
+-- Domain constraints ensure that inserted values match the expected datatype
+CREATE TABLE product (
+    price DECIMAL(8,2)
+);
+-- price must contain numeric decimal values
+
+
+-- INVALID: text inserted into decimal column
+INSERT INTO product(price)
+VALUES ('hello');
+
+
+-- Referential integrity constraints ensure that foreign keys reference existing rows in another table.
+-- A foreign key references a primary key in another table.
+-- This prevents broken relationships between tables.
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY
+);
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id)
+);
+-- customer_id in orders must exist in customer table
+
+
+-- One customer -> many orders
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY
+);
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id)
+);
+
+
+-- Junction table implements many-to-many relationship
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY
+);
+
+CREATE TABLE product (
+    product_id INT PRIMARY KEY
+);
+
+CREATE TABLE customer_product (
+    customer_id INT,
+    product_id INT,
+    PRIMARY KEY (customer_id, product_id),
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id),
+    FOREIGN KEY (product_id)
+        REFERENCES product(product_id)
+);
+```
+
+#### Primary Key
+
+* A **primary key** is used to uniquely identify each row in a database table.
+  * It prevents duplicate records.
+  * It allows precise querying and updating of records.
+* A primary key must satisfy two conditions:
+  * Its value must be unique for every row.
+  * It cannot contain `NULL` values.
+* A **candidate key** is any column that could potentially serve as a primary key.
+  * A table can have multiple candidate keys.
+  * One candidate key is selected as the primary key.
+  * The remaining candidate keys become alternate/secondary keys.
+* Example:
+  * In a student table:
+    * `student_id` could be unique.
+    * `email` could also be unique.
+  * Either could be chosen as the primary key.
+
+```sql
+CREATE TABLE student (
+    student_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    dob DATE,
+    email VARCHAR(255) UNIQUE,
+    grade VARCHAR(10)
+);
+-- student_id = primary key
+-- email = alternate/candidate key
+```
+
+* Some columns cannot be primary keys because they may contain duplicates.
+  * Example:
+    * Multiple students may share the same name.
+    * Multiple students may share the same birth date.
+* A **composite primary key** is a primary key made from two or more columns combined together.
+  * It is used when no single column is unique enough.
+  * The combination of values must uniquely identify each row.
+* Example:
+  * A delivery table may contain:
+    * `customer_id`
+    * `product_code`
+  * Neither column alone is unique.
+  * Together they uniquely identify each delivery.
+
+```sql
+CREATE TABLE delivery (
+    customer_id INT,
+    product_code INT,
+    delivery_status VARCHAR(50),
+
+    PRIMARY KEY (customer_id, product_code)
+);
+
+-- Composite primary key:
+-- combination of customer_id + product_code
+```
+
+* Single-column primary keys are preferred when possible because they are simpler.
+* Composite primary keys are useful when uniqueness depends on multiple attributes together.
+
+#### Foreign Key
+
+* A **foreign key (FK)** is one or more columns used to connect two tables in a relational database.
+  * It creates relationships between records in different tables.
+  * It enables cross-referencing between tables.
+* A foreign key in one table references a column in another table.
+  * Usually, the referenced column is a **primary key (PK)**.
+  * The referenced column must contain unique values.
+* Foreign keys are used to:
+  * Connect related data
+  * Maintain consistency between tables
+  * Enable queries across tables
+  * Prevent invalid references
+* Example:
+  * A bookstore database contains:
+    * `customer` table
+    * `orders` table
+  * The `orders` table includes `customer_id` as a foreign key.
+  * This links each order to the customer who placed it.
+
+![Foreign Key](./assets/foreign_keys.png)
+
+```sql
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    address VARCHAR(255)
+);
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    order_date DATE,
+    status VARCHAR(50),
+    customer_id INT,
+
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id)
+);
+
+-- customer_id in orders references customer table
+-- This creates a relationship between customers and orders
+```
+
+* The table containing the foreign key is called the **child table**.
+* The referenced table is called the **parent table**.
+* Example:
+  * `customer` = parent table
+  * `orders` = child table
+* Foreign keys enforce **referential integrity**.
+  * A child record cannot reference a parent record that does not exist.
+  * Example:
+    * An order cannot exist for a non-existent customer.
+* The relationship between customer and orders is typically **one-to-many (1:N)**.
+  * One customer can place many orders.
+  * Each order belongs to one customer.
+* Important property:
+  * A parent can exist without children.
+    * Example:
+      * A customer may exist without any orders.
+  * A child cannot exist without a parent.
+    * Example:
+      * An order must reference an existing customer.
+* A table can contain multiple foreign keys.
+  * This allows one child table to connect to multiple parent tables.
+* Example:
+  * `orders` table may reference:
+    * `customer`
+    * `product`
+
+![Multiple Foreign Keys](./assets/foreign_keys_2.png)
+
+```sql
+CREATE TABLE product (
+    product_id INT PRIMARY KEY,
+    product_name VARCHAR(100)
+);
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    product_id INT,
+
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id),
+
+    FOREIGN KEY (product_id)
+        REFERENCES product(product_id)
+);
+
+-- orders table references both customer and product
+-- customer and product are parent tables
+-- orders is the child table
+```
+
+#### Example: Keys in Depth
+
+```sql
+-- Create the database for the automobile scenario.
+CREATE DATABASE automobile;
+
+-- Select the database so the following tables are created inside it.
+USE automobile;
+
+
+-- Create the owner table.
+-- ownerID is the primary key because it uniquely identifies each owner.
+-- ownerName is not a good primary key because different owners may share the same name.
+-- ownerAddress is not a good primary key because different owners may live at the same address.
+CREATE TABLE owner (
+    ownerID VARCHAR(10),
+    ownerName VARCHAR(50),
+    ownerAddress VARCHAR(255),
+    PRIMARY KEY (ownerID)
+);
+
+
+-- Create the vehicle table.
+-- vehicleID is chosen as the primary key because it is unique and stable.
+-- plateNumber and phoneNumber may be unique now, but they can change over time.
+-- ownerID is not a primary key here because one owner can own multiple vehicles.
+CREATE TABLE vehicle (
+    vehicleID VARCHAR(10),
+    ownerID VARCHAR(10),
+    plateNumber VARCHAR(10),
+    phoneNumber VARCHAR(20),
+    PRIMARY KEY (vehicleID)
+);
+
+
+-- Add a foreign key from vehicle.ownerID to owner.ownerID.
+-- This creates a one-to-many relationship:
+-- one owner can have many vehicles.
+ALTER TABLE vehicle
+ADD FOREIGN KEY (ownerID)
+REFERENCES owner(ownerID);
+
+
+-- Show all tables in the selected database.
+SHOW TABLES;
+
+
+-- Show the structure of the owner table.
+SHOW COLUMNS FROM owner;
+
+
+-- Show the structure of the vehicle table.
+SHOW COLUMNS FROM vehicle;
+
+
+-- Example inserts for owners.
+INSERT INTO owner (ownerID, ownerName, ownerAddress)
+VALUES
+    ('Ow01', 'Amjad Omer', '110, Elephant Way'),
+    ('Ow02', 'Hans Henderson', '120, Dragon Way'),
+    ('Ow03', 'Paulo Galdames', '130, Giraffe Avenue');
+
+
+-- Example inserts for vehicles.
+-- Each ownerID must already exist in the owner table because of the foreign key.
+INSERT INTO vehicle (vehicleID, ownerID, plateNumber, phoneNumber)
+VALUES
+    ('D01', 'Ow01', 'PL02NY', '0738297294'),
+    ('D02', 'Ow02', 'SN02L2', '0725021582'),
+    ('D03', 'Ow03', 'PK02L2', '0765021583');
+
+
+-- Query vehicles with their owner information.
+SELECT
+    vehicle.vehicleID,
+    vehicle.plateNumber,
+    vehicle.phoneNumber,
+    owner.ownerID,
+    owner.ownerName,
+    owner.ownerAddress
+FROM vehicle
+JOIN owner
+    ON vehicle.ownerID = owner.ownerID;
+
+
+-- MySQL key labels in SHOW COLUMNS:
+-- PRI = primary key.
+-- UNI = unique key.
+-- MUL = column can contain repeated values and is often used in indexes/foreign keys.
+```
 
 ### Database Normalization
 
