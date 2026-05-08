@@ -15,3 +15,14 @@ Each of the topics/courses has its own sub-folder with the relevant materials, i
 
 Mikel Sagardia, 2026.  
 No guarantees.  
+
+
+<!--
+
+[SQL and Data Modeling for the Web](https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046)
+
+[Software Architecture Patterns](https://www.udacity.com/course/software-architecture-patterns--cd14601)
+
+[Identity and Access Management](https://www.udacity.com/course/identity-access-management--cd0039)
+
+-->
