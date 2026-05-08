@@ -66,6 +66,7 @@ Table of Contents:
       - [ORDER BY](#order-by)
       - [WHERE and Comparison \& Logical Operators](#where-and-comparison--logical-operators)
       - [Exercise: ORDER BY and WHERE](#exercise-order-by-and-where)
+      - [SELECT DISTINCT](#select-distinct)
   - [4. Database Design](#4-database-design)
     - [Designing Database Schema](#designing-database-schema)
     - [Relational Database Design](#relational-database-design)
@@ -2017,7 +2018,62 @@ ORDER BY FirstName;
 --- +-----------+---------+
 ```
 
+#### SELECT DISTINCT
 
+* The SQL `SELECT DISTINCT` statement returns only unique values from query results.
+* It is used to remove duplicate rows from a `SELECT` query.
+* `DISTINCT` can be applied to a single column, such as retrieving a unique list of student countries.
+* When used with multiple columns, `DISTINCT` returns unique combinations of those columns, not unique values from each column separately.
+* `DISTINCT` treats `NULL` as a distinct value.
+  * For example, a row with `NULL` faculty and `USA` country is treated as a unique faculty-country combination.
+* `DISTINCT` can also be used with expressions and aggregate functions, not only plain column names. Common aggregate functions:
+  * `COUNT`
+  * `AVG`
+  * `MAX`
+* Example use case:
+  * Counting the number of unique countries in a table.
+* `ORDER BY` can be combined with `DISTINCT` to sort the unique results.
+* Important clarification:
+  * With multiple columns, `DISTINCT` checks uniqueness across the full combination of values, not per-column independently.
+
+```sql
+-- Return all country values, including duplicates
+SELECT country
+FROM student;
+
+
+-- Return only unique countries
+SELECT DISTINCT country
+FROM student;
+
+
+-- Return unique faculty-country combinations
+SELECT DISTINCT faculty, country
+FROM student;
+
+
+-- Unique values from one column
+SELECT DISTINCT BillingCountry
+FROM invoices;
+
+
+-- Unique combinations of multiple columns
+SELECT DISTINCT BillingCountry, BillingCity
+FROM invoices
+ORDER BY BillingCountry, BillingCity;
+
+
+-- DISTINCT with aggregate functions
+-- Count unique countries
+SELECT COUNT(DISTINCT country)
+FROM customer;
+
+
+-- DISTINCT with NULL values
+-- NULL is treated as a unique value
+SELECT DISTINCT BillingCountry, BillingCity
+FROM invoices;
+```
 
 ## 4. Database Design
 
