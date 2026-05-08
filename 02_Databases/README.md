@@ -85,6 +85,7 @@ Table of Contents:
       - [Primary Key](#primary-key)
       - [Foreign Key](#foreign-key)
       - [Example: Keys in Depth](#example-keys-in-depth)
+      - [Entities and Attributes](#entities-and-attributes)
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
@@ -2934,6 +2935,48 @@ JOIN owner
 -- UNI = unique key.
 -- MUL = column can contain repeated values and is often used in indexes/foreign keys.
 ```
+
+#### Entities and Attributes
+
+* An entity is an object in a relational database that represents something important the system needs to store information about, such as a person, place, product, customer, or delivery.
+* In relational databases:
+  * A table usually represents an entity.
+  * Columns represent attributes of that entity.
+  * Rows represent individual instances or records of the entity.
+* Example:
+  * A `deliveries` table represents the `Delivery` entity.
+  * Columns such as `ID`, `customer_name`, and `delivery_status` are attributes of that entity.
+* Only entities and attributes that are useful for the application or business process should be included in the database design.
+* Several attribute types exist in relational databases:
+  * **Simple attributes**
+    * Cannot be divided further.
+    * Example:
+      * `grade`
+  * **Composite attributes**
+    * Can be split into smaller components.
+    * Example:
+      * `name` --> `first_name` + `last_name`
+  * **Single-valued attributes**
+    * Store only one value per record.
+    * Example:
+      * `date_of_birth`
+  * **Multi-valued attributes**
+    * Can store multiple values for one entity.
+    * Example:
+      * multiple email addresses for one student
+    * In relational database design, this practice is usually avoided because it breaks normalization principles.
+  * **Derived attributes**
+    * Values are calculated from other attributes.
+    * Example:
+      * `age` derived from `date_of_birth`
+  * **Key attributes**
+    * Contain unique values used to identify records.
+    * Example:
+      * `student_id`
+    * Key attributes are commonly used as primary keys.
+* Important design principle:
+  * A database should only store data that supports the required tasks, queries, and business operations.
+
 
 ### Database Normalization
 
