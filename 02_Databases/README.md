@@ -69,6 +69,14 @@ Table of Contents:
       - [SELECT DISTINCT](#select-distinct)
   - [4. Database Design](#4-database-design)
     - [Designing Database Schema](#designing-database-schema)
+      - [Database Schema](#database-schema)
+      - [Three-Schema Architecture](#three-schema-architecture)
+        - [1. Conceptual / Logical Schema](#1-conceptual--logical-schema)
+        - [2. Internal / Physical Schema](#2-internal--physical-schema)
+        - [3. External / View Schema](#3-external--view-schema)
+      - [Schemas in Use](#schemas-in-use)
+      - [Types of Database Schemas](#types-of-database-schemas)
+      - [Example: Database Schema Design](#example-database-schema-design)
     - [Relational Database Design](#relational-database-design)
     - [Database Normalization](#database-normalization)
   - [5. Assessment](#5-assessment)
@@ -2079,7 +2087,412 @@ FROM invoices;
 
 ### Designing Database Schema
 
+#### Database Schema
+
+* A database schema is the logical structure or blueprint of a database.
+  * It defines how data is organized and how different pieces of data relate to each other.
+* In MySQL, the terms *schema* and *database* are often interchangeable.
+* However, the analogy *schema-database* is similar to *class-object* in programming:
+  * A schema is like a class that defines the structure and rules for data.
+  * A database is like an object that contains actual data following the schema's structure.
+* Different database systems define schema differently:
+  * **SQL Server:** collection of tables, fields, datatypes, relationships, and keys.
+  * **PostgreSQL:** a namespace containing database objects such as tables, views, indexes, and functions.
+  * **Oracle:** each user owns a schema named after that user.
+* Core concepts of a schema:
+  * Tables/entities
+  * Columns/fields
+  * Datatypes
+  * Keys (primary/foreign)
+  * Relationships between tables
+* Example:
+  * A music database may contain separate tables for:
+    * artists
+    * albums
+    * genres
+  * These tables are connected through keys and relationships.
+* Advantages of schemas:
+  * Organize database objects logically.
+  * Make data easier to access and manage.
+  * Improve database security through permissions and access control.
+  * Allow ownership transfer between users or schemas.
+  * Help developers design and document databases clearly before implementation.
+
+```sql
+-- PostgreSQL example:
+-- Create a schema (namespace)
+CREATE SCHEMA music;
+
+
+-- Create a table inside a schema
+CREATE TABLE music.artists (
+    artist_id INT PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+
+-- Another table related through a foreign key
+CREATE TABLE music.albums (
+    album_id INT PRIMARY KEY,
+    title VARCHAR(100),
+    artist_id INT,
+    FOREIGN KEY (artist_id)
+        REFERENCES music.artists(artist_id)
+);
+```
+
+#### Three-Schema Architecture
+
+* A schema is designed **before** implementing the database or application.
+  * This design process is called **data modeling**.
+* A schema itself does **not store data**.
+  * It only defines the structure/skeleton of the database.
+* Benefits of a well-designed schema:
+  * cleaner data organization
+  * easier development
+  * better query performance
+  * less reverse-engineering later
+  * lower maintenance costs
+* The schema also documents:
+  * table relationships
+  * datatypes
+  * constraints
+  * expected structure of the application data
+* Introduction of the **three-schema architecture**:
+  1. Conceptual / Logical schema
+  2. Internal / Physical schema
+  3. External / View schema
+
+##### 1. Conceptual / Logical Schema
+
+* High-level representation of the database.
+* Defines:
+  * entities
+  * attributes
+  * relationships
+* Usually represented with an:
+  * Entity Relationship Diagram (ERD)
+* Hides physical storage details.
+* Mainly used by:
+  * developers
+  * database designers
+
+Example concepts:
+* Employee
+* Department
+* Relationships between them
+
+##### 2. Internal / Physical Schema
+
+* Describes how data is physically stored on disk.
+* Includes:
+  * tables
+  * rows
+  * columns
+  * storage/access paths
+* Low-level implementation details.
+
+This is closer to:
+
+* indexes
+* storage layout
+* actual DB implementation
+
+```sql
+-- Example: physical/internal schema elements
+CREATE TABLE employee (
+    employee_id INT PRIMARY KEY,
+    department_id INT,
+    name VARCHAR(100),
+    salary DECIMAL(10,2)
+);
+```
+
+##### 3. External / View Schema
+
+* Different users can see different “views” of the database.
+* Each user only sees relevant data.
+* Used for:
+  * simplicity
+  * security
+  * access control
+
+Examples:
+
+* Sales users see sales tables.
+* HR users see employee/payroll tables.
+
+A single database can therefore have:
+
+* many external schemas/views.
+
+```sql
+-- Example: external/view schema
+-- A limited user-facing view
+CREATE VIEW sales_employee_view AS
+SELECT employee_id, name
+FROM employee;
+```
+
+#### Schemas in Use
+
+* A database schema can be implemented in SQL by:
+  1. Creating a database.
+  2. Creating tables.
+  3. Defining columns and datatypes.
+  4. Defining primary keys.
+  5. Defining relationships with foreign keys.
+* Example project:
+  * A shopping cart database with three tables:
+    * `customer`
+    * `product`
+    * `cart_order`
+* `PRIMARY KEY`
+  * Uniquely identifies each row in a table.
+  * Examples:
+    * `customer_id`
+    * `product_id`
+    * `order_id`
+* `FOREIGN KEY`
+  * Creates relationships between tables.
+  * References the primary key of another table.
+  * Example:
+    * `cart_order.customer_id`
+      references `customer.customer_id`
+    * `cart_order.product_id`
+      references `product.product_id`
+* Common datatypes shown:
+  * `INT`
+  * `VARCHAR(n)`
+  * `DECIMAL(8,2)`
+  * `DATE`
+* `DECIMAL(8,2)` means:
+  * up to 8 digits total
+  * 2 digits after the decimal point
+* Tables can be linked together through keys to model real-world relationships.
+
+```sql
+-- Create database
+CREATE DATABASE shopping_cart_db;
+
+
+-- Customer table
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    address VARCHAR(255),
+    email VARCHAR(100),
+    phone VARCHAR(10)
+);
+
+
+-- Product table
+CREATE TABLE product (
+    product_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    price DECIMAL(8,2),
+    description VARCHAR(255)
+);
+
+
+-- Cart order table
+CREATE TABLE cart_order (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    product_id INT,
+    quantity INT,
+    order_date DATE,
+    status VARCHAR(100),
+
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id),
+
+    FOREIGN KEY (product_id)
+        REFERENCES product(product_id)
+);
+```
+
+#### Types of Database Schemas
+
+* There are different types of database schemas, mainly:
+  * logical schema
+  * physical schema
+* A **logical database schema** describes:
+  * how data is organized conceptually
+  * what tables/entities exist
+  * how tables are related
+  * primary keys and foreign keys
+  * relationships between entities
+* Logical schema design is also called:
+  * Entity Relationship (ER) modeling
+* ER models are used to visually represent:
+  * entities/tables
+  * attributes/columns
+  * relationships between entities
+* Example:
+  * `order`
+  * `shipment`
+  * `courier`
+  * `shipment_id` and `courier_id` in the `order` table are foreign keys referencing other tables.
+* A **physical database schema** describes:
+  * how data is physically stored on disk
+  * actual database implementation
+  * SQL table creation
+  * database objects such as tables and constraints
+* Physical schemas are implemented with SQL statements.
+* Different database systems may implement physical schemas slightly differently.
+* Important distinction:
+  * Logical schema = conceptual design/relationships
+  * Physical schema = actual SQL implementation/storage
+
+```sql
+-- Physical schema example
+CREATE TABLE courier (
+    courier_id INT PRIMARY KEY,
+    courier_name VARCHAR(100)
+);
+
+CREATE TABLE shipment (
+    shipment_id INT PRIMARY KEY,
+    shipment_date DATE
+);
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    shipment_id INT,
+    courier_id INT,
+
+    FOREIGN KEY (shipment_id)
+        REFERENCES shipment(shipment_id),
+
+    FOREIGN KEY (courier_id)
+        REFERENCES courier(courier_id)
+);
+```
+
+#### Example: Database Schema Design
+
+![Schema of a Restaurant Database](./assets/restaurant_schema.png)
+
+```sql
+-- Create the restaurant database
+CREATE DATABASE restaurant;
+
+-- Select the database
+USE restaurant;
+
+
+-- Table: restaurant tables
+-- Represents physical tables inside the restaurant.
+CREATE TABLE tbl (
+    table_id INT PRIMARY KEY,
+    location VARCHAR(255)
+);
+
+
+-- Table: waiters
+-- Stores waiter information and their usual shift.
+CREATE TABLE waiter (
+    waiter_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    contact_no VARCHAR(15),
+    shift VARCHAR(50)
+);
+
+
+-- Table: table orders
+-- Stores orders associated with restaurant tables and waiters.
+CREATE TABLE table_order (
+    order_id INT PRIMARY KEY,
+    table_id INT,
+    date_time DATETIME,
+    waiter_id INT,
+
+    FOREIGN KEY (table_id)
+        REFERENCES tbl(table_id),
+
+    FOREIGN KEY (waiter_id)
+        REFERENCES waiter(waiter_id)
+);
+
+
+-- Table: customers
+-- Stores customer information.
+-- NIC = National Identity Card number.
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    nic_no VARCHAR(20),
+    contact_no VARCHAR(15)
+);
+
+
+-- Table: reservations
+-- Associates customers with orders and restaurant tables.
+CREATE TABLE reservation (
+    reservation_id INT PRIMARY KEY,
+    date_time DATETIME,
+    pax INT,
+    order_id INT,
+    table_id INT,
+    customer_id INT,
+
+    FOREIGN KEY (order_id)
+        REFERENCES table_order(order_id),
+
+    FOREIGN KEY (table_id)
+        REFERENCES tbl(table_id),
+
+    FOREIGN KEY (customer_id)
+        REFERENCES customer(customer_id)
+);
+
+
+-- Table: menus
+-- Stores restaurant menus and whether they are available.
+CREATE TABLE menu (
+    menu_id INT PRIMARY KEY,
+    description VARCHAR(255),
+    availability BOOLEAN
+);
+
+
+-- Table: menu items
+-- Stores items that belong to a menu.
+CREATE TABLE menu_item (
+    menu_item_id INT PRIMARY KEY,
+    menu_id INT,
+    description VARCHAR(255),
+    price DECIMAL(8,2),
+    availability BOOLEAN,
+
+    FOREIGN KEY (menu_id)
+        REFERENCES menu(menu_id)
+);
+
+
+-- Table: ordered menu items
+-- Captures which menu items were ordered in each order.
+-- Composite primary key: one order can contain many menu items,
+-- and each menu item can appear in many orders.
+CREATE TABLE order_menu_item (
+    order_id INT,
+    menu_item_id INT,
+    quantity INT,
+
+    PRIMARY KEY (order_id, menu_item_id),
+
+    FOREIGN KEY (order_id)
+        REFERENCES table_order(order_id),
+
+    FOREIGN KEY (menu_item_id)
+        REFERENCES menu_item(menu_item_id)
+);
+```
+
 ### Relational Database Design
+
+
 
 ### Database Normalization
 
