@@ -63,6 +63,9 @@ Table of Contents:
       - [SQL Arithmetic Operators](#sql-arithmetic-operators)
       - [SQL Comparison Operators](#sql-comparison-operators)
     - [Sorting and Filtering Data](#sorting-and-filtering-data)
+      - [ORDER BY](#order-by)
+      - [WHERE and Comparison \& Logical Operators](#where-and-comparison--logical-operators)
+      - [Exercise: ORDER BY and WHERE](#exercise-order-by-and-where)
   - [4. Database Design](#4-database-design)
     - [Designing Database Schema](#designing-database-schema)
     - [Relational Database Design](#relational-database-design)
@@ -140,7 +143,7 @@ My guide on SQL: [`mxagar/sql_guide`](https://github.com/mxagar/sql_guide).
 * Data is organized in a structured way, typically in table-like formats with identifiable attributes.
 * Data is grouped into entities representing real or conceptual objects (e.g., customer, product, order).
   * In relational databases, entities are tables, attributes are columns, and rows represent instances.
-* Relationships between entities allow combining data (e.g., customer + product → order table).
+* Relationships between entities allow combining data (e.g., customer + product --> order table).
 * There are multiple database types: 
   * relational (tables),
   * object-oriented (objects/classes),
@@ -1619,8 +1622,402 @@ WHERE hours <= 10;
 -- Returns employees working 10 hours or fewer
 ```
 
-
 ### Sorting and Filtering Data
+
+#### ORDER BY
+
+* The SQL `ORDER BY` clause is used to sort query results in either ascending or descending order.
+* `ORDER BY` is typically added to a `SELECT` statement after the `FROM` clause.
+* Sorting can be performed on:
+  * A single column.
+  * Multiple columns.
+* SQL supports two sorting directions:
+  * `ASC` --> ascending order (default).
+  * `DESC` --> descending order.
+* The sorting behavior depends on the column data type:
+  * Numeric columns are sorted numerically.
+  * Text/string columns are sorted alphabetically.
+* Multiple-column sorting allows different ordering directions per column.
+* Using `*` in a `SELECT` statement retrieves all columns without listing them individually.
+
+```sql
+-- Sort by a single column in ascending order
+SELECT id, first_name, last_name, nationality
+FROM student
+ORDER BY nationality ASC;
+
+
+-- ASC is optional because ascending is the default
+SELECT id, first_name, last_name, nationality
+FROM student
+ORDER BY nationality;
+
+
+-- Sort by a single column in descending order
+SELECT id, first_name, last_name, nationality
+FROM student
+ORDER BY nationality DESC;
+
+
+-- Sort by multiple columns
+SELECT
+    id,
+    first_name,
+    last_name,
+    date_of_birth,
+    nationality
+FROM student
+ORDER BY
+    nationality ASC,
+    date_of_birth DESC;
+-- First sorts alphabetically by nationality,
+-- then sorts by youngest-to-oldest within each nationality
+
+
+-- Retrieve and sort all columns
+SELECT *
+FROM student
+ORDER BY nationality ASC;
+```
+
+#### WHERE and Comparison & Logical Operators
+
+* The SQL `WHERE` clause is used to filter records and retrieve only rows that satisfy a specified condition.
+* `WHERE` is commonly used with `SELECT`, but it can also be used with `UPDATE` and `DELETE` statements.
+* A `WHERE` condition typically contains:
+  * A column name.
+  * An operator.
+  * A value (operand).
+* Operands can be numeric or text values.
+  * Text values must be enclosed in single quotes.
+* Common **comparison operators** used in `WHERE` clauses include:
+  * `=` equal to
+  * `<` less than
+  * `>` greater than
+  * `<=` less than or equal to
+  * `>=` greater than or equal to
+  * `<>` not equal to
+  * `!=` as another "not equal" operator.
+  * `!<` meaning "not less than".
+  * `!>` meaning "not greater than".
+* Additional useful operators include:
+  * `BETWEEN` --> filters values within a range.
+  * `LIKE` --> filters values matching a pattern.
+  * `IN` --> filters values matching multiple possible values.
+* The `%` wildcard in `LIKE` represents zero or more characters, while `_` represents exactly one character.
+* **Logical operators** are used to combine multiple conditions in a `WHERE` clause and include:
+  * `ALL`
+  * `ANY`
+  * `EXISTS`
+  * `NOT`
+  * `OR`
+  * `IS NULL`
+  * `UNIQUE`
+* `AND` and `OR` are **conjunctive operators** used to combine multiple `WHERE` conditions.
+  * With `AND`, all conditions must be true.
+  * With `OR`, at least one condition must be true.
+* We use **parentheses** to group conditions and control evaluation order.
+
+
+```sql
+-- Filter rows using equality
+SELECT *
+FROM student_table
+WHERE faculty = 'Engineering';
+-- Returns only engineering students
+
+
+-- Filter rows within a date range
+SELECT *
+FROM student_table
+WHERE DOB BETWEEN '2010-01-01' AND '2010-05-30';
+-- Returns students born within the specified range
+
+
+-- Filter rows using a text pattern
+SELECT *
+FROM student_table
+WHERE faculty LIKE 'Sc%';
+-- Returns values starting with "Sc", such as "Science"
+
+
+-- Wildcards:
+-- %  -> any number of characters
+-- _  -> exactly one character
+
+
+-- Filter rows using multiple possible values
+SELECT *
+FROM student_table
+WHERE country IN ('USA', 'UK');
+-- Returns students from either USA or UK
+
+
+-- Example using comparison operators
+SELECT *
+FROM student_table
+WHERE age >= 18;
+-- Returns students aged 18 or older
+
+
+-- AND: both conditions must be true
+SELECT *
+FROM invoice
+WHERE Total > 2
+  AND BillingCountry = 'USA';
+
+
+-- OR: at least one condition must be true
+SELECT *
+FROM invoice
+WHERE BillingCountry = 'USA'
+   OR BillingCountry = 'France';
+
+
+-- AND + OR with parentheses
+SELECT *
+FROM invoice
+WHERE Total > 2
+  AND (BillingCountry = 'USA' OR BillingCountry = 'France');
+```
+
+#### Exercise: ORDER BY and WHERE
+
+See the instructions in [02_Databases/lab/08_order_by_where/Instructions.md](./lab/08_order_by_where/Instructions.md) and the tips in [02_Databases/lab/08_order_by_where/README.md](./lab/08_order_by_where/README.md).
+
+In the example, the following is done:
+
+- A new database called `Chinook` is created.
+- The `Chinook` database is selected with `USE`.
+- A table called `Customer` is created to store customer contact information.
+- Six customer records are inserted into the table.
+- A `SELECT` statement is used to display only the required columns.
+- The result set is sorted alphabetically with `ORDER BY`.
+- The result set is filtered with `WHERE`.
+- `WHERE` and `ORDER BY` are combined to show filtered results in alphabetical order.
+
+To carry out the exercise, we need MySQL installed -- check the [MySQL Setup](#mysql-setup) section above. Then, we open the CLI:
+
+```bash
+# On local Windows machine (we need root PW)
+mysql -u root -p
+
+# ... Or on Coursera VSCode Terminal:
+mysql
+```
+
+And the SQL commands executed are the following:
+
+```sql
+-- Create database
+CREATE DATABASE IF NOT EXISTS Chinook;
+
+-- Select database
+USE Chinook;
+
+-- Recreate the Customer table for this exercise
+DROP TABLE IF EXISTS Customer;
+
+CREATE TABLE Customer (
+  CustomerId INT NOT NULL,
+  FirstName VARCHAR(40) NOT NULL,
+  LastName VARCHAR(20) NOT NULL,
+  Company VARCHAR(80),
+  Address VARCHAR(70),
+  City VARCHAR(40),
+  State VARCHAR(40),
+  Country VARCHAR(40),
+  PostalCode VARCHAR(10),
+  Phone VARCHAR(24),
+  Fax VARCHAR(24),
+  Email VARCHAR(60) NOT NULL,
+  SupportRepId INT,
+  CONSTRAINT PK_Customer PRIMARY KEY (CustomerId)
+);
+
+-- Insert customer records
+INSERT INTO Customer (
+  CustomerId,
+  FirstName,
+  LastName,
+  Company,
+  Address,
+  City,
+  State,
+  Country,
+  PostalCode,
+  Phone,
+  Fax,
+  Email,
+  SupportRepId
+)
+VALUES
+  (
+    1,
+    'Luís',
+    'Gonçalves',
+    'Embraer - Empresa Brasileira de Aeronáutica S.A.',
+    'Av. Brigadeiro Faria Lima, 2170',
+    'São José dos Campos',
+    'SP',
+    'Brazil',
+    '12227-000',
+    '+55 (12) 3923-5555',
+    '+55 (12) 3923-5566',
+    'luisg@embraer.com.br',
+    3
+  ),
+  (
+    2,
+    'Eduardo',
+    'Martins',
+    'Woodstock Discos',
+    'Rua Dr. Falcão Filho, 155',
+    'São Paulo',
+    'SP',
+    'Brazil',
+    '01007-010',
+    '+55 (11) 3033-5446',
+    '+55 (11) 3033-4564',
+    'eduardo@woodstock.com.br',
+    4
+  ),
+  (
+    3,
+    'Alexandre',
+    'Rocha',
+    'Banco do Brasil S.A.',
+    'Av. Paulista, 2022',
+    'São Paulo',
+    'SP',
+    'Brazil',
+    '01310-200',
+    '+55 (11) 3055-3278',
+    '+55 (11) 3055-8131',
+    'alero@uol.com.br',
+    5
+  ),
+  (
+    4,
+    'Roberto',
+    'Almeida',
+    'Riotur',
+    'Praça Pio X, 119',
+    'Rio de Janeiro',
+    'RJ',
+    'Brazil',
+    '20040-020',
+    '+55 (21) 2271-7000',
+    '+55 (21) 2271-7070',
+    'roberto.almeida@riotur.gov.br',
+    3
+  ),
+  (
+    5,
+    'Mark',
+    'Philips',
+    'Telus',
+    '8210 111 ST NW',
+    'Edmonton',
+    'AB',
+    'Canada',
+    'T6G 2C7',
+    '+1 (780) 434-4554',
+    '+1 (780) 434-5565',
+    'mphilips12@shaw.ca',
+    5
+  ),
+  (
+    6,
+    'Jennifer',
+    'Peterson',
+    'Rogers Canada',
+    '700 W Pender Street',
+    'Vancouver',
+    'BC',
+    'Canada',
+    'V6C 1G8',
+    '+1 (604) 688-2255',
+    '+1 (604) 688-8756',
+    'jenniferp@rogers.ca',
+    3
+  );
+
+-- Display the required customer columns
+SELECT CustomerId, FirstName, LastName, City, State, Country
+FROM Customer;
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- | CustomerId | FirstName | LastName  | City                 | State | Country |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- |          1 | Luís      | Gonçalves | São José dos Campos  | SP    | Brazil  |
+--- |          2 | Eduardo   | Martins   | São Paulo            | SP    | Brazil  |
+--- |          3 | Alexandre | Rocha     | São Paulo            | SP    | Brazil  |
+--- |          4 | Roberto   | Almeida   | Rio de Janeiro       | RJ    | Brazil  |
+--- |          5 | Mark      | Philips   | Edmonton             | AB    | Canada  |
+--- |          6 | Jennifer  | Peterson  | Vancouver            | BC    | Canada  |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+
+-- Sort all customers by first name in ascending order
+SELECT CustomerId, FirstName, LastName, City, State, Country
+FROM Customer
+ORDER BY FirstName;
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- | CustomerId | FirstName | LastName  | City                 | State | Country |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- |          3 | Alexandre | Rocha     | São Paulo            | SP    | Brazil  |
+--- |          2 | Eduardo   | Martins   | São Paulo            | SP    | Brazil  |
+--- |          6 | Jennifer  | Peterson  | Vancouver            | BC    | Canada  |
+--- |          1 | Luís      | Gonçalves | São José dos Campos  | SP    | Brazil  |
+--- |          5 | Mark      | Philips   | Edmonton             | AB    | Canada  |
+--- |          4 | Roberto   | Almeida   | Rio de Janeiro       | RJ    | Brazil  |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+
+-- Filter the result set to show only customers from Brazil
+SELECT CustomerId, FirstName, LastName, City, State, Country
+FROM Customer
+WHERE Country = 'Brazil';
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- | CustomerId | FirstName | LastName  | City                 | State | Country |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- |          1 | Luís      | Gonçalves | São José dos Campos  | SP    | Brazil  |
+--- |          2 | Eduardo   | Martins   | São Paulo            | SP    | Brazil  |
+--- |          3 | Alexandre | Rocha     | São Paulo            | SP    | Brazil  |
+--- |          4 | Roberto   | Almeida   | Rio de Janeiro       | RJ    | Brazil  |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+
+-- Filter customers from Brazil and sort them by first name
+SELECT CustomerId, FirstName, LastName, City, State, Country
+FROM Customer
+WHERE Country = 'Brazil'
+ORDER BY FirstName;
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- | CustomerId | FirstName | LastName  | City                 | State | Country |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+--- |          3 | Alexandre | Rocha     | São Paulo            | SP    | Brazil  |
+--- |          2 | Eduardo   | Martins   | São Paulo            | SP    | Brazil  |
+--- |          1 | Luís      | Gonçalves | São José dos Campos  | SP    | Brazil  |
+--- |          4 | Roberto   | Almeida   | Rio de Janeiro       | RJ    | Brazil  |
+--- +------------+-----------+-----------+----------------------+-------+---------+
+```
+
+The optional additional task asks us to display only the customer name and country for customers from Canada, sorted by first name.
+
+The SQL statement is:
+
+```sql
+SELECT FirstName, Country
+FROM Customer
+WHERE Country = 'Canada'
+ORDER BY FirstName;
+--- +-----------+---------+
+--- | FirstName | Country |
+--- +-----------+---------+
+--- | Jennifer  | Canada  |
+--- | Mark      | Canada  |
+--- +-----------+---------+
+```
+
+
 
 ## 4. Database Design
 
