@@ -15,6 +15,6 @@ From these specializations, I have selected the following topics/courses:
 7. [Software Architecture Patterns](https://www.udacity.com/course/software-architecture-patterns--cd14601)
 8. [Identity and Access Management](https://www.udacity.com/course/identity-access-management--cd0039)
 
-This module deals with the third topic/course: **Django Web Framework**.
+This module deals with the seventh topic/course: **Software Architecture Patterns**.
 
 TBD.

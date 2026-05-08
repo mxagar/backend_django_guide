@@ -1,28 +1,26 @@
 # Web-App Back-End Development Guide
 
-This is my guide for web-app backend development, based on the [Meta Back-End Developer Professional Certificate](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/professional-certificates/meta-back-end-developer) specialization on Coursera. From that specializatuon, I have selected these topics/courses:
+This is my guide for web-app backend development, based on selected courses from:
+
+- the [Meta Back-End Developer Professional Certificate](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/professional-certificates/meta-back-end-developer) specialization on Coursera
+- and the [Backend Developer with Python](https://www.udacity.com/course/backend-developer-with-python--nd0044) nanodegree on Udacity.
+
+From these specializations, I have selected the following topics/courses:
 
 1. [Introduction to Back-End Development](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/introduction-to-back-end-development)
 2. [Introduction to Databases for Back-End Development](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/intro-to-databases-back-end-development)
 3. [Django Web Framework](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/django-web-framework?authProvider)
 4. [APIs](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/apis)
 5. [The Full Stack](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/the-full-stack?authProvider=deutschetelekom)
-6. [Back-End Developer Capstone Project](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/back-end-developer-capstone)
+6. [SQL & Python Data Modeling for the Web](https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046)
+7. [Software Architecture Patterns](https://www.udacity.com/course/software-architecture-patterns--cd14601)
+8. [Identity and Access Management](https://www.udacity.com/course/identity-access-management--cd0039)
 
 Strong Python and Git/Version Control skills are required for these courses.
 
 Each of the topics/courses has its own sub-folder with the relevant materials, including notes, setup information, code snippets, and exercises.
 
+Finally, check my front-end development guide for a more comprehensive understanding of web development: [Web-App Front-End Development Guide](https://github.com/mxagar/frontend_react_guide)
+
 Mikel Sagardia, 2026.  
 No guarantees.  
-
-
-<!--
-
-[SQL and Data Modeling for the Web](https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046)
-
-[Software Architecture Patterns](https://www.udacity.com/course/software-architecture-patterns--cd14601)
-
-[Identity and Access Management](https://www.udacity.com/course/identity-access-management--cd0039)
-
--->
