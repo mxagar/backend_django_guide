@@ -20,7 +20,10 @@ Strong Python and Git/Version Control skills are required for these courses.
 
 Each of the topics/courses has its own sub-folder with the relevant materials, including notes, setup information, code snippets, and exercises.
 
-Finally, check my front-end development guide for a more comprehensive understanding of web development: [Web-App Front-End Development Guide](https://github.com/mxagar/frontend_react_guide)
+Finally, check also my following guides on related topics:
+
+- [Web-App Front-End Development Guide](https://github.com/mxagar/frontend_react_guide)
+- [Web-App Deployment Guide](https://github.com/mxagar/webapp_deployment_guide)
 
 Mikel Sagardia, 2026.  
 No guarantees.  
