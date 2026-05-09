@@ -87,6 +87,7 @@ Table of Contents:
       - [Example: Keys in Depth](#example-keys-in-depth)
       - [Entities and Attributes](#entities-and-attributes)
     - [Database Normalization](#database-normalization)
+      - [What is Database Normalization?](#what-is-database-normalization)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
   - [7. Extra: Other Topics](#7-extra-other-topics)
@@ -2979,6 +2980,62 @@ JOIN owner
 
 
 ### Database Normalization
+
+#### What is Database Normalization?
+
+* Database normalization is a process used to organize database tables efficiently.
+    * Its goals are:
+        * Reduce duplicated data
+        * Avoid inconsistencies during data modifications
+        * Simplify queries and maintenance
+* Poorly designed tables often try to serve multiple purposes at once.
+    * Example:
+        * A single Enrollment table storing:
+            * students
+            * courses
+            * departments
+            * department heads
+    * This causes redundancy and maintenance problems.
+* Three main anomalies occur in non-normalized databases:
+    * Insert anomaly
+        * Inserting one piece of data requires inserting unrelated data.
+        * Example:
+            * Cannot add a new course unless a student is enrolled in it.
+            * Cannot enroll a student without assigning a student ID.
+        * Problem:
+            * Some data cannot exist independently.
+    * Update anomaly
+        * Updating one value requires updating many duplicated rows.
+        * Example:
+            * A department director changes.
+            * Every student row related to that department must also be updated.
+        * Risks:
+            * missed updates
+            * inconsistent data
+            * maintenance difficulty
+    * Deletion anomaly
+        * Deleting one record accidentally removes important related data.
+        * Example:
+            * Deleting the only student in a department removes all department information.
+        * Problem:
+            * loss of unrelated data
+* Normalization solves these problems by splitting large multi-purpose tables into smaller single-purpose tables.
+* Example normalization:
+    * One large Enrollment table becomes:
+        * Student table
+        * Course table
+        * Department table
+* Benefits of normalization:
+    * Less duplicated data
+    * Easier maintenance
+    * More consistent data
+    * Reduced anomalies
+    * Simpler SQL queries
+    * Better database design
+
+![Database Normalization: Multi-Purpose Table](./assets/database_normalization_1.png)
+
+![Database Normalization: Normalized Tables](./assets/database_normalization_2.png)
 
 ## 5. Assessment
 
