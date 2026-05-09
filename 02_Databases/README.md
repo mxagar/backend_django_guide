@@ -88,6 +88,11 @@ Table of Contents:
       - [Entities and Attributes](#entities-and-attributes)
     - [Database Normalization](#database-normalization)
       - [What is Database Normalization?](#what-is-database-normalization)
+      - [Normalization Example](#normalization-example)
+        - [Unnormalized Form (UNF)](#unnormalized-form-unf)
+        - [First Normal Form (1NF)](#first-normal-form-1nf)
+        - [Second Normal Form (2NF)](#second-normal-form-2nf)
+        - [Third Normal Form (3NF)](#third-normal-form-3nf)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
   - [7. Extra: Other Topics](#7-extra-other-topics)
@@ -3036,6 +3041,189 @@ JOIN owner
 ![Database Normalization: Multi-Purpose Table](./assets/database_normalization_1.png)
 
 ![Database Normalization: Normalized Tables](./assets/database_normalization_2.png)
+
+#### Normalization Example
+
+* The three fundamental normalization stages are:
+    * First Normal Form (1NF)
+    * Second Normal Form (2NF)
+    * Third Normal Form (3NF)
+
+##### Unnormalized Form (UNF)
+
+* The original medical surgery table contains:
+    * doctors
+    * patients
+    * surgeries
+    * councils
+    * regions
+    * appointments
+    * costs
+* Problems in the unnormalized table:
+    * Repeating groups of data
+    * Multiple values stored in single cells
+    * Difficult querying and updating
+    * Hard to define proper primary keys
+
+```sql
+-- Unnormalized table: mixes multiple entities together
+CREATE TABLE Surgery (
+    DoctorID VARCHAR(10),
+    DoctorName VARCHAR(50),
+    Region VARCHAR(20),
+    SurgeryNumber INT,
+    Council VARCHAR(20),
+    Postcode VARCHAR(10),
+    PatientID VARCHAR(10),
+    PatientName VARCHAR(50),
+    SlotID VARCHAR(5),
+    TotalCost DECIMAL
+);
+```
+
+##### First Normal Form (1NF)
+
+Goals:
+
+* Enforce atomicity:
+    * Each table cell must contain only one value.
+* Remove repeating groups.
+* Separate entities into dedicated tables.
+
+Problems Found:
+
+* Patient-related columns contain multiple values.
+* The table mixes:
+    * doctors
+    * surgeries
+    * patients
+
+Solution: Create Patient, Doctor & Surgery tables:
+
+* In the Patient table, each row stores one patient appointment only.
+  * A composite primary key is required: `(PatientID, SlotID)`
+* Data becomes atomic.
+* Repeating groups are removed.
+* Tables become easier to query and maintain.
+
+
+```sql
+-- 1NF Patient table
+-- Composite primary key because PatientID alone is not unique
+CREATE TABLE Patient (
+    PatientID VARCHAR(10) NOT NULL,
+    PatientName VARCHAR(50),
+    SlotID VARCHAR(10) NOT NULL,
+    TotalCost DECIMAL,
+    CONSTRAINT PK_Patient
+    PRIMARY KEY (PatientID, SlotID)
+);
+
+-- Doctor entity separated from other data
+CREATE TABLE Doctor (
+    DoctorID VARCHAR(10),
+    DoctorName VARCHAR(50),
+    PRIMARY KEY (DoctorID)
+);
+
+-- Surgery entity separated from doctor and patient data
+CREATE TABLE Surgery (
+    SurgeryNumber INT NOT NULL,
+    Region VARCHAR(20),
+    Council VARCHAR(20),
+    Postcode VARCHAR(10),
+    PRIMARY KEY (SurgeryNumber)
+);
+```
+
+##### Second Normal Form (2NF)
+
+Goals:
+
+* Remove partial dependencies.
+* Applies mainly to tables with composite primary keys.
+
+Problem Found: In the Patient table:
+
+* PatientName depends only on PatientID
+* TotalCost depends only on SlotID
+* This violates 2NF because: Non-key attributes must depend on the entire composite key.
+
+Solution: Split Patient table into Patient + Appointments tables
+
+* Partial dependencies are removed.
+* Every non-key attribute depends on the whole primary key.
+
+```sql
+-- Patient information depends only on PatientID
+CREATE TABLE Patient (
+    PatientID VARCHAR(10) NOT NULL,
+    PatientName VARCHAR(50),
+    PRIMARY KEY (PatientID)
+);
+
+-- Appointment data separated from patient data
+-- AppointmentID added as a simple primary key
+CREATE TABLE Appointments (
+    AppointmentID INT NOT NULL,
+    SlotID VARCHAR(10),
+    TotalCost DECIMAL,
+    PRIMARY KEY (AppointmentID)
+);
+```
+
+##### Third Normal Form (3NF)
+
+Goals:
+
+* Remove transitive dependencies.
+* Non-key attributes must not depend on other non-key attributes.
+
+Problem Found: In the Surgery table:
+
+* Postcode depends on Council
+* Both are non-key attributes
+* This creates transitive dependency.
+
+
+Solution: Split Surgery table into Location + Council tables
+
+```sql
+-- Stores surgery locations
+CREATE TABLE Location (
+    SurgeryNumber INT NOT NULL,
+    Postcode VARCHAR(10),
+    PRIMARY KEY (SurgeryNumber)
+);
+
+-- Stores council-region mapping
+CREATE TABLE Council (
+    Council VARCHAR(20) NOT NULL,
+    Region VARCHAR(20),
+    PRIMARY KEY (Council)
+);
+```
+
+Foreign Keys:
+
+* After normalization, tables should be connected using foreign keys.
+* Foreign keys maintain relationships and referential integrity.
+
+Example:
+
+```sql
+-- Example foreign key relationship
+ALTER TABLE Appointments
+ADD COLUMN PatientID VARCHAR(10);
+ALTER TABLE Appointments
+ADD CONSTRAINT FK_AppointmentPatient
+FOREIGN KEY (PatientID)
+REFERENCES Patient(PatientID);
+```
+
+![Normal Forms](./assets/normal_forms.png)
+
+![Normalization ERD](./assets/normalization_erd.PNG)
 
 ## 5. Assessment
 
