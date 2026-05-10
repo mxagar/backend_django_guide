@@ -93,6 +93,10 @@ Table of Contents:
         - [First Normal Form (1NF)](#first-normal-form-1nf)
         - [Second Normal Form (2NF)](#second-normal-form-2nf)
         - [Third Normal Form (3NF)](#third-normal-form-3nf)
+      - [First Normal Form (1NF)](#first-normal-form-1nf-1)
+      - [Second Normal Form (2NF)](#second-normal-form-2nf-1)
+      - [Third Normal Form (3NF)](#third-normal-form-3nf-1)
+      - [Exercise: Database Schema Examples](#exercise-database-schema-examples)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
   - [7. Extra: Other Topics](#7-extra-other-topics)
@@ -3224,6 +3228,249 @@ REFERENCES Patient(PatientID);
 ![Normal Forms](./assets/normal_forms.png)
 
 ![Normalization ERD](./assets/normalization_erd.PNG)
+
+#### First Normal Form (1NF)
+
+* First Normal Form (1NF) is the first stage of database normalization.
+* Goals of 1NF:
+    * enforce atomicity
+    * remove repeating groups
+    * reduce redundancy
+    * improve consistency
+* Atomicity means:
+    * each table cell contains only one value
+* Example violation:
+    * one column stores multiple phone numbers
+* Incorrect fixes:
+    * adding multiple rows --> duplicates primary keys
+    * adding multiple phone columns --> repeated tutor data remains
+* Repeating groups cause:
+    * duplicated data
+    * update anomalies
+    * inconsistent records
+* Proper 1NF solution:
+    * identify entities
+    * split data into separate tables
+* Example entities:
+    * Course
+    * Tutor
+* Each table should have:
+    * its own primary key
+* Tables are linked using:
+    * foreign keys
+* Example:
+    * TutorID is the primary key in Tutor
+    * TutorID is a foreign key in Course
+* Benefits of 1NF:
+    * cleaner structure
+    * easier maintenance
+    * simpler queries
+    * reduced redundancy
+
+#### Second Normal Form (2NF)
+
+* Second Normal Form (2NF) builds on First Normal Form (1NF).
+* Goals of 2NF:
+    * reduce duplication
+    * improve consistency
+    * eliminate partial dependencies
+* Functional dependency means:
+    * one attribute determines another attribute
+    * non-key columns depend on the primary key
+* Example:
+    * StudentID uniquely determines:
+        * student name
+        * date of birth
+* A table is in 2NF when:
+    * it is already in 1NF
+    * all non-key attributes depend on the entire primary key
+* Partial dependency occurs when:
+    * a table has a composite primary key
+    * a non-key attribute depends on only part of that key
+* Example:
+    * composite key:
+        * (PatientID, VaccineID)
+    * VaccineName depends only on VaccineID
+    * PatientName depends only on PatientID
+    * this violates 2NF
+* To achieve 2NF:
+    * identify separate entities
+    * split the table into smaller tables
+* Example entities:
+    * Patient
+    * Vaccine
+    * VaccinationStatus
+* Benefits of 2NF:
+    * reduced redundancy
+    * fewer update anomalies
+    * cleaner schema
+    * improved consistency
+    * easier maintenance
+
+#### Third Normal Form (3NF)
+
+* Third Normal Form (3NF) is the next step after:
+    * First Normal Form (1NF)
+    * Second Normal Form (2NF)
+* A table must already satisfy:
+    * 1NF:
+        * atomic values
+        * no repeating groups
+    * 2NF:
+        * no partial dependencies
+* The main goal of 3NF is:
+    * eliminating transitive dependencies
+* A transitive dependency occurs when:
+    * a non-key attribute depends on another non-key attribute
+    * instead of depending directly on the primary key
+* In 3NF:
+    * every non-key attribute must depend only on:
+        * the primary key
+        * the whole primary key
+        * nothing but the primary key
+* Generic example:
+    * column A determines B
+    * column B determines C
+    * therefore A indirectly determines C
+    * this indirect relationship is called a transitive dependency
+* Bookstore example:
+    * table columns:
+        * BookID
+        * Title
+        * AuthorName
+        * Language
+        * Country
+* BookID is the primary key:
+    * all book information should depend on it
+* Problem:
+    * Language and Country are both non-key attributes
+    * but:
+        * language determines country
+        * country determines language
+* Example:
+    * if language is French, country is France
+    * if country is Ireland, language is Irish
+* This creates transitive dependency because:
+    * Country depends on Language
+    * not directly on BookID
+* Consequences of transitive dependency:
+    * repeated data
+    * wasted storage
+    * harder updates
+    * risk of inconsistent information
+* Example inconsistency:
+    * if the language-country mapping changes in one row but not another
+    * the database becomes inconsistent
+* Solution:
+    * split the table into smaller related tables
+* Final design:
+    * TopBooks table:
+        * BookID
+        * Title
+        * AuthorName
+        * Country (foreign key)
+    * Country table:
+        * Country
+        * Language
+* Benefits of the redesign:
+    * removes repeated language values
+    * eliminates transitive dependency
+    * improves consistency
+    * simplifies maintenance
+    * reduces redundancy
+* Important principle of 3NF:
+    * non-key attributes should never determine other non-key attributes
+* Result:
+    * all non-key columns now depend only on the table’s primary key
+    * the database satisfies Third Normal Form (3NF)
+
+#### Exercise: Database Schema Examples
+
+See the instructions in [02_Databases/lab/09_database_schema/Instructions.md](./lab/09_database_schema/Instructions.md) and the tips in [02_Databases/lab/09_database_schema/README.md](./lab/09_database_schema/README.md).
+
+In the example, the following is done:
+
+- The purpose of the database is identified.
+- Six main tables from the Chinook sample database are selected.
+- Each table is described with its primary key and relevant attributes.
+- The relationships between the selected tables are identified.
+- An entity relationship diagram (ERD) is created to show how the tables are connected.
+
+The exercise uses a simplified version of the **Chinook sample database**. Chinook represents a fictitious digital media store that manages data about employees, customers, invoices, artists, albums, and tracks.
+
+To design a basic database schema, we can follow these steps:
+
+1. Define the purpose of the database.
+2. Identify the main tables, including:
+   * table attributes
+   * attribute data types
+   * primary key for each table
+3. Create relationships between the tables.
+4. Represent the design with an ER diagram.
+
+The purpose of the customized Chinook schema is to store and organize information for a digital media company, including employees who support customers, customers who receive invoices, and music data such as artists, albums, and tracks.
+
+The six main tables are:
+
+- `Employees`: stores employee data.
+  * Primary key: `EmployeeId`.
+  * Example attributes: first name, last name, title, birth date, hire date, address, city.
+- `Customers`: stores customer data.
+  * Primary key: `CustomerId`.
+  * Example attributes: first name, last name, company, address, city, country, support representative.
+- `Invoices`: stores invoice data.
+  * Primary key: `InvoiceId`.
+  * Example attributes: customer ID, invoice date, billing address, total.
+- `Artists`: stores artist data.
+  * Primary key: `ArtistId`.
+  * Example attributes: artist name.
+- `Albums`: stores album data.
+  * Primary key: `AlbumId`.
+  * Example attributes: album title, artist ID.
+- `Tracks`: stores song or track data.
+  * Primary key: `TrackId`.
+  * Example attributes: track name, album ID, media type, genre, composer.
+
+The individual table diagrams from the lab are:
+
+![Employees table](./lab/09_database_schema/assets/Picture1.png)
+
+![Customers table](./lab/09_database_schema/assets/Picture2.png)
+
+![Invoices table](./lab/09_database_schema/assets/Picture3.png)
+
+![Artists table](./lab/09_database_schema/assets/Picture4.png)
+
+![Albums table](./lab/09_database_schema/assets/Picture5.png)
+
+![Tracks table](./lab/09_database_schema/assets/Picture6.png)
+
+The relationships between the six selected tables are:
+
+- Each employee supports one or many customers.
+- Each customer may have multiple invoices.
+- Each artist may have one or more albums.
+- Each album may contain multiple tracks.
+- Each track belongs to one album.
+- Each invoice is related to a customer.
+- In this simplified schema, invoices are also connected to tracks to represent purchased music items.
+
+The resulting ER diagram connects the tables through primary keys and foreign keys:
+
+![Customized Chinook ER diagram](./lab/09_database_schema/assets/Picture7.png)
+
+The optional additional task asks us to extend the schema with a new table called `Location`, which stores where artists live.
+
+The solution is:
+
+- Add a new table called `Location`.
+- Store location attributes such as city and country in that table.
+- Add a foreign key called `LocationId` to the `Artists` table.
+- Use `LocationId` to connect each artist to a location.
+
+The extended ER diagram is:
+
+![Extended Chinook ER diagram with Location table](./lab/09_database_schema/assets/Picture8.png)
 
 ## 5. Assessment
 
