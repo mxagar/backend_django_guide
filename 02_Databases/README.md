@@ -97,6 +97,7 @@ Table of Contents:
       - [Second Normal Form (2NF)](#second-normal-form-2nf-1)
       - [Third Normal Form (3NF)](#third-normal-form-3nf-1)
       - [Exercise: Database Schema Examples](#exercise-database-schema-examples)
+      - [Additional Resources](#additional-resources)
   - [5. Assessment](#5-assessment)
   - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
   - [7. Extra: Other Topics](#7-extra-other-topics)
@@ -3471,6 +3472,11 @@ The solution is:
 The extended ER diagram is:
 
 ![Extended Chinook ER diagram with Location table](./lab/09_database_schema/assets/Picture8.png)
+
+#### Additional Resources
+
+- [Database Normalization](https://opentextbc.ca/dbdesign01/chapter/chapter-12-normalization/)
+- [Database Normalization: A Step-By-Step-Guide With Examples](https://www.databasestar.com/database-normalization/)
 
 ## 5. Assessment
 
