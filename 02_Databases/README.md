@@ -99,8 +99,6 @@ Table of Contents:
       - [Exercise: Database Schema Examples](#exercise-database-schema-examples)
       - [Additional Resources](#additional-resources)
   - [5. Assessment](#5-assessment)
-  - [6. Extra: Database Migrations and Backups](#6-extra-database-migrations-and-backups)
-  - [7. Extra: Other Topics](#7-extra-other-topics)
 
 ## 0. Setup
 
@@ -3480,19 +3478,4 @@ The extended ER diagram is:
 
 ## 5. Assessment
 
-## 6. Extra: Database Migrations and Backups
-
-Explain two options:
-
-- Django migrations (very beginner-friendly)
-- SQLAlchemy + Alembic (FastAPI world)
-
-## 7. Extra: Other Topics
-
-Which other topics?
-
-- Docker PostgreSQL container
-- Docker MySQL container
-- Create a DB in the cloud: AWS RDS, Azure SQL Database
-- Database security and user management
-- ...
+Questionnaire.
