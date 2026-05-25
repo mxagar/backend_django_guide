@@ -1,0 +1,4 @@
+interface:
+  display_name: "Summarize for Learning"
+  short_description: "Section summaries with updated code"
+  default_prompt: "Summarize a named section from a file for learning, including linked notebook or script summaries and refreshed code where needed."
