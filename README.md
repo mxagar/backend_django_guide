@@ -20,10 +20,56 @@ Strong Python and Git/Version Control skills are required for these courses.
 
 Each of the topics/courses has its own sub-folder with the relevant materials, including notes, setup information, code snippets, and exercises.
 
-Finally, check also my following guides on related topics:
+Check also my following guides on related topics:
 
 - [Web-App Front-End Development Guide](https://github.com/mxagar/frontend_react_guide)
 - [Web-App Deployment Guide](https://github.com/mxagar/webapp_deployment_guide)
+
+## Setup
+
+Each subdirectory may contain its own setup instructions. If you need a generic Python environment, you can use the following recipe based on [uv](https://docs.astral.sh/uv/):
+
+```bash
+# Create a virtual environment with the correct Python version
+uv venv --python 3.11
+
+# Install the dependencies from pyproject.toml/uv.lock
+uv lock
+uv sync
+
+# Activate the virtual environment
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS/Linux
+source .venv/bin/activate
+
+# Start running commands in the environment
+uv run python path/to/script.py
+uv run pytest
+```
+
+Common uv usage commands:
+
+```bash
+# Add a dependency to pyproject.toml, update the lockfile, and install it
+uv add <package>
+
+# Remove a dependency from the project
+uv remove <package>
+
+# Refresh uv.lock without installing packages
+uv lock
+
+# Create/Sync the virtual environment with pyproject.toml and uv.lock
+uv sync
+
+# Run a command inside the project environment
+uv run <command>
+```
+
+The environment variables are stored in the `.env` file, which is ignored by git. You can create a `.env` file with the necessary environment variables for your setup.
+
+## Authorship
 
 Mikel Sagardia, 2026.  
 No guarantees.  
