@@ -26,6 +26,28 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Projects and Apps](#projects-and-apps)
       - [Projects and Apps Overview](#projects-and-apps-overview)
       - [Project Structure](#project-structure)
+        - [Django and the Python environment](#django-and-the-python-environment)
+        - [What is a project?](#what-is-a-project)
+        - [`manage.py`](#managepy)
+        - [`startapp`](#startapp)
+        - [`makemigrations`](#makemigrations)
+        - [`migrate`](#migrate)
+        - [`runserver`](#runserver)
+        - [`shell`](#shell)
+        - [Project package](#project-package)
+        - [`settings.py`](#settingspy)
+        - [`urls.py`](#urlspy)
+        - [`asgi.py`](#asgipy)
+        - [`wsgi.py`](#wsgipy)
+        - [Critical settings](#critical-settings)
+        - [`INSTALLED_APPS`](#installed_apps)
+        - [`DATABASES`](#databases)
+        - [`DEBUG`](#debug)
+        - [`ALLOWED_HOSTS`](#allowed_hosts)
+        - [`ROOT_URLCONF`](#root_urlconf)
+        - [`STATIC_URL`](#static_url)
+        - [Test the installation](#test-the-installation)
+      - [Creating Our First Project](#creating-our-first-project)
     - [Admin and Structures](#admin-and-structures)
     - [Web Frameworks and MVT](#web-frameworks-and-mvt)
   - [2. Views](#2-views)
@@ -319,8 +341,7 @@ The `startproject` command uses Django's default project template. It creates th
 ```text
 C:\djenv\demoproject
 |   manage.py
-|
-\---demoproject
+\---demoproject\
         asgi.py
         settings.py
         urls.py
@@ -572,6 +593,116 @@ python manage.py runserver
 - If the Django welcome page appears, the project was created successfully.
 
 In this reading, you learned how to create a Django project, inspect its file structure, and verify the installation.
+
+#### Creating Our First Project
+
+- This section builds on Django projects, apps, and core project files.
+  - It shows how to create a first Django project.
+  - It uses the terminal and Visual Studio Code (VS Code).
+  - It introduces common CLI (command-line interface) commands.
+    - Commands create the project.
+    - Commands launch the development server.
+- A virtual environment is recommended for Django projects.
+  - It isolates project dependencies from other Python or Django projects.
+  - It prevents package-version conflicts.
+  - It keeps the interpreter, libraries, and scripts tied to one project.
+  - It can be omitted, but this is not recommended.
+- Django includes an integrated development server.
+  - The server supports local development.
+  - It lets the application handle a request-response relationship with a client.
+  - It is a development tool, not a production server.
+- Creating a Django project follows a sequence.
+  - Create a project directory.
+  - Create and activate a virtual environment.
+  - Install Django.
+  - Verify the Django installation.
+  - Create the Django project.
+  - Run the Django development server.
+- A Django project is an organizational unit.
+  - It contains settings.
+  - It contains database information.
+  - It can be stored anywhere on the development computer.
+  - Best practice is to keep it in a subfolder with other Django applications.
+- The terminal workflow creates the project workspace.
+  - Open a new terminal in VS Code.
+  - Create a directory with the make-directory command.
+  - Move into that directory with the change-directory command.
+  - Create a virtual environment with Python's `venv` module.
+  - Activate the virtual environment.
+  - The activated environment appears in the terminal prompt.
+- Django is installed inside the activated virtual environment.
+  - Current Django documentation recommends installing with `python -m pip`.
+  - Current Django documentation verifies installation with `python -m django --version`.
+  - The original section mentioned Django version 4.1, but the installed version depends on the current environment.
+- A Django project is created with Django's command-line tools.
+  - Use `django-admin startproject`.
+  - The example project name is `chef_stable`.
+  - Django creates the project directory and supporting Django-specific files.
+- The generated `manage.py` file is important.
+  - It is created automatically with the project.
+  - It works like `django-admin`.
+  - It uses the current project's settings.
+  - It is commonly used to run project-specific commands.
+- The development server is launched with `manage.py`.
+  - Running the server generates a local URL.
+  - On macOS, the URL can usually be clicked from the terminal.
+  - On Windows, the URL may need to be copied into the browser.
+  - Press `Ctrl+C` in the terminal to stop the server.
+- Virtual environments and development servers are larger topics.
+  - The course will cover them later.
+  - This section focuses on creating the first Django project with terminal, VS Code, and Django command-line tools.
+
+```bash
+# Create a project directory.
+cd .../backend_django_guide
+cd 03_Django/lab
+mkdir 01-django-demo
+
+# Move into the project directory.
+cd 01-django-demo
+
+# Create a virtual environment
+python -m venv tutorial-env
+# Activate the virtual environment on macOS/Linux.
+source tutorial-env/bin/activate
+# Activate the virtual environment on Windows PowerShell.
+tutorial-env\Scripts\Activate.ps1
+# Install Django in the activated virtual environment.
+python -m pip install Django
+
+# Alternatively, I used the uv env created in the root of this repository.
+cd .../backend_django_guide
+uv sync
+.venv\Scripts\Activate.ps1
+
+# Verify the installed Django version.
+python -m django --version
+
+# Create the Django project.
+cd .../backend_django_guide/03_Django/lab/01-django-demo
+django-admin startproject chef_stable
+# This creates an outer and inner chef_stable folder with the project files.
+# 01-django-demo/chef_stable
+#   manage.py
+#   chef_stable/
+#     asgi.py
+#     settings.py
+#     urls.py
+#     wsgi.py
+#     __init__.py
+
+# Move into the generated project directory.
+cd chef_stable
+
+# Run the Django development server (but first run once migrate to create the database file).
+python manage.py migrate
+python manage.py runserver  # It defaults to 127.0.0.1:8000, but maybe the port is taken
+# In that case, specify the port explicitly:
+python manage.py runserver 127.0.0.1:8001
+# Stop the development server with Ctrl+C in the terminal.
+```
+
+![Django Default Web Page](./assets/django_default_web.png)
 
 ### Admin and Structures
 
