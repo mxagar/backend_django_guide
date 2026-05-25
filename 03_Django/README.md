@@ -20,9 +20,10 @@ This module deals with the third topic/course: **Django Web Framework**.
 - [Intoduction to Web-App Back-End Development](#intoduction-to-web-app-back-end-development)
   - [1. Introduction to Django](#1-introduction-to-django)
     - [Introduction](#introduction)
+      - [What is Django?](#what-is-django)
     - [Projects and Apps](#projects-and-apps)
     - [Admin and Structures](#admin-and-structures)
-    - [Wen Frameworks and MVT](#wen-frameworks-and-mvt)
+    - [Web Frameworks and MVT](#web-frameworks-and-mvt)
   - [2. Views](#2-views)
     - [Views](#views)
     - [Requests and URLs](#requests-and-urls)
@@ -43,11 +44,131 @@ This module deals with the third topic/course: **Django Web Framework**.
 
 ### Introduction
 
+#### What is Django?
+
+- Developers can choose how to build web applications.
+  - They can build common features themselves.
+  - They can use a web application framework.
+    - A framework is a toolkit with common components for application development.
+    - It lets teams focus on unique features instead of rebuilding common features.
+      - Common features include:
+        - user login,
+        - authentication,
+        - admin dashboards.
+- Django is an open-source web development framework.
+  - It is written in Python.
+  - Current Django documentation describes it as high-level and focused on rapid development.
+  - Current Django documentation emphasizes clean, pragmatic design.
+  - Django was first created for a newspaper publisher web application.
+    - This origin makes it strong for:
+      - text-heavy projects,
+      - media-heavy projects,
+      - high-traffic projects.
+  - Its open-source nature helped it:
+    - grow quickly,
+    - adapt to many web applications.
+- Django integrates with many tools.
+  - It integrates through Python libraries.
+  - A successful web framework must be:
+    - robust,
+    - secure,
+    - adaptable,
+    - scalable.
+  - Django supports these needs with:
+    - templates,
+    - libraries,
+    - APIs (application programming interfaces).
+- Django is used across many industries.
+  - It is popular in:
+    - publishing,
+    - eCommerce,
+    - health care,
+    - finance,
+    - transport,
+    - travel,
+    - social media.
+  - It is used for:
+    - machine learning,
+    - artificial intelligence,
+    - scalable web applications,
+    - SaaS (Software as a Service) applications,
+    - OTT (over-the-top) media platforms,
+    - shopping,
+    - event management,
+    - news and publishing.
+- Django separates application features well.
+  - This helps organizations combine Django with other frameworks.
+  - Developers can build a Django back end and connect it to a front end through an API.
+  - Teams can choose front-end frameworks such as:
+    - React,
+    - React Native.
+- Django supports powerful back-end features.
+  - It supports:
+    - email notifications,
+    - data analysis tools,
+    - admin dashboards,
+    - online marketplace tools,
+    - booking-system tools.
+- Django can support machine learning applications.
+  - Developers can expose machine learning algorithms through:
+    - APIs,
+    - RPCs (remote procedure calls),
+    - WebSockets.
+  - Django can handle many API endpoints.
+    - Each endpoint can connect to several machine learning models.
+  - Django supports fast model integration and deployment.
+- Django is popular for scalable web applications.
+  - Many applications start small and grow quickly.
+  - Social media applications may need rapid growth in:
+    - memory,
+    - resources.
+  - Instagram from Meta is given as an example.
+  - Django is useful when the final user-base size is unknown.
+  - Traffic management must be fast and efficient for scalability.
+  - Django is popular for:
+    - social media apps,
+    - magazines,
+    - blogs.
+- Django is used for Software as a Service applications.
+  - SaaS platforms may provide:
+    - data storage,
+    - app stores,
+    - version control systems.
+  - Django is popular for cloud storage applications.
+  - Current Django documentation defines asynchronous views with `async def`.
+  - Asynchronous views:
+    - can run non-blocking operations,
+    - perform best with ASGI (Asynchronous Server Gateway Interface),
+    - help applications run services concurrently,
+    - avoid waiting for each service in a queue.
+  - Concurrent service handling can improve application performance.
+- Django is used for OTT media platforms.
+  - OTT platforms provide streaming services for:
+    - audio,
+    - video.
+  - OTT platforms have grown in popularity.
+  - Django is often used to support OTT needs.
+- Django is not limited to these examples.
+  - It is generally considered more suitable for large projects.
+  - It provides good fault tolerance.
+  - It is free because it is open source.
+    - This can reduce company costs.
+  - It is popular because it has:
+    - ease of adaptation,
+    - robustness,
+    - a supportive open-source community,
+    - comprehensive documentation,
+    - security.
+- Django helps developers avoid reinventing the wheel.
+  - It helps teams use established tools and reduce rebuilding of common functionality.
+  - This section presents Django as a favored framework for real-world web applications.
+
+
 ### Projects and Apps
 
 ### Admin and Structures
 
-### Wen Frameworks and MVT
+### Web Frameworks and MVT
 
 ## 2. Views
 
