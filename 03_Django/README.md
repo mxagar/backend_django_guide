@@ -21,7 +21,11 @@ This module deals with the third topic/course: **Django Web Framework**.
   - [1. Introduction to Django](#1-introduction-to-django)
     - [Introduction](#introduction)
       - [What is Django?](#what-is-django)
+      - [Setup](#setup)
+      - [Additional Resources](#additional-resources)
     - [Projects and Apps](#projects-and-apps)
+      - [Projects and Apps Overview](#projects-and-apps-overview)
+      - [Project Structure](#project-structure)
     - [Admin and Structures](#admin-and-structures)
     - [Web Frameworks and MVT](#web-frameworks-and-mvt)
   - [2. Views](#2-views)
@@ -163,8 +167,411 @@ This module deals with the third topic/course: **Django Web Framework**.
   - It helps teams use established tools and reduce rebuilding of common functionality.
   - This section presents Django as a favored framework for real-world web applications.
 
+#### Setup
+
+- Python & `venv`; I will use `uv`, following the setup in [`../README.md`](../README.md)
+- Django as dependency in the `venv`.
+- VSCode + Python extension + SQLite.viewer extension.
+
+#### Additional Resources
+
+- [Django Official Website](https://www.djangoproject.com/start/overview/)
+- [Django Official Documentation](https://docs.djangoproject.com/en/4.1/)
 
 ### Projects and Apps
+
+#### Projects and Apps Overview
+
+- Website structure depends on complexity.
+  - A basic website contains:
+    - HTML (HyperText Markup Language) for page structure,
+    - CSS (Cascading Style Sheets) for look and style,
+    - JavaScript for client-side interaction.
+  - A simple static website may only need:
+    - CSS folders,
+    - JavaScript folders,
+    - image folders.
+  - A project structure should make files easy to update.
+- Dynamic web applications need more structure than static websites.
+  - They may need to hold state.
+  - They may need to access data.
+  - They may need to store data.
+  - A framework lets developers focus on project-specific functionality instead of repeated setup tasks.
+- Django provides a structured way to build web applications.
+  - It was created by developers who followed best practices.
+  - It helps organize development around projects and apps.
+  - It lets developers work from a predictable structure.
+- Dynamic web applications usually involve several core concepts.
+  - HTTP (HyperText Transfer Protocol) is used to get, send, and render web content.
+  - Every web action is tied to an HTTP request.
+  - Each request points to a URL (Uniform Resource Locator).
+  - A web server gets the requested page and returns it through HTTP.
+  - Django includes a Python development server.
+    - It saves setup time.
+    - It avoids manual server configuration during development.
+  - The web is stateless.
+    - It does not store information for future reference by itself.
+  - A database stores and retrieves website data.
+    - Form submissions often need to be saved.
+    - Saved data can be retrieved and rendered later.
+- A Django project represents the entire web application.
+  - Django commands auto-generate the project structure.
+  - The generated structure contains application-wide configuration and settings.
+  - The project organizes Python files and folders.
+  - This lets developers focus on code instead of configuration.
+- A Django app is a submodule of a project.
+  - It usually implements functionality for a specific purpose.
+  - It can be self-contained.
+  - It can be reused in multiple projects.
+  - This supports the DRY (don't repeat yourself) principle.
+    - Write functionality once.
+    - Reuse it many times.
+- A Django web application is a project that contains apps.
+  - A social media application can be the project.
+  - Its features can be separate apps, such as:
+    - news feed,
+    - comments,
+    - friends list,
+    - user page.
+- Django can generate app files automatically.
+  - The `startapp` command creates a self-contained app directory.
+  - The generated directory contains associated app files.
+  - The app lives inside the project structure.
+- Django must know which apps belong to the project.
+  - Apps must be added to the `INSTALLED_APPS` setting.
+  - Django uses installed apps for configuration and introspection.
+  - The application registry stores metadata for each installed app.
+  - The metadata lives in an app config instance.
+- Django apps can include several framework parts.
+  - Common parts include:
+    - models,
+    - views,
+    - templates,
+    - template tags,
+    - static files,
+    - URLs,
+    - middleware.
+- App design can be subjective.
+  - Developers spend a lot of time working with apps.
+  - Apps contain the project's different parts.
+  - Different developers may choose different app boundaries.
+  - A good starting rule is to make each app feature-targeted.
+  - An app should usually do one thing well.
+- This course uses one project with one app.
+  - The section introduces Django projects and apps.
+  - It explains how they give developers a structure to work from.
+
+![Django Project Structure](./assets/django_project.png)
+
+![Django Project: Create](./assets/django_project_create.png)
+
+![Django Apps](./assets/django_apps.png)
+
+![Django Projects and Apps](./assets/django_projects_and_apps.png)
+
+![Django Apps: Create](./assets/django_apps_create.png)
+
+```bash
+# Create a Django project.
+django-admin startproject project_name
+
+# Move into the generated project directory.
+cd project_name
+
+# Create an app inside the project.
+python manage.py startapp app_name
+
+# Run the local development server.
+python manage.py runserver
+```
+
+#### Project Structure
+
+##### Django and the Python environment
+
+- Python recommends isolated environments for application dependencies.
+  - A virtual environment keeps libraries separate for a specific application.
+  - Python's standard library includes the `venv` module for this purpose.
+- Installing Django adds the `django-admin` command-line utility.
+  - The utility is installed in the system path for the active Python environment.
+  - It is located in the environment's scripts folder.
+- The `django-admin` utility performs Django administrative tasks.
+  - It can create projects and apps.
+  - It can run migrations to create database tables that match data models.
+  - It can run the development server.
+
+##### What is a project?
+
+- A modular, extensible, and scalable web application needs a structure for its submodules.
+- A Django project is a Python package.
+  - It contains database configuration.
+  - It contains settings used by Django apps.
+  - It contains other Django-specific project settings.
+
+Create a project with `django-admin startproject`:
+
+```powershell
+(djenv) C:\djenv> django-admin startproject demoproject
+```
+
+The `startproject` command uses Django's default project template. It creates this structure:
+
+```text
+C:\djenv\demoproject
+|   manage.py
+|
+\---demoproject
+        asgi.py
+        settings.py
+        urls.py
+        wsgi.py
+        __init__.py
+```
+
+If you start Visual Studio Code in this folder, the file structure appears in its explorer.
+
+![Django Installed Apps](./assets/django_installed_apps.png)
+
+- The outer `demoproject` folder is created in the Python environment folder.
+- It contains:
+  - `manage.py`,
+  - an inner `demoproject` folder.
+- The inner folder contains project package files.
+
+##### `manage.py`
+
+- The `manage.py` script has the same role as `django-admin` for the current project.
+- It is useful when working on a single project because it automatically uses that project's settings.
+- If you have multiple projects, use `django-admin` and specify the settings explicitly.
+
+General usage:
+
+```bash
+python manage.py <command>
+```
+
+##### `startapp`
+
+- A Django project can contain one or more apps.
+- An app is represented by a folder with a specific file structure.
+- Use `startapp` to create an app.
+
+```bash
+python manage.py startapp <app_name>
+```
+
+You will explore the structure of an app later.
+
+##### `makemigrations`
+
+- Django manages database operations with the Object-Relational Mapping (ORM) technique.
+- A migration records how the database table structure should match the data model declared in an app.
+- Run this command whenever a new model is declared or an existing model changes.
+
+```bash
+python manage.py makemigrations
+```
+
+##### `migrate`
+
+- The `migrate` command synchronizes the database state with the declared models and migrations.
+
+```bash
+python manage.py migrate
+```
+
+The console or terminal displays migration output when the command runs.
+
+![Django Migrate](./assets/django_migrate.png)
+
+##### `runserver`
+
+- The `runserver` command starts Django's built-in development server.
+- By default, it runs on the local machine at IP (Internet Protocol) address `127.0.0.1` and port `8000`.
+- Do not use the development server in production.
+
+```bash
+python manage.py runserver
+```
+
+##### `shell`
+
+- The `shell` command opens an interactive Python shell inside the project.
+- It is useful for quick interactive operations.
+- Django prefers IPython when it is installed.
+
+```bash
+python manage.py shell
+```
+
+##### Project package
+
+The `django-admin startproject` command creates an outer folder and an inner package folder with the same name:
+
+```bash
+django-admin startproject demoproject
+```
+
+- The outer `demoproject` folder contains the project files.
+- The inner `demoproject` folder is a Python package.
+- Python recognizes a folder as a package when it contains `__init__.py`.
+- The default project package also contains:
+  - `settings.py`,
+  - `urls.py`,
+  - `asgi.py`,
+  - `wsgi.py`.
+
+##### `settings.py`
+
+- Django stores project configuration in `settings.py`.
+- The `django-admin` utility and `manage.py` script use these settings while performing administrative tasks.
+- The `startproject` template assigns default values that can be changed later.
+
+##### `urls.py`
+
+- The `urls.py` file contains `urlpatterns`.
+- Each browser request points to a URL (Uniform Resource Locator).
+- Django matches the requested URL pattern and routes the request to the mapped view.
+- The default `urls.py` maps the project's admin site.
+
+```python
+from django.contrib import admin
+from django.urls import path
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+]
+```
+
+##### `asgi.py`
+
+- The `asgi.py` file is used by servers that follow the ASGI (Asynchronous Server Gateway Interface) standard.
+- ASGI-compatible servers can serve asynchronous Django applications.
+
+##### `wsgi.py`
+
+- The `wsgi.py` file is used by servers that follow the WSGI (Web Server Gateway Interface) standard.
+- It is the entry point for WSGI-compatible servers that serve traditional Django applications.
+
+##### Critical settings
+
+The `settings.py` file defines attributes that influence how the Django application works.
+
+##### `INSTALLED_APPS`
+
+- `INSTALLED_APPS` is a list of strings.
+- Each string identifies an app available to the project.
+- The `startproject` template includes several Django apps by default.
+- Add a new app to this list after creating it.
+
+Create an app:
+
+```bash
+python manage.py startapp demoapp
+```
+
+Register the app in `settings.py`:
+
+```python
+INSTALLED_APPS = [
+    # ...
+    "demoapp",
+]
+```
+
+##### `DATABASES`
+
+- `DATABASES` is a dictionary.
+- It defines one or more database connections for the current Django application.
+- Django uses SQLite by default.
+- The default SQLite database file is usually `db.sqlite3` in the project root.
+
+Example SQLite configuration:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+```
+
+You can use another database instead of SQLite. Example MySQL configuration:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "database_name",
+        "USER": "database_user",
+        "PASSWORD": "database_password",
+        "HOST": "localhost",
+        "PORT": "3306",
+    }
+}
+```
+
+- MySQL commonly uses port `3306`.
+- Django's development server commonly uses port `8000`.
+
+##### `DEBUG`
+
+- `DEBUG = True` enables debug mode during development.
+- Debug mode lets the development server pick up code changes.
+- It lets output refresh without restarting the server manually.
+- Disable debug mode in production.
+
+```python
+DEBUG = True
+```
+
+##### `ALLOWED_HOSTS`
+
+- `ALLOWED_HOSTS` is a list of strings.
+- Each string represents a host or domain where the Django site can be served.
+- It is empty by default in a new project.
+- Add a host when the site must be externally visible.
+
+```python
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+```
+
+##### `ROOT_URLCONF`
+
+- `ROOT_URLCONF` points to the module that contains the project's URL patterns.
+- In this project, it points to the project package's `urls.py` file.
+
+```python
+ROOT_URLCONF = "demoproject.urls"
+```
+
+##### `STATIC_URL`
+
+- `STATIC_URL` points to the URL prefix used for static files.
+- Static files include:
+  - JavaScript code,
+  - CSS files,
+  - images.
+- It is usually set to `"static/"`.
+
+```python
+STATIC_URL = "static/"
+```
+
+##### Test the installation
+
+After creating the project, verify it from the project's parent folder.
+
+```bash
+python manage.py runserver
+```
+
+- The development server starts at `http://127.0.0.1:8000/`.
+- Open that address in a browser.
+- If the Django welcome page appears, the project was created successfully.
+
+In this reading, you learned how to create a Django project, inspect its file structure, and verify the installation.
 
 ### Admin and Structures
 
@@ -197,4 +604,3 @@ This module deals with the third topic/course: **Django Web Framework**.
 ### Debugging and Testing
 
 ## 5. Summary and Assessment
-
