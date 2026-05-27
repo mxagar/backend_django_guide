@@ -48,6 +48,13 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [`STATIC_URL`](#static_url)
         - [Test the installation](#test-the-installation)
       - [Creating Our First Project](#creating-our-first-project)
+      - [First Project Contents](#first-project-contents)
+        - [`manage.py`](#managepy-1)
+        - [`db.sqlite3`](#dbsqlite3)
+        - [`chef_stable/asgi.py`](#chef_stableasgipy)
+        - [`chef_stable/settings.py`](#chef_stablesettingspy)
+        - [`chef_stable/urls.py`](#chef_stableurlspy)
+        - [`chef_stable/wsgi.py`](#chef_stablewsgipy)
     - [Admin and Structures](#admin-and-structures)
     - [Web Frameworks and MVT](#web-frameworks-and-mvt)
   - [2. Views](#2-views)
@@ -652,6 +659,8 @@ In this reading, you learned how to create a Django project, inspect its file st
   - The course will cover them later.
   - This section focuses on creating the first Django project with terminal, VS Code, and Django command-line tools.
 
+This first project is in [`lab/01-django-demo`](./lab/01-django-demo).
+
 ```bash
 # Create a project directory.
 cd .../backend_django_guide
@@ -703,6 +712,370 @@ python manage.py runserver 127.0.0.1:8001
 ```
 
 ![Django Default Web Page](./assets/django_default_web.png)
+
+#### First Project Contents
+
+This first project is in [`lab/01-django-demo`](./lab/01-django-demo).
+
+Its contents include these files:
+
+- `manage.py`
+- `db.sqlite3` (created after running `migrate`)
+- `chef_stable/asgi.py`
+- `chef_stable/settings.py`
+- `chef_stable/urls.py`
+- `chef_stable/wsgi.py`
+
+In the following, the content with comments of each file is shown and explained.
+
+##### `manage.py`
+
+Location: [`lab/01-django-demo/chef_stable/manage.py`](./lab/01-django-demo/chef_stable/manage.py)
+
+```python
+#!/usr/bin/env python
+# This file is Django's command-line entry point for this project.
+# You use it for commands such as:
+# - python manage.py runserver
+# - python manage.py migrate
+# - python manage.py createsuperuser
+
+"""Django's command-line utility for administrative tasks."""
+import os
+import sys
+
+
+def main():
+    """Run administrative tasks."""
+    # Tell Django which settings module belongs to this project.
+    # The value uses Python's dotted import path:
+    # package_name.module_name
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chef_stable.settings")
+
+    try:
+        # Import Django's command runner.
+        # This function reads sys.argv and dispatches the requested command.
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        # If Django cannot be imported, the most common causes are:
+        # - Django is not installed.
+        # - The virtual environment is not active.
+        # - The Python path is not configured correctly.
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+
+    # Execute the command passed in the terminal.
+    # For example, with "python manage.py runserver",
+    # sys.argv contains the "runserver" command.
+    execute_from_command_line(sys.argv)
+
+
+if __name__ == "__main__":
+    # Only run main() when this file is executed directly.
+    main()
+```
+
+##### `db.sqlite3`
+
+Location: `lab/01-django-demo/chef_stable/db.sqlite3`
+
+`db.sqlite3` is not shown as a code block because it is a binary SQLite database file, not a plain-text Python file.
+
+It is created after running:
+
+```shell
+python manage.py migrate
+```
+
+At this stage, it stores the database tables for Django's built-in apps, including admin, authentication, sessions, and content types. The database location is configured in `settings.py`:
+
+```python
+DATABASES = {
+    "default": {
+        # Use SQLite for the first local development project.
+        "ENGINE": "django.db.backends.sqlite3",
+
+        # Store the database file at BASE_DIR / "db.sqlite3".
+        # BASE_DIR points to the folder that contains manage.py.
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+```
+
+##### `chef_stable/asgi.py`
+
+Location: [`lab/01-django-demo/chef_stable/chef_stable/asgi.py`](./lab/01-django-demo/chef_stable/chef_stable/asgi.py)
+
+```python
+"""
+ASGI config for chef_stable project.
+
+It exposes the ASGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
+"""
+
+import os
+
+from django.core.asgi import get_asgi_application
+
+# Point Django to this project's settings before the application starts.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chef_stable.settings")
+
+# Create the ASGI application object.
+# ASGI is commonly used for asynchronous-capable servers and protocols.
+application = get_asgi_application()
+```
+
+##### `chef_stable/settings.py`
+
+Location: [`lab/01-django-demo/chef_stable/chef_stable/settings.py`](./lab/01-django-demo/chef_stable/chef_stable/settings.py)
+
+```python
+"""
+Django settings for chef_stable project.
+
+Generated by 'django-admin startproject' using Django 5.2.14.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/topics/settings/
+
+For the full list of settings and their values, see
+https://docs.djangoproject.com/en/5.2/ref/settings/
+"""
+
+from pathlib import Path
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# BASE_DIR is the directory that contains manage.py.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# Django uses SECRET_KEY for cryptographic signing.
+# In real production projects, store this outside the source code.
+SECRET_KEY = "django-insecure-1fc)%s0_vdfv#0raz@b7-)=c+*xrh-alg7apld&$6pqg)vr-ya"
+
+# SECURITY WARNING: don't run with debug turned on in production!
+# DEBUG=True shows detailed error pages, which are useful during learning.
+DEBUG = True
+
+# A list of host/domain names this Django site can serve.
+# Empty is acceptable for the local development server.
+ALLOWED_HOSTS = []
+
+
+# Application definition
+
+INSTALLED_APPS = [
+    # Enables the built-in Django admin site.
+    "django.contrib.admin",
+
+    # Provides users, groups, permissions, and authentication.
+    "django.contrib.auth",
+
+    # Tracks content types for installed models.
+    "django.contrib.contenttypes",
+
+    # Enables database-backed sessions.
+    "django.contrib.sessions",
+
+    # Enables temporary one-time messages, often used after form actions.
+    "django.contrib.messages",
+
+    # Enables serving and collecting static files such as CSS and JavaScript.
+    "django.contrib.staticfiles",
+]
+
+MIDDLEWARE = [
+    # Adds several security protections to requests and responses.
+    "django.middleware.security.SecurityMiddleware",
+
+    # Connects browser sessions to Django's session framework.
+    "django.contrib.sessions.middleware.SessionMiddleware",
+
+    # Handles common request/response behavior such as URL normalization.
+    "django.middleware.common.CommonMiddleware",
+
+    # Protects forms against cross-site request forgery attacks.
+    "django.middleware.csrf.CsrfViewMiddleware",
+
+    # Associates requests with logged-in users.
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+
+    # Enables the messages framework for request/response cycles.
+    "django.contrib.messages.middleware.MessageMiddleware",
+
+    # Helps prevent clickjacking by controlling iframe embedding.
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+# The root URL configuration module.
+# Django starts URL matching in chef_stable/urls.py.
+ROOT_URLCONF = "chef_stable.urls"
+
+TEMPLATES = [
+    {
+        # Use Django's built-in template engine.
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+
+        # Project-level template directories can be listed here.
+        "DIRS": [],
+
+        # Allow Django to find templates inside installed apps.
+        "APP_DIRS": True,
+
+        "OPTIONS": {
+            "context_processors": [
+                # Adds the request object to template contexts.
+                "django.template.context_processors.request",
+
+                # Adds user and permission data to template contexts.
+                "django.contrib.auth.context_processors.auth",
+
+                # Adds messages to template contexts.
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+# The WSGI application path for deployment servers.
+WSGI_APPLICATION = "chef_stable.wsgi.application"
+
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+DATABASES = {
+    "default": {
+        # Use SQLite, a small file-based database, for local development.
+        "ENGINE": "django.db.backends.sqlite3",
+
+        # Store the database file in the same directory as manage.py.
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+
+# Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        # Prevent passwords that are too similar to user information.
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        # Enforce a minimum password length.
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        # Reject commonly used passwords.
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        # Reject passwords that are entirely numeric.
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
+
+# Internationalization
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
+
+# Default language for this project.
+LANGUAGE_CODE = "en-us"
+
+# Default time zone for date/time handling.
+TIME_ZONE = "UTC"
+
+# Enable Django's translation system.
+USE_I18N = True
+
+# Store datetimes as time-zone-aware values.
+USE_TZ = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+# URL prefix used when referencing static files.
+STATIC_URL = "static/"
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+# Use 64-bit integer primary keys for models by default.
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+```
+
+##### `chef_stable/urls.py`
+
+Location: [`lab/01-django-demo/chef_stable/chef_stable/urls.py`](./lab/01-django-demo/chef_stable/chef_stable/urls.py)
+
+```python
+"""
+URL configuration for chef_stable project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+
+from django.contrib import admin
+from django.urls import path
+
+# urlpatterns is the main list of URL patterns for the project.
+# Django checks these patterns from top to bottom.
+urlpatterns = [
+    # Send requests for /admin/ to Django's built-in admin site.
+    path("admin/", admin.site.urls),
+]
+```
+
+##### `chef_stable/wsgi.py`
+
+Location: [`lab/01-django-demo/chef_stable/chef_stable/wsgi.py`](./lab/01-django-demo/chef_stable/chef_stable/wsgi.py)
+
+```python
+"""
+WSGI config for chef_stable project.
+
+It exposes the WSGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
+"""
+
+import os
+
+from django.core.wsgi import get_wsgi_application
+
+# Point Django to this project's settings before the application starts.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chef_stable.settings")
+
+# Create the WSGI application object.
+# WSGI is the traditional Python standard used by many production web servers.
+application = get_wsgi_application()
+```
+
 
 ### Admin and Structures
 
