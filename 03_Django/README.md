@@ -87,10 +87,16 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Model](#model)
         - [Template](#template)
       - [MVT Example](#mvt-example)
-      - [Summary: Introduction to Django](#summary-introduction-to-django)
+        - [1. Create the project and app](#1-create-the-project-and-app)
+        - [2. Connect the URLs](#2-connect-the-urls)
+        - [3. Example with only a view](#3-example-with-only-a-view)
+        - [4. Example with model and view](#4-example-with-model-and-view)
+        - [5. Example with model, view, and template](#5-example-with-model-view-and-template)
+        - [What the example shows](#what-the-example-shows)
       - [Additional Resources](#additional-resources-1)
   - [2. Views](#2-views)
     - [Views](#views)
+      - [Introduction to Views](#introduction-to-views)
     - [Requests and URLs](#requests-and-urls)
     - [Creating URLs and Views](#creating-urls-and-views)
   - [3. Models](#3-models)
@@ -1764,9 +1770,9 @@ The following diagram shows how these layers work together.
 - Django uses MTV (Model-Template-View), often described in course material as MVT (Model-View-Template).
 - MVT is a variation of the MVC pattern.
 - In Django's version:
-  - the model is the data layer,
-  - the view contains the request-handling and processing logic,
-  - the template is the presentation layer.
+  - the model is the **data layer**,
+  - the view contains the **request-handling and processing logic**,
+  - the template is the **presentation layer**.
 
 ![Diagram for model-view-template architecture layers](./assets/mvt.png)
 
@@ -1849,7 +1855,260 @@ Request -> URL dispatcher -> view -> model, if needed -> template, if needed -> 
 
 #### MVT Example
 
-#### Summary: Introduction to Django
+Three-step MVT demonstration:
+
+- first, a view returns plain text,
+- then, a view reads data from a model,
+- finally, a view renders the model data through a template.
+
+The example is implemented in this repository at:
+
+- lab project: [`03_Django/lab/01-django-demo/chef_stable`](./lab/01-django-demo/chef_stable),
+- project package: `chef_stable`,
+- app package: `little_lemon`.
+
+##### 1. Create the project and app
+
+The lab already contains the Django project. The `little_lemon` app was added inside the existing `chef_stable` project so it stays separate from the earlier `demoapp` exercise.
+
+Register the app in [`chef_stable/settings.py`](./lab/01-django-demo/chef_stable/chef_stable/settings.py):
+
+```python
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "demoapp",
+    "little_lemon",
+]
+```
+
+##### 2. Connect the URLs
+
+The project-level URL configuration includes the app's routes.
+
+[`chef_stable/urls.py`](./lab/01-django-demo/chef_stable/chef_stable/urls.py):
+
+```python
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("little-lemon/", include("little_lemon.urls")),
+    path("demo/", include("demoapp.urls")),
+    path("", include("demoapp.urls")),
+    path("admin/", admin.site.urls),
+]
+```
+
+Create the app-level URL configuration.
+
+[`little_lemon/urls.py`](./lab/01-django-demo/chef_stable/little_lemon/urls.py):
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("hello/", views.hello, name="little_lemon_hello"),
+    path("menu/<int:item_id>/", views.menu_item, name="little_lemon_menu_item"),
+    path("menu-card/<int:item_id>/", views.menu_card, name="little_lemon_menu_card"),
+]
+```
+
+##### 3. Example with only a view
+
+The first view returns plain text directly to the browser.
+
+[`little_lemon/views.py`](./lab/01-django-demo/chef_stable/little_lemon/views.py):
+
+```python
+from django.http import HttpResponse
+
+
+def hello(request):
+    return HttpResponse("Hello World")
+```
+
+Run the server:
+
+```bash
+python manage.py runserver
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/little-lemon/hello/
+```
+
+Expected response:
+
+```text
+Hello World
+```
+
+##### 4. Example with model and view
+
+The model represents a database table. Each model field becomes a database column.
+
+[`little_lemon/models.py`](./lab/01-django-demo/chef_stable/little_lemon/models.py):
+
+```python
+from django.db import models
+
+
+class MenuItem(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+```
+
+The lab includes a migration that creates the table and inserts two example rows.
+
+[`little_lemon/migrations/0001_initial.py`](./lab/01-django-demo/chef_stable/little_lemon/migrations/0001_initial.py)
+
+Apply the migration:
+
+```bash
+python manage.py migrate
+```
+
+Verification note from this workspace:
+
+- `python manage.py check` passed.
+- `python manage.py makemigrations --check --dry-run` reported no model changes.
+- `python manage.py migrate little_lemon` failed locally with `django.db.utils.OperationalError: disk I/O error`.
+  - The failed transaction left a `db.sqlite3-journal` file next to `db.sqlite3`.
+  - Close any running Django/Python process that may be holding the SQLite database open.
+  - Then rerun `python manage.py migrate`.
+  - If the local lab database remains broken, recreate the local SQLite database for the lab and rerun migrations.
+
+Update `little_lemon/views.py` so a view can retrieve one menu item by ID:
+
+```python
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+
+from .models import MenuItem
+
+
+def hello(request):
+    return HttpResponse("Hello World")
+
+
+def menu_item(request, item_id):
+    item = get_object_or_404(MenuItem, id=item_id)
+    return HttpResponse(f"{item.name}: {item.description}.")
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/little-lemon/menu/1/
+```
+
+Expected response:
+
+```text
+Pasta: Type of Italian cuisine.
+```
+
+Changing the URL from `/little-lemon/menu/1/` to `/little-lemon/menu/2/` fetches a different database row and returns different text.
+
+##### 5. Example with model, view, and template
+
+Create a template folder inside the app:
+
+```text
+little_lemon/
+\---templates/
+    \---little_lemon/
+            menu_card.html
+```
+
+[`little_lemon/templates/little_lemon/menu_card.html`](./lab/01-django-demo/chef_stable/little_lemon/templates/little_lemon/menu_card.html):
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ item.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        .menu-card {
+            border: 1px solid #ddd;
+            padding: 1rem;
+            max-width: 24rem;
+        }
+    </style>
+</head>
+<body>
+    <article class="menu-card">
+        <h1>{{ item.name }}</h1>
+        <p>{{ item.description }}</p>
+    </article>
+</body>
+</html>
+```
+
+Update `little_lemon/views.py` to render the template:
+
+```python
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, render
+
+from .models import MenuItem
+
+
+def hello(request):
+    return HttpResponse("Hello World")
+
+
+def menu_item(request, item_id):
+    item = get_object_or_404(MenuItem, id=item_id)
+    return HttpResponse(f"{item.name}: {item.description}.")
+
+
+def menu_card(request, item_id):
+    item = get_object_or_404(MenuItem, id=item_id)
+    return render(request, "little_lemon/menu_card.html", {"item": item})
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/little-lemon/menu-card/1/
+```
+
+This time, Django still retrieves `Pasta` from the database, but the response is rendered through HTML and CSS from the template.
+
+##### What the example shows
+
+```text
+URL -> view only -> plain text response
+URL -> view + model -> database-backed text response
+URL -> view + model + template -> styled HTML response
+```
+
+The core MVT idea is that Django separates:
+
+- data in the model,
+- request and response logic in the view,
+- presentation and styling in the template.
 
 #### Additional Resources
 
@@ -1860,6 +2119,97 @@ Request -> URL dispatcher -> view -> model, if needed -> template, if needed -> 
 ## 2. Views
 
 ### Views
+
+#### Introduction to Views
+
+If you are building a
+basic static website, all you need to do is upload your website files
+to a web server. However, if you're building a dynamic website
+using a framework, you may need to get a retrieved data and
+render it to the browser. This data could be anything like the user's name or a
+list of information. In Django, you use
+something called a view to create the logic to present
+data to the end-users. In this video, you
+will learn about views in Django
+and how developers use them to process HTTP requests and return
+an HTTP response. In Django, a view is a
+function designed to handle a web request and return a web response such
+as an HTML document. To demonstrate
+this, let's explore an HTTP request
+response scenario using an example of a static
+file and a dynamic file. For a static file with
+no dynamic content, the HTTP request
+just needs to map to where the file is located and return that
+page for rendering. As the static page
+does not change, nothing else is needed. Suppose the page is at the address of
+littlelemon.com/index.html, the web server will process the request and
+return a response containing the page
+index.html to the browser, which then renders the content. You may recall that this
+process is known as the HTTP request response cycle. However, if you want to do
+the same thing with Django, you need to write
+a Python function to create something
+called a view. You create the
+function inside the views.py file and
+return the HTML. Let's explore this
+concept further now and step through the code
+one line at a time. First, you import the class HTTP response from
+the django.http module. Next, you define a
+function called home, and this is known as
+the view function. Each view function takes an HTTP request object as its first parameter
+named request. As this is a Python function, it's possible to define more parameters and
+pass arguments, and you will learn about
+that later in this course. It's important to know
+that the name you give the view function
+doesn't matter, the function doesn't need to be named in a certain way for
+Django to recognize it. In this example, it's called
+home because defining a function name that
+clearly indicates what the function does
+is good practice. Next, you create a
+variable and use it to store a string containing
+the HTML to be returned. Once again, you can name this
+variable anything you want. In this example,
+it's called content. Finally, you need to return this variable
+containing the code, and you do this by using the return statement with
+the HTTP response object. Inside the HTTP response, you place the variable. You can also perform other
+programming logic inside of view functions such as processing data for
+emails and forms, retrieving data from a database, transforming data, and
+rendering templates. It's important to know that
+you create view functions inside the views.py file
+as a best practice. You can theoretically name the file anything that you like. But it is a good
+practice to keep it as views.py as it makes it easier for your
+fellow developers working on the same project. It's important to
+know that creating a view function is not enough to make the
+request response work. The view function
+needs to be mapped to a URL so when the request
+to the URL is made, the view function gets called. This process of mapping a URL to a view function
+is known as routing. To set up this routing
+to map URLs to views, you will need to
+create a new file. Inside your project app, create a new file
+called urls.py. You may recall that the project has a file with this name also. You will learn about the
+difference between them later. Inside the urls.py
+file of the app, you first import
+the path function. Then from the app directory, you import the views.py file. Notice that both files are
+in the same directory. You only need to place the period symbol after
+the import statement. Next, to create a route
+and map a URL to a view, you need to create
+a list sequence using the variable,
+URL patterns. This variable is assigned
+to a list that contains the URL paths that you want
+to create inside the app. The URL patterns list can
+contain multiple paths, and each path is created
+using the path function. The function can accept
+arguments and two are acquired. The first argument is the route, which is a string that
+contains a URL pattern, and the second
+argument is the view, which contains the relative path and the name of
+the view function. In this example,
+the view function is called for the
+homepage of the app. For now, it's set
+to an empty string. You will learn more
+about how to populate the route argument with URLs represented as strings later. In this video, you
+learned about views and view functions and
+how developers use them to process HTTP requests and return an HTTP response. You also learned that view functions are
+mapped to URLs using the path function in the
+urls.py file of the app.
 
 ### Requests and URLs
 
