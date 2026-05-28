@@ -72,7 +72,23 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Testing the app route](#testing-the-app-route)
         - [Other app files](#other-app-files)
         - [Application to chef\_stable](#application-to-chef_stable)
+      - [Re-Usability of Apps](#re-usability-of-apps)
+        - [Ways to share a reusable app](#ways-to-share-a-reusable-app)
+        - [What makes an app reusable?](#what-makes-an-app-reusable)
+      - [Summary: Create a Django Project and App](#summary-create-a-django-project-and-app)
     - [Web Frameworks and MVT](#web-frameworks-and-mvt)
+      - [What is a Web Framework?](#what-is-a-web-framework)
+      - [Model-View-Template (MVT) Overview](#model-view-template-mvt-overview)
+        - [Web framework](#web-framework)
+        - [MVC architecture](#mvc-architecture)
+        - [MVT architecture](#mvt-architecture)
+        - [URL dispatcher](#url-dispatcher)
+        - [View](#view)
+        - [Model](#model)
+        - [Template](#template)
+      - [MVT Example](#mvt-example)
+      - [Summary: Introduction to Django](#summary-introduction-to-django)
+      - [Additional Resources](#additional-resources-1)
   - [2. Views](#2-views)
     - [Views](#views)
     - [Requests and URLs](#requests-and-urls)
@@ -1399,7 +1415,447 @@ python manage.py runserver 127.0.0.1:8001
 # Shows: Hello, world. This is the index view of Demoapp.
 ```
 
+#### Re-Usability of Apps
+
+- A Django app is reusable because it is a Python package.
+- The app does not have to permanently live inside one project folder.
+- Django can use an app as long as:
+  - Python can import it,
+  - the app is listed in `INSTALLED_APPS`,
+  - its models, migrations, views, URLs, templates, and static files are organized in a project-independent way.
+
+In small learning projects, apps are often created directly inside the project:
+
+```text
+demoproject/
+|   manage.py
+|
++---demoapp
+|   |   apps.py
+|   |   models.py
+|   |   views.py
+|   |   urls.py
+|   |   __init__.py
+|
+\---demoproject
+    |   settings.py
+    |   urls.py
+```
+
+This is convenient while learning, but it can make the app feel tied to that one project.
+
+For reuse, the app can be moved into its own package or repository:
+
+```text
+django-demoapp/
+|   pyproject.toml
+|
+\---demoapp
+    |   apps.py
+    |   models.py
+    |   views.py
+    |   urls.py
+    |   __init__.py
+    |
+    \---migrations
+            __init__.py
+```
+
+Another Django project can then install it and register it:
+
+```bash
+pip install django-demoapp
+```
+
+```python
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "demoapp",
+]
+```
+
+The important idea is that Django does not care whether the app was created inside the current project. It only needs the app to be importable by Python and configured in the project settings.
+
+##### Ways to share a reusable app
+
+- Publish or install it as a Python package.
+  - This is the most common approach for public or widely reused Django apps.
+  - The app can be installed with `pip`.
+  - Versioning is handled through package versions.
+- Keep it in a separate internal Git repository.
+  - This works well for organization-specific apps.
+  - Projects can install it directly from Git.
+- Add it as a Git submodule.
+  - This can work when you want the app source code checked out inside each project repository.
+  - The main project points to a specific commit of the app repository.
+  - This gives precise control over which app version each project uses.
+
+Example with a Git submodule:
+
+```bash
+git submodule add <repository-url> demoapp
+git submodule update --init --recursive
+```
+
+Then the project can register the app as usual:
+
+```python
+INSTALLED_APPS = [
+    "demoapp",
+]
+```
+
+Git submodules are useful, but they add extra workflow steps. Developers must remember to initialize, update, and commit submodule references. For many teams, installing the app as a normal Python dependency is simpler.
+
+##### What makes an app reusable?
+
+- It has one clear responsibility.
+- It avoids hard-coded project-specific paths.
+- It avoids depending on one project's URL structure.
+- It includes migrations for its models.
+- It documents any required settings.
+- It can be added to another project's `INSTALLED_APPS`.
+- It exposes clear integration points, such as:
+  - URL patterns,
+  - views,
+  - models,
+  - forms,
+  - templates,
+  - static files.
+
+#### Summary: Create a Django Project and App
+
+Use this checklist when creating a new Django project with one app.
+
+1. Create and enter a project folder.
+
+```powershell
+mkdir my_django_project
+cd my_django_project
+```
+
+2. Create and activate a virtual environment.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+3. Install Django.
+
+```bash
+pip install django
+```
+
+4. Create the Django project in the current folder.
+
+```bash
+django-admin startproject config .
+```
+
+- `config` is the project package.
+- `.` means "create the project files in the current directory".
+- This avoids creating an extra outer folder.
+
+The project now has a structure like this:
+
+```text
+my_django_project/
+|   manage.py
+|
+\---config/
+    |   settings.py
+    |   urls.py
+    |   asgi.py
+    |   wsgi.py
+    |   __init__.py
+```
+
+5. Create an app.
+
+```bash
+python manage.py startapp demoapp
+```
+
+The project now also contains:
+
+```text
+demoapp/
+|   admin.py
+|   apps.py
+|   models.py
+|   tests.py
+|   views.py
+|   __init__.py
+|
+\---migrations/
+    |   __init__.py
+```
+
+6. Add a view in `demoapp/views.py`.
+
+```python
+from django.http import HttpResponse
+
+
+def index(request):
+    return HttpResponse("Hello, world. This is the index view of Demoapp.")
+```
+
+7. Create `demoapp/urls.py`.
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.index, name="index"),
+]
+```
+
+8. Connect the app URLs in the project-level `config/urls.py`.
+
+```python
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("demo/", include("demoapp.urls")),
+    path("admin/", admin.site.urls),
+]
+```
+
+- `path("demo/", include("demoapp.urls"))` maps `/demo/` to the app's URL configuration.
+- The app's `urls.py` then maps the empty path `""` to the `index` view.
+
+9. Register the app in `config/settings.py`.
+
+```python
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "demoapp",
+]
+```
+
+10. Apply the initial migrations.
+
+```bash
+python manage.py migrate
+```
+
+11. Run the development server.
+
+```bash
+python manage.py runserver
+```
+
+12. Open the app route in the browser.
+
+```text
+http://127.0.0.1:8000/demo/
+```
+
+Expected result:
+
+```text
+Hello, world. This is the index view of Demoapp.
+```
+
+The request flow is:
+
+```text
+Browser URL -> project urls.py -> app urls.py -> view -> HTTP response
+```
+
 ### Web Frameworks and MVT
+
+#### What is a Web Framework?
+
+- A web framework is a toolkit for building web applications with a clear structure.
+  - It makes development easier.
+  - It keeps application code organized.
+  - It supports reuse through existing components and patterns.
+- Static websites may only need:
+  - HTML,
+  - CSS,
+  - JavaScript.
+- Dynamic websites usually need a back end when they include:
+  - user accounts,
+  - e-commerce,
+  - payments,
+  - forms,
+  - security,
+  - database storage.
+- The front end is the part the user interacts with in the browser.
+- The back end runs on a server and manages application logic, data, and database access.
+- Django is a high-level Python web framework.
+  - It is free and open source.
+  - It supports rapid development.
+  - It encourages clean, pragmatic design.
+  - It helps developers avoid rebuilding common web features from scratch.
+- Django is useful because it provides:
+  - speed,
+  - built-in features,
+  - security support,
+  - scalability.
+- Built-in Django features include:
+  - user authentication,
+  - content administration,
+  - sitemaps,
+  - RSS feeds.
+- Three-tier architecture splits an application into three logical parts.
+  - The presentation tier contains the user interface.
+  - The application tier contains the back-end logic.
+  - The data tier stores and retrieves data.
+- These tiers are logical, not necessarily physical.
+  - All three can run on the same server.
+  - They can also be separated across different systems.
+- In a Django web application, Django usually acts as the application tier between the browser-facing interface and the database.
+
+![Three-Tier Architecture](./assets/tiers.png)
+
+#### Model-View-Template (MVT) Overview
+
+##### Web framework
+
+- A software framework is a standard, reusable platform for building applications faster.
+- A web framework, or web application framework, provides common functionality for building:
+  - web applications,
+  - APIs (application programming interfaces),
+  - web services.
+- A web framework gives developers built-in support for everyday web development tasks.
+  - It can help connect an application to a database.
+  - It can handle session management.
+  - It can integrate with templating tools to render dynamic web pages.
+
+##### MVC architecture
+
+- Many web frameworks use the MVC (Model-View-Controller) architecture.
+- MVC separates a web application into three layers:
+  - Model,
+  - View,
+  - Controller.
+
+The following diagram shows how these layers work together.
+
+![Diagram for model-view-controller architecture layers](./assets/mvc.png)
+
+- In MVC, the controller intercepts user requests.
+- The controller coordinates with the model and view layers.
+- The model is responsible for:
+  - data definitions,
+  - processing logic,
+  - interaction with the back-end database.
+- The view is the presentation layer.
+  - It handles placement and formatting of the result.
+  - It sends the result back through the controller.
+
+##### MVT architecture
+
+- Django uses MTV (Model-Template-View), often described in course material as MVT (Model-View-Template).
+- MVT is a variation of the MVC pattern.
+- In Django's version:
+  - the model is the data layer,
+  - the view contains the request-handling and processing logic,
+  - the template is the presentation layer.
+
+![Diagram for model-view-template architecture layers](./assets/mvt.png)
+
+A Django application uses these main components:
+
+- URL dispatcher,
+- view,
+- model,
+- template.
+
+##### URL dispatcher
+
+- Django's URL dispatcher performs a controller-like role.
+- The project-level `urls.py` file defines URL patterns.
+- Each URL pattern maps a URL path to a view.
+- App-level URL patterns can also be included in the project-level `urls.py`.
+
+Example app-level `urls.py`:
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.index, name="index"),
+]
+```
+
+- When Django receives a request, it compares the request URL against the available URL patterns.
+- When a pattern matches, Django routes the request to the associated view.
+
+##### View
+
+- A Django view is a callable that receives a request and returns a response.
+- A view can be:
+  - a user-defined function,
+  - a class-based view.
+- A view can read data from the request.
+  - This can include path parameters, query parameters, and request body data.
+- A view can interact with models to perform CRUD (create, read, update, delete) operations.
+- View definitions are usually placed in an app's `views.py` file.
+
+Example `index` view:
+
+```python
+from django.http import HttpResponse
+
+
+def index(request):
+    return HttpResponse("Hello, world.")
+```
+
+##### Model
+
+- A model is a Python class that represents application data.
+- An app can have one or more model classes.
+- Models are conventionally placed in the app's `models.py` file.
+- Django migrations use model definitions to create matching database tables.
+- Django's ORM (Object-Relational Mapper) lets developers perform CRUD operations with Python objects instead of writing SQL directly.
+
+##### Template
+
+- A template is an HTML file that can contain Django Template Language blocks.
+- Templates are usually placed in a `templates` folder.
+- Template files commonly use the `.html` extension.
+- A view can pass context data to a template.
+- Django's template processor combines:
+  - static HTML,
+  - Django Template Language,
+  - context data from the view.
+- The view returns the rendered result as the HTTP response.
+
+The MVT request-response flow is:
+
+```text
+Request -> URL dispatcher -> view -> model, if needed -> template, if needed -> response
+```
+
+#### MVT Example
+
+#### Summary: Introduction to Django
+
+#### Additional Resources
+
+- [Writing your first Django app -- official documentation](https://docs.djangoproject.com/en/4.1/)
+- [MVT Framework -- Django](https://docs.djangoproject.com/en/4.1/faq/general/#django-appears-to-be-a-mvc-framework-but-you-call-the-controller-the-view-and-the-view-the-template-how-come-you-don-t-use-the-standard-names)
+- [How to structure your Django project](https://docs.djangoproject.com/en/4.1/intro/tutorial01/)
 
 ## 2. Views
 
