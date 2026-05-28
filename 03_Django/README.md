@@ -56,6 +56,22 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [`chef_stable/urls.py`](#chef_stableurlspy)
         - [`chef_stable/wsgi.py`](#chef_stablewsgipy)
     - [Admin and Structures](#admin-and-structures)
+      - [Django Admin and manage.py Commands](#django-admin-and-managepy-commands)
+        - [`django-admin`](#django-admin)
+        - [`manage.py`](#managepy-2)
+        - [Choosing between `django-admin` and `manage.py`](#choosing-between-django-admin-and-managepy)
+        - [Running the development server](#running-the-development-server)
+      - [App Structures](#app-structures)
+        - [Creating an app](#creating-an-app)
+        - [`views.py`](#viewspy)
+        - [App-level `urls.py`](#app-level-urlspy)
+        - [Project-level `urls.py`](#project-level-urlspy)
+        - [`models.py`](#modelspy)
+        - [`tests.py`](#testspy)
+        - [Registering the app in `settings.py`](#registering-the-app-in-settingspy)
+        - [Testing the app route](#testing-the-app-route)
+        - [Other app files](#other-app-files)
+        - [Application to chef\_stable](#application-to-chef_stable)
     - [Web Frameworks and MVT](#web-frameworks-and-mvt)
   - [2. Views](#2-views)
     - [Views](#views)
@@ -1076,8 +1092,312 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chef_stable.settings")
 application = get_wsgi_application()
 ```
 
-
 ### Admin and Structures
+
+#### Django Admin and manage.py Commands
+
+- Django provides command-line tools for common project administration tasks.
+  - These tasks include:
+    - creating a project,
+    - creating apps,
+    - running the development server,
+    - managing database migrations,
+    - opening an interactive Django shell.
+- The two main command-line entry points are:
+  - `django-admin`,
+  - `manage.py`.
+
+##### `django-admin`
+
+- `django-admin` is Django's general command-line utility.
+- It is installed when Django is installed in the Python environment.
+- It should be available from the terminal when:
+  - the virtual environment is activated,
+  - Django is installed in that environment.
+- It is useful for commands that do not yet belong to a specific project.
+  - The most common example is creating a new project.
+
+```bash
+django-admin startproject <project_name>
+```
+
+- This creates:
+  - a project directory,
+  - a `manage.py` file,
+  - an inner project package that contains files such as:
+    - `settings.py`,
+    - `urls.py`,
+    - `asgi.py`,
+    - `wsgi.py`.
+- If only the project name is given, Django creates a directory with that project name.
+- If a destination is provided, Django creates the project files in that destination.
+- A common workflow is to use `.` as the destination.
+  - This means "use the current directory".
+  - It avoids creating an extra outer folder with the same name as the project.
+
+```bash
+django-admin startproject <project_name> .
+```
+
+##### `manage.py`
+
+- `manage.py` is created automatically inside each Django project.
+- It is a project-specific wrapper around Django's command-line tools.
+- It sets the `DJANGO_SETTINGS_MODULE` environment variable for the project.
+  - This tells Django which `settings.py` file to use.
+- For day-to-day work inside a single project, developers usually use `manage.py`.
+
+General usage:
+
+```bash
+python manage.py <command>
+```
+
+Common commands:
+
+```bash
+python manage.py startapp <app_name>
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver
+python manage.py shell
+```
+
+##### Choosing between `django-admin` and `manage.py`
+
+- Use `django-admin` when:
+  - creating a new project,
+  - working before a `manage.py` file exists,
+  - explicitly switching between different settings files.
+- Use `manage.py` when:
+  - working inside an existing project,
+  - running commands that should use that project's settings automatically.
+- Most commands can be run with either tool.
+  - The main difference is that `manage.py` already knows the current project's settings.
+
+##### Running the development server
+
+- The `runserver` command starts Django's lightweight development server.
+- By default, it runs at:
+  - IP address: `127.0.0.1`,
+  - port: `8000`.
+
+```bash
+python manage.py runserver
+```
+
+- You can provide a different port:
+
+```bash
+python manage.py runserver 8080
+```
+
+- You can also provide an IP address and port:
+
+```bash
+python manage.py runserver 127.0.0.1:8080
+```
+
+- The development server is useful for local development and testing.
+- It should not be used in production.
+  - It has not been designed for production security or performance.
+- The development server automatically reloads when Python code changes.
+  - Some changes, such as adding new files, may require manually restarting the server.
+
+#### App Structures
+
+- A Django project is the complete web application.
+- A Django app is a smaller submodule inside the project.
+  - Each app usually focuses on one area of functionality.
+  - Apps can communicate with each other inside the same project.
+  - Apps can also be reused across different Django projects.
+
+For example, a trading organization website could use separate apps for:
+
+- customer data,
+- suppliers,
+- stock management.
+
+In this course, examples usually use one app inside one project. In real projects, Django often works as a multi-app framework.
+
+##### Creating an app
+
+- `django-admin startproject` creates the project structure.
+- `python manage.py startapp` creates an app structure inside the project.
+
+Example:
+
+```powershell
+(djenv) C:\djenv\demoproject> python manage.py startapp demoapp
+```
+
+- This creates a new folder named `demoapp`.
+- The folder contains default Python files for common app responsibilities.
+
+Example structure:
+
+```text
+C:\djenv\demoproject
+|   db.sqlite3
+|   manage.py
+|
++---demoapp
+|   |   admin.py
+|   |   apps.py
+|   |   models.py
+|   |   tests.py
+|   |   views.py
+|   |   __init__.py
+|   |
+|   \---migrations
+|           __init__.py
+|
+\---demoproject
+    |   asgi.py
+    |   settings.py
+    |   urls.py
+    |   wsgi.py
+    |   __init__.py
+```
+
+##### `views.py`
+
+- A view is a function or class that handles a web request and returns a web response.
+- Django calls a view after the URL dispatcher matches the request URL to a URL pattern.
+- The auto-created `views.py` file is empty at the beginning.
+
+Example view:
+
+```python
+from django.http import HttpResponse
+
+
+def index(request):
+    return HttpResponse("Hello, world. This is the index view of Demoapp.")
+```
+
+##### App-level `urls.py`
+
+- The project package already has a `urls.py` file for project-level URL routing.
+- An app can also have its own `urls.py` file.
+- New app folders do not include `urls.py` automatically.
+  - Create it manually when the app needs its own URL routes.
+
+Create `demoapp/urls.py`:
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.index, name="index"),
+]
+```
+
+##### Project-level `urls.py`
+
+- The project-level `urls.py` connects project URLs to app URLs.
+- Use `include()` to delegate a URL path to an app's URL configuration.
+
+Update `demoproject/urls.py`:
+
+```python
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("demo/", include("demoapp.urls")),
+    path("admin/", admin.site.urls),
+]
+```
+
+- With this setup, a request to `/demo/` is routed to `demoapp.urls`.
+- `demoapp.urls` then routes the request to the `index` view.
+
+##### `models.py`
+
+- `models.py` contains the data models for the app.
+- A model is a Python class based on Django's model system.
+- Models define the structure of database-backed data.
+- The file is empty by default.
+- Leave it unchanged until the app needs database models.
+
+##### `tests.py`
+
+- `tests.py` contains automated tests for the app.
+- It is created automatically.
+- It can stay unchanged until you start writing tests.
+
+##### Registering the app in `settings.py`
+
+- To activate the app in the project, add it to `INSTALLED_APPS`.
+- `INSTALLED_APPS` is located in the project package's `settings.py` file.
+
+Example:
+
+```python
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "demoapp",
+]
+```
+
+##### Testing the app route
+
+- After creating the app, adding a view, connecting URLs, and updating `INSTALLED_APPS`, run the development server.
+
+```bash
+python manage.py runserver
+```
+
+- Then visit:
+
+```text
+http://localhost:8000/demo/
+```
+
+- If everything is connected correctly, the browser shows the response from the `index` view.
+
+##### Other app files
+
+- Django apps can contain more files than the default structure.
+- Common extra files include:
+  - `forms.py`,
+  - `serializers.py`.
+- These files are added when the app needs the related functionality.
+
+##### Application to chef_stable
+
+Create the `demoapp` app inside the `chef_stable` project:
+
+```bash
+.venv\Scripts\Activate.ps1
+cd 03_Django/lab/01-django-demo/chef_stable
+python manage.py startapp demoapp
+```
+
+Update the project to use the new app:
+
+- Update the `demoapp/views.py` file with the example view.
+- Create the `demoapp/urls.py` file with the example URL patterns.
+- Update the project-level `urls.py` to include the app's URLs.
+- Add `demoapp` to `INSTALLED_APPS` in `settings.py`.
+
+Run the development server and test the app route:
+
+```bash
+python manage.py runserver 127.0.0.1:8001
+# Browser: http://127.0.0.1:8001/demo/
+# Shows: Hello, world. This is the index view of Demoapp.
+```
 
 ### Web Frameworks and MVT
 
