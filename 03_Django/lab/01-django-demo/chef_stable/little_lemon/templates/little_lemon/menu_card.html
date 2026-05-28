@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ item.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        .menu-card {
+            border: 1px solid #ddd;
+            padding: 1rem;
+            max-width: 24rem;
+        }
+    </style>
+</head>
+<body>
+    <article class="menu-card">
+        <h1>{{ item.name }}</h1>
+        <p>{{ item.description }}</p>
+    </article>
+</body>
+</html>
