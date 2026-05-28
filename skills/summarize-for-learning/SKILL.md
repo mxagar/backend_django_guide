@@ -1,6 +1,6 @@
 ---
 name: summarize-for-learning
-description: Summarize a named section from a file or file link for learning. Use when the user invokes /summarize-for-learning or asks to summarize a specific section of a Markdown, notebook, script, or documentation file into concise hierarchical bullets, reproduce or summarize explained code, and update linked notebooks/scripts or generic code comments using current Context7 documentation.
+description: Summarize and replace a named section from a file or file link for learning. Use when the user invokes /summarize-for-learning or asks to summarize a specific section of a Markdown, notebook, script, or documentation file in place into concise hierarchical bullets, reproduce or summarize explained code, and update linked notebooks/scripts or generic code comments using current Context7 documentation.
 ---
 
 # Summarize For Learning
@@ -11,9 +11,11 @@ Expect:
 
 - `file`: Path or link to the source file. Accept Markdown links such as `[lesson](03_Django/README.md)`, relative paths, absolute paths, and workspace-local file references.
 - `section`: Exact or approximate section title/name inside the file.
-- Optional additional parameters or natural-language instructions: scope, audience, desired depth, output location, whether to edit in place, or technology/library constraints.
+- Optional additional parameters or natural-language instructions: scope, audience, desired depth, concision, output location, or technology/library constraints.
 
 If `file` or `section` is missing and cannot be inferred, ask one concise question before proceeding.
+
+This skill modifies the source file by default. Do not only return the summary in chat unless the user explicitly asks not to edit files or the file cannot be modified.
 
 ## Usage Example
 
@@ -57,7 +59,8 @@ Use /summarize-for-learning on file [README.md](03_Django/README.md), section "W
    - Modify the linked file to use current APIs and style when updates are needed.
    - Avoid unrelated refactors and preserve the instructional intent.
    - Remove or avoid superfluous debug/demo prints in summary code, but do not delete useful explanatory output from the real file unless it is clearly stale or noisy.
-9. Replace the original section text with the generated summary, including bullet points, retained image links, notebook/script links and summaries, and code blocks when present.
+9. Replace the original requested section in the source file with the generated summary, including bullet points, retained image links, notebook/script links and summaries, and code blocks when present. Preserve the original section heading and neighboring sections.
+10. In the final response, report which file and section were updated. Keep the actual summary brief or omit it unless the user asks to see it in chat.
 
 ## Summary Format
 
@@ -118,7 +121,7 @@ For every linked notebook or script found in the section, add the notebook/scrip
 - Do not expand lists by repeating the same phrase. Prefer `Common features include:` with nested items over repeated `Common features include ...` bullets.
 - Do not over-nest lists when a compact sentence with two related ideas is clearer.
 - Explain acronyms on first use, then use the acronym afterward.
-- Replace only the requested section text. Preserve the section heading and neighboring sections.
+- Replace only the requested section text in the source file. Preserve the section heading and neighboring sections.
 - Do not add blank lines between top-level bullets in generated summaries.
 - If Context7 documentation conflicts with the source text, preserve the source's learning point and update only the API/style details needed to keep examples current.
 - If a link is broken, mention it and continue summarizing the available section.
