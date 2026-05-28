@@ -97,6 +97,16 @@ This module deals with the third topic/course: **Django Web Framework**.
   - [2. Views](#2-views)
     - [Views](#views)
       - [Introduction to Views](#introduction-to-views)
+      - [Creating Views and Mapping to URLs](#creating-views-and-mapping-to-urls)
+      - [View Logic](#view-logic)
+        - [What a view does](#what-a-view-does)
+        - [GET and POST methods](#get-and-post-methods)
+        - [Rendering a template](#rendering-a-template)
+        - [Function-based views](#function-based-views)
+        - [Class-based views](#class-based-views)
+        - [Generic views](#generic-views)
+      - [Creating Views and View Logic](#creating-views-and-view-logic)
+      - [Exercise: Create Views and Map to URLs](#exercise-create-views-and-map-to-urls)
     - [Requests and URLs](#requests-and-urls)
     - [Creating URLs and Views](#creating-urls-and-views)
   - [3. Models](#3-models)
@@ -2122,94 +2132,273 @@ The core MVT idea is that Django separates:
 
 #### Introduction to Views
 
-If you are building a
-basic static website, all you need to do is upload your website files
-to a web server. However, if you're building a dynamic website
-using a framework, you may need to get a retrieved data and
-render it to the browser. This data could be anything like the user's name or a
-list of information. In Django, you use
-something called a view to create the logic to present
-data to the end-users. In this video, you
-will learn about views in Django
-and how developers use them to process HTTP requests and return
-an HTTP response. In Django, a view is a
-function designed to handle a web request and return a web response such
-as an HTML document. To demonstrate
-this, let's explore an HTTP request
-response scenario using an example of a static
-file and a dynamic file. For a static file with
-no dynamic content, the HTTP request
-just needs to map to where the file is located and return that
-page for rendering. As the static page
-does not change, nothing else is needed. Suppose the page is at the address of
-littlelemon.com/index.html, the web server will process the request and
-return a response containing the page
-index.html to the browser, which then renders the content. You may recall that this
-process is known as the HTTP request response cycle. However, if you want to do
-the same thing with Django, you need to write
-a Python function to create something
-called a view. You create the
-function inside the views.py file and
-return the HTML. Let's explore this
-concept further now and step through the code
-one line at a time. First, you import the class HTTP response from
-the django.http module. Next, you define a
-function called home, and this is known as
-the view function. Each view function takes an HTTP request object as its first parameter
-named request. As this is a Python function, it's possible to define more parameters and
-pass arguments, and you will learn about
-that later in this course. It's important to know
-that the name you give the view function
-doesn't matter, the function doesn't need to be named in a certain way for
-Django to recognize it. In this example, it's called
-home because defining a function name that
-clearly indicates what the function does
-is good practice. Next, you create a
-variable and use it to store a string containing
-the HTML to be returned. Once again, you can name this
-variable anything you want. In this example,
-it's called content. Finally, you need to return this variable
-containing the code, and you do this by using the return statement with
-the HTTP response object. Inside the HTTP response, you place the variable. You can also perform other
-programming logic inside of view functions such as processing data for
-emails and forms, retrieving data from a database, transforming data, and
-rendering templates. It's important to know that
-you create view functions inside the views.py file
-as a best practice. You can theoretically name the file anything that you like. But it is a good
-practice to keep it as views.py as it makes it easier for your
-fellow developers working on the same project. It's important to
-know that creating a view function is not enough to make the
-request response work. The view function
-needs to be mapped to a URL so when the request
-to the URL is made, the view function gets called. This process of mapping a URL to a view function
-is known as routing. To set up this routing
-to map URLs to views, you will need to
-create a new file. Inside your project app, create a new file
-called urls.py. You may recall that the project has a file with this name also. You will learn about the
-difference between them later. Inside the urls.py
-file of the app, you first import
-the path function. Then from the app directory, you import the views.py file. Notice that both files are
-in the same directory. You only need to place the period symbol after
-the import statement. Next, to create a route
-and map a URL to a view, you need to create
-a list sequence using the variable,
-URL patterns. This variable is assigned
-to a list that contains the URL paths that you want
-to create inside the app. The URL patterns list can
-contain multiple paths, and each path is created
-using the path function. The function can accept
-arguments and two are acquired. The first argument is the route, which is a string that
-contains a URL pattern, and the second
-argument is the view, which contains the relative path and the name of
-the view function. In this example,
-the view function is called for the
-homepage of the app. For now, it's set
-to an empty string. You will learn more
-about how to populate the route argument with URLs represented as strings later. In this video, you
-learned about views and view functions and
-how developers use them to process HTTP requests and return an HTTP response. You also learned that view functions are
-mapped to URLs using the path function in the
-urls.py file of the app.
+- Static websites can serve fixed files directly from a web server.
+- Dynamic websites often need logic that retrieves or creates data before returning a response.
+- In Django, a view contains the logic for handling a web request and returning a web response.
+  - A simple view is a Python function.
+  - The first parameter is an `HttpRequest` object, usually named `request`.
+  - The view must return an `HttpResponse` object or another valid Django response.
+- A view can do more than return plain HTML.
+  - It can process forms.
+  - It can send emails.
+  - It can retrieve data from a database.
+  - It can transform data.
+  - It can render templates.
+- View functions are usually placed in an app's `views.py` file.
+  - Django does not require this filename.
+  - The convention makes the project easier for other developers to understand.
+- Creating a view is not enough by itself.
+  - The view must be mapped to a URL.
+  - Mapping a URL to a view is called routing.
+  - App-level routes are commonly defined in the app's `urls.py` file.
+
+```python
+# views.py
+from django.http import HttpResponse
+
+
+def home(request):
+    content = "<html><body><h1>Welcome to Little Lemon!</h1></body></html>"
+    return HttpResponse(content)
+```
+
+```python
+# urls.py
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.home, name="home"),
+]
+```
+
+- In `path("", views.home, name="home")`:
+  - `""` is the URL route for the app's root path.
+  - `views.home` is the view function Django calls.
+  - `"home"` is the route name, which can be used later to refer to this URL.
+
+#### Creating Views and Mapping to URLs
+
+- A Django URL configuration is often called a URLconf.
+- URLconf code usually lives in `urls.py`.
+- Django creates a project-level `urls.py` file by default.
+- It is also best practice to create an app-level `urls.py` file.
+  - App-level URL files keep each app's routes grouped together.
+  - The project-level URL file connects the project to each app's URL file.
+- A request is first checked against the project-level `urlpatterns`.
+- `include()` tells Django to continue matching URLs in another URLconf.
+- `path()` maps a URL route to a view.
+  - The first argument is the route string.
+  - The second argument is the view or included URLconf.
+  - The optional `name` argument gives the route a reusable name.
+
+![URL Pipeline](./assets/url_pipeline.png)
+
+Create a homepage view in the app's `views.py` file:
+
+```python
+from django.http import HttpResponse
+
+
+def home(request):
+    return HttpResponse("Welcome to the Little Lemon restaurant.")
+```
+
+Create an app-level `urls.py` file:
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.home, name="home"),
+]
+```
+
+Connect the app-level URLconf from the project-level `urls.py` file:
+
+```python
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("", include("myapp.urls")),
+    path("admin/", admin.site.urls),
+]
+```
+
+Run the development server:
+
+```bash
+python manage.py runserver
+```
+
+Request flow:
+
+```text
+Browser -> project urls.py -> app urls.py -> view function -> HttpResponse
+```
+
+With the route set to `""`, opening the local project root displays:
+
+```text
+Welcome to the Little Lemon restaurant.
+```
+
+#### View Logic
+
+The view plays a central role in Django's MVT (Model-View-Template) architecture.
+
+- The URL dispatcher calls the view that matches the requested URL pattern.
+- The view receives request data through an `HttpRequest` object.
+- The view applies application logic.
+- The view can interact with:
+  - models, to read or write database-backed data,
+  - templates, to format the response as HTML.
+- The view returns an `HttpResponse` or another valid Django response object.
+
+##### What a view does
+
+A view usually coordinates the request-response work for one route.
+
+- It can read data from the request.
+- It can fetch one or more model objects.
+- It can create, update, or delete model objects.
+- It can prepare context data for a template.
+- It sends an appropriate response back to the client.
+
+##### GET and POST methods
+
+HTTP methods help the view decide what kind of action the client is requesting.
+
+- `GET` is commonly used to request or read data.
+- `POST` is commonly used to submit data that may create or update server-side state.
+
+```python
+from django.http import HttpResponse
+
+
+def myview(request):
+    if request.method == "GET":
+        return HttpResponse("response to GET request")
+
+    if request.method == "POST":
+        return HttpResponse("response to POST request")
+
+    return HttpResponse("method not supported", status=405)
+```
+
+Request data can be read from `request.GET` or `request.POST`.
+
+```python
+from django.http import HttpResponse
+
+
+def myview(request):
+    if request.method == "GET":
+        value = request.GET.get("key")
+        # Use value to read or filter model data.
+        return HttpResponse(f"GET value: {value}")
+
+    if request.method == "POST":
+        value = request.POST.get("key")
+        # Use value to create or update model data.
+        return HttpResponse(f"POST value: {value}")
+
+    return HttpResponse("method not supported", status=405)
+```
+
+##### Rendering a template
+
+A browser usually expects an HTML response. A view can use `render()` to combine a template with context data and return an `HttpResponse`.
+
+```python
+from django.shortcuts import render
+
+
+def myview(request):
+    context = {}
+
+    if request.method == "GET":
+        # Read model data and add it to context.
+        context["message"] = "Data loaded with GET."
+
+    if request.method == "POST":
+        # Process submitted data and add the result to context.
+        context["message"] = "Data submitted with POST."
+
+    return render(request, "mytemplate.html", context)
+```
+
+##### Function-based views
+
+The examples above are function-based views.
+
+- A function-based view is a regular Python function.
+- It receives `request` as its first argument.
+- It can use conditional logic to handle different HTTP methods.
+- It is direct and useful for learning the fundamentals.
+- It can become repetitive when many views use similar GET and POST patterns.
+
+##### Class-based views
+
+Django also supports class-based views. A class-based view can separate HTTP method logic into methods such as `get()` and `post()`.
+
+```python
+from django.http import HttpResponse
+from django.views import View
+
+
+class MyView(View):
+    def get(self, request, *args, **kwargs):
+        return HttpResponse("response to GET request")
+
+    def post(self, request, *args, **kwargs):
+        return HttpResponse("response to POST request")
+```
+
+Map a class-based view to a URL with `as_view()`:
+
+```python
+from django.urls import path
+
+from .views import MyView
+
+
+urlpatterns = [
+    path("my-view/", MyView.as_view(), name="my_view"),
+]
+```
+
+##### Generic views
+
+Django provides generic class-based views in `django.views.generic`.
+
+- Generic views implement common web application patterns.
+- Examples include:
+  - `TemplateView`,
+  - `CreateView`,
+  - `ListView`,
+  - `DetailView`,
+  - `UpdateView`.
+- They can render templates, show lists, show detail pages, create records, and update records.
+- They usually require configuration such as:
+  - `model`,
+  - `template_name`,
+  - `context_object_name`.
+
+Function-based views are the best starting point in this introductory section. Class-based views and generic views become useful as projects grow and repeated view patterns appear.
+
+#### Creating Views and View Logic
+
+
+#### Exercise: Create Views and Map to URLs
+
 
 ### Requests and URLs
 
