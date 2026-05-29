@@ -108,6 +108,19 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Creating Views and View Logic](#creating-views-and-view-logic)
       - [Exercise: Create Views and Map to URLs](#exercise-create-views-and-map-to-urls)
     - [Requests and URLs](#requests-and-urls)
+      - [HTTP Requests](#http-requests)
+      - [Request and Response Objects](#request-and-response-objects)
+        - [`HttpRequest` object](#httprequest-object)
+        - [`HttpResponse` object](#httpresponse-object)
+      - [Creating Requests and Responses](#creating-requests-and-responses)
+      - [Understanding URLs](#understanding-urls)
+      - [Parameters](#parameters)
+        - [Path parameters](#path-parameters)
+        - [Path converters](#path-converters)
+        - [Query parameters](#query-parameters)
+        - [Body parameters](#body-parameters)
+        - [`csrf_token`](#csrf_token)
+      - [Mapping URLs with Parameters](#mapping-urls-with-parameters)
     - [Creating URLs and Views](#creating-urls-and-views)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
@@ -2597,6 +2610,776 @@ Welcome to Little Lemon!
 ```
 
 ### Requests and URLs
+
+#### HTTP Requests
+
+- HTTP (Hypertext Transfer Protocol) is the main protocol browsers use to communicate with web servers.
+- HTTP transfers web resources such as:
+  - HTML documents,
+  - images,
+  - stylesheets,
+  - other files.
+- HTTP is request-response based.
+  - A client, usually a browser, sends an HTTP request.
+  - A server sends an HTTP response.
+- An HTTP request contains:
+  - method,
+  - path,
+  - version,
+  - headers,
+  - optional body content.
+- Common HTTP methods include:
+  - `GET`, to retrieve a resource,
+  - `POST`, to send data to the server,
+  - `PUT`, to update an existing resource,
+  - `DELETE`, to remove a resource.
+- The path identifies where the requested resource is located on the server.
+- Headers contain extra information about the request or client.
+  - Examples include server information, port, method type, and content type.
+- An HTTP response has a similar structure.
+  - It includes headers.
+  - It may include a response body, such as HTML, an image, or another resource.
+  - It includes a status code and status message.
+- HTTP status codes are grouped by purpose.
+  - `100-199`: informational responses.
+    - Example: `100 Continue`.
+  - `200-299`: successful responses.
+    - Example: `200 OK`.
+  - `300-399`: redirection responses.
+    - Example: `301 Moved Permanently`.
+    - Example: `302 Found`.
+  - `400-499`: client error responses.
+    - `400 Bad Request` means the client sent bad data.
+    - `401 Unauthorized` means authentication is required.
+    - `403 Forbidden` means the request is valid, but the server refuses it.
+    - `404 Not Found` means the requested resource was not found.
+  - `500-599`: server error responses.
+    - Example: `500 Internal Server Error`.
+- `200 OK` can mean different things depending on the method.
+  - For `GET`, the resource was found and returned.
+  - For `POST` or `PUT`, submitted data was received successfully.
+  - For `DELETE`, the resource was deleted successfully.
+- HTTPS is the secure version of HTTP.
+  - It uses encryption to protect data sent between client and server.
+  - The browser lock icon usually indicates HTTPS.
+  - The request-response pattern stays the same, but the content is protected during transfer.
+
+Example HTTP request:
+
+```http
+# Request line: method path version
+GET /menu/ HTTP/1.1
+
+# Headers: extra information about the request
+Host: littlelemon.example
+User-Agent: Mozilla/5.0
+Accept: text/html
+
+# Body: empty for this GET request
+```
+
+Example HTTP response:
+
+```http
+# Status line: version status-code status-message
+HTTP/1.1 200 OK
+
+# Headers: extra information about the response
+Content-Type: text/html; charset=utf-8
+Content-Length: 46
+
+# Body: content returned to the client
+<h1>Welcome to the Little Lemon menu!</h1>
+```
+
+#### Request and Response Objects
+
+A web application follows a request-response cycle.
+
+- A browser sends a request to the server.
+- Django receives the request from the server context.
+- Django's URL dispatcher matches the request URL to a view.
+- Django passes an `HttpRequest` object to the view as the first argument.
+- The view creates and returns an `HttpResponse` object.
+
+Django defines these classes in `django.http`:
+
+- `HttpRequest`, which represents incoming request data.
+- `HttpResponse`, which represents outgoing response data.
+
+##### `HttpRequest` object
+
+The `HttpRequest` object gives the view access to request metadata and submitted data.
+
+Common request attributes:
+
+- `request.method`
+  - The HTTP method used by the client.
+  - Common values include `"GET"`, `"POST"`, `"PUT"`, and `"DELETE"`.
+- `request.GET`
+  - A dictionary-like object for query-string parameters.
+- `request.POST`
+  - A dictionary-like object for submitted form data.
+- `request.COOKIES`
+  - A dictionary of cookie names and values sent by the browser.
+- `request.FILES`
+  - Uploaded files from multipart form submissions.
+- `request.user`
+  - The current user object when authentication middleware is enabled.
+  - Unauthenticated users are represented by `AnonymousUser`.
+- `request.headers`
+  - A case-insensitive mapping of HTTP request headers.
+
+Example method check:
+
+```python
+if request.method == "GET":
+    do_something()
+elif request.method == "POST":
+    do_something_else()
+```
+
+Example request data access:
+
+```python
+search_term = request.GET.get("q")
+submitted_name = request.POST.get("name")
+
+if "User-Agent" in request.headers:
+    user_agent = request.headers["User-Agent"]
+```
+
+Example authentication check:
+
+```python
+if request.user.is_authenticated:
+    # Do something for logged-in users.
+    ...
+else:
+    # Do something for anonymous users.
+    ...
+```
+
+##### `HttpResponse` object
+
+Unlike `HttpRequest`, which Django creates from the incoming request, `HttpResponse` is usually created inside the view.
+
+Simple response:
+
+```python
+from django.http import HttpResponse
+
+
+def index(request):
+    return HttpResponse("Hello World")
+```
+
+Template response with `render()`:
+
+```python
+from django.shortcuts import render
+
+
+def index(request):
+    context = {}
+    return render(request, "demoapp/index.html", context)
+```
+
+The `render()` shortcut combines three common steps:
+
+- find and load a template,
+- fill the template with context data,
+- return an `HttpResponse` containing the rendered HTML.
+
+The full signature is:
+
+```python
+render(request, template_name, context=None, content_type=None, status=None, using=None)
+```
+
+Arguments:
+
+- `request`
+  - The current `HttpRequest` object.
+  - Required.
+- `template_name`
+  - The template file Django should load.
+  - Required.
+  - Example: `"demoapp/index.html"`.
+- `context`
+  - A dictionary of data passed into the template.
+  - Optional.
+- `content_type`
+  - The response MIME type.
+  - Optional.
+  - Defaults to `"text/html"`.
+- `status`
+  - The HTTP status code for the response.
+  - Optional.
+  - Defaults to `200`.
+- `using`
+  - The template engine name.
+  - Optional.
+  - Useful only when a project has multiple template engines.
+
+Example view:
+
+```python
+from django.shortcuts import render
+
+
+def menu(request):
+    context = {
+        "restaurant": "Little Lemon",
+        "items": ["Pasta", "Falafel", "Salad"],
+    }
+    return render(request, "demoapp/menu.html", context)
+```
+
+Example template:
+
+```html
+<h1>{{ restaurant }}</h1>
+
+<ul>
+{% for item in items %}
+    <li>{{ item }}</li>
+{% endfor %}
+</ul>
+```
+
+Mental model:
+
+```text
+request + template + context -> rendered HTML response
+```
+
+Useful response attributes and methods:
+
+- `status_code`
+  - The HTTP status code for the response.
+- `content`
+  - The response body as bytes.
+- `response["Header-Name"]`
+  - Reads a response header.
+- `response["Header-Name"] = "value"`
+  - Sets a response header.
+- `set_cookie()`
+  - Adds a cookie to the response.
+- `write()`
+  - Writes content to the response like a file-like object.
+
+Example with response metadata:
+
+```python
+from django.http import HttpResponse
+
+
+def index(request):
+    path = request.path
+    method = request.method
+    content = f"""
+    <center>
+        <h2>Testing Django Request Response Objects</h2>
+        <p>Request path: {path}</p>
+        <p>Request method: {method}</p>
+    </center>
+    """
+    response = HttpResponse(content)
+    response["X-Demo"] = "request-response"
+    return response
+```
+
+Start the server and visit:
+
+```text
+http://localhost:8000/demo/
+```
+
+![HTTP Response Demo](./assets/http_response_demo.png)
+
+This example shows how a view can read data from `HttpRequest` and return formatted content with `HttpResponse`.
+
+#### Creating Requests and Responses
+
+- Django's request-response cycle starts when a user enters a URL in the browser.
+- The web server passes the request to Django.
+- Django checks the URL patterns in `urls.py`.
+- When a URL pattern matches, Django calls the associated view.
+- The view receives an `HttpRequest` object as its first argument.
+- The view creates and returns an `HttpResponse` object.
+- Django sends the response back to the client.
+- `request.path` shows the requested path.
+  - Example: `/main/home/`.
+  - If the URL configuration changes, the displayed path changes too.
+- `HttpResponse` can be returned directly or assigned to a variable before returning.
+- Request attributes can be displayed by reading values from the `request` object.
+  - Useful examples include:
+    - `request.scheme`,
+    - `request.method`,
+    - `request.path`,
+    - `request.path_info`,
+    - `request.headers.get("User-Agent")`,
+    - `request.META.get("REMOTE_ADDR")`.
+- Response headers can be added to the `HttpResponse` object.
+- Request and response objects are especially important when working with:
+  - `GET` and `POST` methods,
+  - forms,
+  - databases,
+  - other data-driven Django features.
+
+Example view:
+
+```python
+from django.http import HttpResponse
+
+
+def home(request):
+    path = request.path
+    method = request.method
+    scheme = request.scheme
+    path_info = request.path_info
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    remote_address = request.META.get("REMOTE_ADDR", "Unknown")
+
+    message = f"""
+    <h1>Request information</h1>
+    <p>Path: {path}</p>
+    <p>Method: {method}</p>
+    <p>Scheme: {scheme}</p>
+    <p>Path info: {path_info}</p>
+    <p>User agent: {user_agent}</p>
+    <p>Remote address: {remote_address}</p>
+    """
+
+    response = HttpResponse(
+        message,
+        content_type="text/html; charset=utf-8",
+    )
+    response.headers["Age"] = "20"
+    return response
+```
+
+Example URL mapping:
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("home/", views.home, name="home"),
+]
+```
+
+If this app is included under `main/` at the project level, visit:
+
+```text
+http://127.0.0.1:8000/main/home/
+```
+
+The browser displays request information generated from the `HttpRequest` object, and the response includes the custom `Age` header.
+
+#### Understanding URLs
+
+- A URL (Uniform Resource Locator) is the address of a specific web resource.
+  - The resource can be a web page, image, document, metadata file, or another file sent over HTTP.
+  - Each URL points to a specific location on the web or on a local server.
+- A URL is built from several parts.
+  - The scheme identifies the protocol.
+  - The subdomain appears before the main domain.
+  - The domain identifies the website or organization.
+  - The path identifies the resource location.
+  - Query parameters provide extra information.
+- The scheme is also called the protocol.
+  - Common schemes are `http` and `https`.
+  - HTTP (Hypertext Transfer Protocol) sends and receives web resources.
+  - HTTPS is the secure version of HTTP.
+    - It encrypts transferred data.
+    - Browsers often show HTTPS with a lock icon.
+- The domain name usually has two main parts.
+  - The second-level domain often identifies the organization or site name.
+  - The top-level domain identifies a category or country.
+    - `.com` often indicates a commercial site.
+    - `.org` often indicates an organization.
+    - `.ie` indicates Ireland.
+- The path, also called the page path or file path, points to a resource.
+  - Paths can point to web pages, images, documents, or other files.
+  - Resources can be local to a server or hosted externally.
+- Query strings begin with `?`.
+  - They contain key-value pairs.
+  - Multiple parameters are separated with `&`.
+  - Django can read query string values from `request.GET`.
+- Django URL patterns can also capture parts of the path.
+  - Example: `path("articles/<int:year>/", views.year_archive)`.
+  - The captured value is passed to the view for processing.
+- URL design means intentionally creating clear, useful URLs.
+  - Good URL design depends on the website content and application structure.
+  - Django developers need to understand URL parts to design routes well.
+
+Example URL:
+
+```text
+https://www.littlelemon.com/menu/items/?category=pasta&page=2
+|___|   |__| |______________| |_________| |_____________________|
+scheme  sub  domain          path        query string
+```
+
+Parts:
+
+```text
+scheme: https
+subdomain: www
+second-level domain: littlelemon
+top-level domain: com
+path: /menu/items/
+query string: ?category=pasta&page=2
+query parameters:
+  category = pasta
+  page = 2
+```
+
+#### Parameters
+
+Parameters let the client send extra data to a Django view. A view always receives the `request` object, and it can also receive additional values from the URL or request body.
+
+This section covers three common parameter types:
+
+- path parameters,
+- query parameters,
+- body parameters.
+
+These parameters are often connected to HTTP methods such as `GET`, `POST`, `PUT`, and `DELETE`.
+
+##### Path parameters
+
+Path parameters are values embedded directly in the URL path.
+
+Example URL:
+
+```text
+http://localhost:8000/getuser/John/1/
+```
+
+In this URL:
+
+- `John` is the `name` parameter,
+- `1` is the `id` parameter.
+
+Define the route in the app-level `urls.py` file:
+
+```python
+path("getuser/<str:name>/<int:id>/", views.pathview, name="pathview")
+```
+
+Define the view in `views.py`:
+
+```python
+from django.http import HttpResponse
+
+
+def pathview(request, name, id):
+    return HttpResponse(f"Name: {name} UserID: {id}")
+```
+
+The names inside the URL pattern must match the view function parameters:
+
+- `<str:name>` maps to `name`,
+- `<int:id>` maps to `id`.
+
+##### Path converters
+
+Django treats values inside angle brackets as path parameters.
+
+Common path converters:
+
+- `str`
+  - Matches any non-empty string except the path separator `/`.
+  - This is the default converter.
+- `int`
+  - Matches zero or a positive integer.
+  - Returns an `int`.
+  - Example: `customer/<int:id>/`.
+- `slug`
+  - Matches ASCII letters, numbers, hyphens, and underscores.
+- `uuid`
+  - Matches a formatted UUID.
+  - Returns a `UUID` instance.
+  - Example: `075194d3-6885-417e-a8a8-6c931e272f00`.
+- `path`
+  - Matches a non-empty string.
+  - Includes the path separator `/`.
+
+There is no built-in `date` or `float` path converter in Django.
+
+If a route needs one of those types, create a custom converter and register it in the URL configuration.
+
+Example custom converters:
+
+```python
+# converters.py
+from datetime import date
+
+
+class DateConverter:
+    regex = r"\d{4}-\d{2}-\d{2}"
+
+    def to_python(self, value):
+        year, month, day = map(int, value.split("-"))
+        return date(year, month, day)
+
+    def to_url(self, value):
+        return value.isoformat()
+
+
+class FloatConverter:
+    regex = r"\d+(?:\.\d+)?"
+
+    def to_python(self, value):
+        return float(value)
+
+    def to_url(self, value):
+        return str(value)
+```
+
+Register the converters before using them in `urlpatterns`:
+
+```python
+# urls.py
+from django.urls import path, register_converter
+
+from . import converters, views
+
+register_converter(converters.DateConverter, "date")
+register_converter(converters.FloatConverter, "float")
+
+urlpatterns = [
+    path("sales/<date:day>/", views.sales_by_day, name="sales_by_day"),
+    path("products/under/<float:price>/", views.products_under_price, name="products_under_price"),
+]
+```
+
+Then Django passes converted Python values to the view:
+
+```python
+def sales_by_day(request, day):
+    # day is a datetime.date object.
+    ...
+
+
+def products_under_price(request, price):
+    # price is a float.
+    ...
+```
+
+##### Query parameters
+
+Query parameters are key-value pairs added after the URL path.
+
+Example URL:
+
+```text
+http://localhost:8000/myapp/getuser/?name=John&id=1
+```
+
+A query string:
+
+- starts with `?`,
+- uses `key=value` pairs,
+- separates multiple pairs with `&`.
+
+Django's URL dispatcher does not parse query parameters into view arguments. The view reads them from `request.GET`.
+
+Define the route:
+
+```python
+path("getuser/", views.qryview, name="qryview")
+```
+
+Define the view:
+
+```python
+from django.http import HttpResponse
+
+
+def qryview(request):
+    name = request.GET.get("name")
+    id = request.GET.get("id")
+    return HttpResponse(f"Name: {name} UserID: {id}")
+```
+
+##### Body parameters
+
+Body parameters are submitted in the request body, usually through an HTML form.
+
+- HTML forms often send body data with `POST`.
+- `POST` data is not shown in the URL.
+- Django reads submitted form values from `request.POST`.
+
+Create `form.html` in the templates folder:
+
+```html
+<form action="/myapp/getform/" method="post">
+    {% csrf_token %}
+    <p>Name: <input type="text" name="name"></p>
+    <p>UserID: <input type="text" name="id"></p>
+    <input type="submit">
+</form>
+```
+
+The `{% csrf_token %}` tag helps protect against cross-site request forgery attacks.
+
+Create a view to display the form:
+
+```python
+from django.shortcuts import render
+
+
+def showform(request):
+    return render(request, "form.html")
+```
+
+Add the route:
+
+```python
+path("showform/", views.showform, name="showform")
+```
+
+Visit:
+
+```text
+http://localhost:8000/myapp/showform/
+```
+
+![URL displaying the form to the user](./assets/show_form.png)
+
+When the form is submitted, it sends a `POST` request to:
+
+```text
+http://localhost:8000/myapp/getform/
+```
+
+Add the route:
+
+```python
+path("getform/", views.getform, name="getform")
+```
+
+Handle the submitted form data:
+
+```python
+from django.http import HttpResponse
+
+
+def getform(request):
+    if request.method == "POST":
+        id = request.POST.get("id")
+        name = request.POST.get("name")
+        return HttpResponse(f"Name: {name} UserID: {id}")
+
+    return HttpResponse("Submit the form with POST.")
+```
+
+Complete the form and submit it. The `getform()` function returns the data as its response.
+
+![Return data display with the response](./assets/get_form.png)
+
+In real applications, submitted data is often processed further, such as by saving it to a database. This is explored later with models, forms, and database connections.
+
+##### `csrf_token`
+
+`{% csrf_token %}` is a Django template tag used inside HTML forms that submit data with `POST`.
+
+It helps protect the application against CSRF attacks. CSRF means Cross-Site Request Forgery. In this kind of attack, a malicious website tries to make a user's browser send a request to another website where the user is already logged in.
+
+For example, imagine a user is logged in to a Django site in one browser tab. If they visit a malicious page in another tab, that page might try to submit a hidden form to the Django site. Without CSRF protection, the Django site might treat that request as if the user intentionally submitted it.
+
+The template tag:
+
+```html
+{% csrf_token %}
+```
+
+is rendered by Django as a hidden input field:
+
+```html
+<input type="hidden" name="csrfmiddlewaretoken" value="generated-token-value">
+```
+
+When the form is submitted:
+
+- the browser sends the hidden token with the form data,
+- Django checks whether the token is valid,
+- if the token is missing or invalid, Django rejects the request, usually with `403 Forbidden`.
+
+Use `{% csrf_token %}` in Django templates for forms that use `method="post"`:
+
+```html
+<form action="/myapp/getform/" method="post">
+    {% csrf_token %}
+    <p>Name: <input type="text" name="name"></p>
+    <input type="submit">
+</form>
+```
+
+The short rule is: if a Django form changes or submits data with `POST`, include `{% csrf_token %}`.
+
+#### Mapping URLs with Parameters
+
+- URL parameters let Django capture part of the URL and pass it to a view.
+  - The captured value becomes an argument after `request`.
+  - This is useful when the URL itself identifies what data the view should process.
+- Django captures path parameters with angle brackets inside `path()`.
+  - Example: `<str:dish>` captures one URL segment as a string.
+  - `str` is the path converter.
+  - `dish` is the parameter name passed to the view.
+- The parameter name in `urls.py` must match the view function argument.
+  - `path("dishes/<str:dish>/", views.menu_items)` passes `dish` to `menu_items(request, dish)`.
+  - If the URL is `/dishes/pasta/`, Django calls the view with `dish="pasta"`.
+- Path converters can restrict and convert captured values.
+  - `str` captures text without `/`.
+  - `int` captures numbers and passes them to the view as integers.
+  - An `int` parameter is often used to pass a database primary key to a view.
+- URL parameters are useful for:
+  - selecting dictionary values,
+  - fetching database records,
+  - grouping related content,
+  - sending search, sorting, or filtering information to the view logic.
+
+```python
+# urls.py
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("dishes/<str:dish>/", views.menu_items, name="menu_items"),
+]
+```
+
+```python
+# views.py
+from django.http import HttpResponse
+
+
+def menu_items(request, dish):
+    items = {
+        "pasta": "Pasta is a type of noodle made from unleavened dough.",
+        "falafel": "Falafel is a deep-fried ball made from ground chickpeas.",
+        "cheesecake": "Cheesecake is a sweet dessert with a soft cheese filling.",
+    }
+
+    description = items.get(dish, "This item is not on the menu.")
+    return HttpResponse(f"<h1>{dish}</h1><p>{description}</p>")
+```
+
+```text
+http://127.0.0.1:8000/dishes/pasta/
+```
+
+In this example, Django captures `pasta` from the URL, passes it to the `dish` argument, looks it up in the `items` dictionary, and returns the matching description in the response.
 
 ### Creating URLs and Views
 
