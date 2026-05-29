@@ -124,6 +124,14 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Exercise: Mapping URLs with Parameters](#exercise-mapping-urls-with-parameters)
       - [Additional Resources](#additional-resources-2)
     - [Creating URLs and Views](#creating-urls-and-views)
+      - [Regular Expressions in URLs](#regular-expressions-in-urls)
+      - [URL Namespacing and Views](#url-namespacing-and-views)
+        - [Named URLs](#named-urls)
+        - [`reverse()`](#reverse)
+        - [Application namespace](#application-namespace)
+        - [Instance namespace](#instance-namespace)
+        - [Using namespaces in views](#using-namespaces-in-views)
+        - [Using namespaces in templates](#using-namespaces-in-templates)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
     - [Models and Forms](#models-and-forms)
@@ -3446,6 +3454,318 @@ def drinks(request, drink_name):
 - [The HTTP server responses](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
 
 ### Creating URLs and Views
+
+#### Regular Expressions in URLs
+
+- Regular expressions, often called RegEx, define patterns for matching text.
+  - They are used for validation, extraction, searching, grouping, and replacement.
+  - In Django URL routing, they can validate the shape of a URL before a view is called.
+- Django normally uses `path()` and path converters for readable URL patterns.
+  - Example: `path("menu_item/<int:item_id>/", views.menu_item)`.
+  - This is usually clearer than a regular expression.
+- Django also provides `re_path()` for URL patterns that need regular expressions.
+  - Import it from `django.urls`.
+  - Use it when the route needs more specific matching than `path()` provides.
+  - Captured regex groups are passed to the view as strings.
+- A static path only matches one exact URL.
+  - `path("menu_item/10/", views.menu_item)` matches `/menu_item/10/`.
+  - It does not match `/menu_item/1/` or `/menu_item/99/`.
+- A regex path can match a family of URLs with the same structure.
+  - `r"^menu_item/([0-9]{2})/$"` matches exactly two digits.
+  - Examples include `/menu_item/10/`, `/menu_item/25/`, and `/menu_item/99/`.
+- Common regex symbols include:
+  - `^` anchors the match to the start of the string.
+  - `$` anchors the match to the end of the string.
+  - `[0-9]` matches one digit from `0` to `9`.
+  - `{2}` requires exactly two occurrences of the previous pattern.
+  - `()` creates a captured group.
+  - `(?P<name>pattern)` creates a named captured group.
+- Raw strings are commonly used for regex routes.
+  - Prefixing the string with `r` helps Python treat backslashes as regex characters.
+  - Example: `r"^menu_item/(?P<item_id>[0-9]{2})/$"`.
+- Prefer named groups when the captured value should become a named view argument.
+  - Named groups make the route easier to connect to the view signature.
+  - Example: `(?P<item_id>[0-9]{2})` maps to `item_id` in the view.
+- Regular expressions are powerful but can become hard to read.
+  - Use `path()` and converters for common cases.
+  - Use `re_path()` when the URL format needs precise validation.
+
+```python
+# urls.py
+from django.urls import path, re_path
+
+from . import views
+
+
+urlpatterns = [
+    # Static route: only matches /menu_item/10/.
+    path("menu_item/10/", views.menu_item_static, name="menu_item_static"),
+
+    # Regex route: matches /menu_item/10/, /menu_item/25/, /menu_item/99/, etc.
+    re_path(
+        r"^menu_item/(?P<item_id>[0-9]{2})/$",
+        views.menu_item_by_id,
+        name="menu_item_by_id",
+    ),
+]
+```
+
+```python
+# views.py
+from django.http import HttpResponse
+
+
+def menu_item_static(request):
+    return HttpResponse("<h1>Menu item 10</h1>")
+
+
+def menu_item_by_id(request, item_id):
+    # re_path() passes captured values as strings.
+    return HttpResponse(f"<h1>Menu item {item_id}</h1>")
+```
+
+#### URL Namespacing and Views
+
+This reading explains named URLs in a Django URL configuration, also called a URLconf. It also explains how namespaces help Django resolve URL names when more than one app uses the same route name.
+
+##### Named URLs
+
+Each app can have a `urls.py` file that defines URL patterns for that app.
+
+Each pattern is usually created with `django.urls.path()`.
+
+The common arguments are:
+
+- the URL path string,
+- the view function mapped to that URL,
+- the optional `name` argument.
+
+Example app-level URLconf:
+
+```python
+# demoapp/urls.py
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.index, name="index"),
+    path("login/", views.login, name="login"),
+]
+```
+
+The app-level URLconf is included in the project-level `urlpatterns`.
+
+```python
+# demoproject/urls.py
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("demo/", include("demoapp.urls")),
+]
+```
+
+When a request comes in, Django compares the requested URL with the URL patterns and calls the matching view.
+
+Hard-coded URL strings can work, but they make a project harder to maintain as it grows.
+
+Example hard-coded form action:
+
+```html
+<form action="/demoapp/login/" method="post">
+    <!-- form fields -->
+</form>
+```
+
+If the URL pattern changes later, every hard-coded reference must be updated manually.
+
+##### `reverse()`
+
+Django can build a URL from the route name instead of relying on a hard-coded path.
+
+Start the Django shell:
+
+```bash
+python manage.py shell
+```
+
+Use `reverse()` to return the URL path mapped to a named URL:
+
+```pycon
+>>> from django.urls import reverse
+>>> reverse("index")
+'/demo/'
+```
+
+The problem appears when more than one app defines the same URL name, such as `index` or `login`. This is where namespaces become useful.
+
+##### Application namespace
+
+An application namespace is created by defining `app_name` in the app's `urls.py` file.
+
+```python
+# demoapp/urls.py
+from django.urls import path
+
+from . import views
+
+# This is the namespace, which contains the URL names defined in this app.
+app_name = "demoapp"
+
+urlpatterns = [
+    path("", views.index, name="index"),
+    path("login/", views.login, name="login"),
+]
+```
+
+The `app_name` identifies the URLs that belong to this app.
+
+To reverse a URL inside a namespace, use this format:
+
+```text
+namespace:url_name
+```
+
+Example:
+
+```pycon
+>>> reverse("demoapp:index")
+'/demo/'
+```
+
+Now add another app, such as `newapp`, with its own `index` view and its own application namespace.
+
+```python
+# newapp/urls.py
+from django.urls import path
+
+from . import views
+
+
+app_name = "newapp"
+
+urlpatterns = [
+    path("", views.index, name="index"),
+]
+```
+
+Include both apps in the project-level URLconf:
+
+```python
+# demoproject/urls.py
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("demo/", include("demoapp.urls")),
+    path("newdemo/", include("newapp.urls")),
+]
+```
+
+Now Django can distinguish between the two routes even though both apps use the name `index`.
+
+```pycon
+>>> reverse("demoapp:index")
+'/demo/'
+>>> reverse("newapp:index")
+'/newdemo/'
+```
+
+##### Instance namespace
+
+An instance namespace is set with the `namespace` argument in `include()`.
+
+This is useful when the same app URLconf is included more than once in the same project.
+
+```python
+# demoproject/urls.py
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("demo/", include("demoapp.urls", namespace="demoapp")),
+]
+```
+
+In this example, `demoapp` is the instance namespace used to resolve namespaced URLs.
+
+##### Using namespaces in views
+
+A view can use a namespaced URL when it needs to redirect to another view.
+
+Example with `HttpResponsePermanentRedirect`:
+
+```python
+from django.http import HttpResponsePermanentRedirect
+from django.urls import reverse
+
+
+def myview(request):
+    login_url = reverse("demoapp:login")
+    return HttpResponsePermanentRedirect(login_url)
+```
+
+This avoids hard-coding the login URL in the view.
+
+Django also provides the `redirect()` shortcut, which can redirect directly to a named URL:
+
+```python
+from django.shortcuts import redirect
+
+
+def myview(request):
+    return redirect("demoapp:login")
+```
+
+##### Using namespaces in templates
+
+An HTML form submits to the URL in its `action` attribute.
+
+Hard-coded example:
+
+```html
+<form action="/demoapp/login/" method="post">
+    <!-- form fields -->
+    <input type="submit">
+</form>
+```
+
+Instead of hard-coding the path, use Django's `{% url %}` template tag.
+
+Without a namespace:
+
+```html
+<form action="{% url 'login' %}" method="post">
+    <!-- form fields -->
+    <input type="submit">
+</form>
+```
+
+With a namespace:
+
+```html
+<form action="{% url 'demoapp:login' %}" method="post">
+    <!-- form fields -->
+    <input type="submit">
+</form>
+```
+
+The namespaced version is safer when multiple apps define a `login` URL.
+
+The browser shows the login form as below:
+
+![Login form browser view with user name and password tabs as well as submit button](./assets/log_in_form.png)
+
+Namespaces help resolve conflicts when multiple apps in the same project use the same URL names.
+
+Some of these ideas connect closely to Django templates. They become clearer once templates are covered in more detail.
+
 
 ## 3. Models
 
