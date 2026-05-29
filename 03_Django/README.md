@@ -121,6 +121,8 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Body parameters](#body-parameters)
         - [`csrf_token`](#csrf_token)
       - [Mapping URLs with Parameters](#mapping-urls-with-parameters)
+      - [Exercise: Mapping URLs with Parameters](#exercise-mapping-urls-with-parameters)
+      - [Additional Resources](#additional-resources-2)
     - [Creating URLs and Views](#creating-urls-and-views)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
@@ -131,7 +133,7 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Templates](#templates)
     - [Working with Templates](#working-with-templates)
     - [Debugging and Testing](#debugging-and-testing)
-  - [5. Summary and Assessment](#5-summary-and-assessment)
+  - [5. Summary and Project](#5-summary-and-project)
 
 
 ## 1. Introduction to Django
@@ -3381,6 +3383,68 @@ http://127.0.0.1:8000/dishes/pasta/
 
 In this example, Django captures `pasta` from the URL, passes it to the `dish` argument, looks it up in the `items` dictionary, and returns the matching description in the response.
 
+#### Exercise: Mapping URLs with Parameters
+
+Folder: [`lab/03-django-urls/`](./lab/03-django-urls/).
+
+- Completed the exercise in `lab/03-django-urls/myproject`.
+- Updated the app-level `myapp/urls.py`.
+  - Kept the existing home route.
+  - Added `path("drinks/<str:drink_name>", views.drinks, name="drinks")`.
+  - The `<str:drink_name>` path converter captures the drink name from the URL.
+- Updated `myapp/views.py`.
+  - Added a `drinks(request, drink_name)` view.
+  - Created a `drink` dictionary with:
+    - `mocha`,
+    - `tea`,
+    - `lemonade`,
+    - `espresso` as the optional extra item.
+  - Used the captured `drink_name` value to look up the matching dictionary description.
+  - Returned an `HttpResponse` with the drink name as an `<h2>` heading and the drink description after it.
+- Verified the project with Django.
+  - `python manage.py check` passed when run with the repository virtual environment.
+  - The required URLs returned `200` responses:
+    - `/drinks/mocha`,
+    - `/drinks/tea`,
+    - `/drinks/lemonade`.
+  - The optional extra URL `/drinks/espresso` also returned a `200` response.
+
+[`url.py`](./lab/03-django-urls/myproject/myapp/urls.py):
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('drinks/<str:drink_name>', views.drinks, name="drink_name"), 
+]
+```
+
+[`views.py`](./lab/03-django-urls/myproject/myapp/views.py):
+
+```python
+from http.client import HTTPResponse
+from django.shortcuts import render
+from django.http import HttpResponse
+
+def drinks(request, drink_name):
+    drink = {
+        'mocha' : 'type of coffee',
+        'tea' : 'type of hot beverage',
+        'lemonade': 'type of refreshment'
+    }
+    choice_of_drink = drink[drink_name]
+    return HttpResponse(f"<h2>{drink_name}</h2> " + choice_of_drink)
+```
+
+#### Additional Resources
+
+- [Creating views - official documentation](https://docs.djangoproject.com/en/4.0/topics/http/views/)
+- [Class-based views - Official](https://docs.djangoproject.com/en/4.0/topics/class-based-views/)
+- [The render() function in Django](https://docs.djangoproject.com/en/4.1/topics/http/shortcuts/#render)
+- [Getting query parameters from a request in Django](https://docs.djangoproject.com/en/4.1/topics/http/urls/#path-converters)
+- [The HTTP server responses](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
+
 ### Creating URLs and Views
 
 ## 3. Models
@@ -3401,4 +3465,4 @@ In this example, Django captures `pasta` from the URL, passes it to the `dish` a
 
 ### Debugging and Testing
 
-## 5. Summary and Assessment
+## 5. Summary and Project
