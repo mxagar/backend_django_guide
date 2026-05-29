@@ -2380,6 +2380,9 @@ urlpatterns = [
 Django provides generic class-based views in `django.views.generic`.
 
 - Generic views implement common web application patterns.
+- They are ready-made class-based views.
+- They reduce repeated view logic.
+- They are useful when a view follows a standard shape.
 - Examples include:
   - `TemplateView`,
   - `CreateView`,
@@ -2392,13 +2395,206 @@ Django provides generic class-based views in `django.views.generic`.
   - `template_name`,
   - `context_object_name`.
 
+For example, a `ListView` can replace a function-based view that fetches all objects and renders them in a template.
+
+Manual function-based version:
+
+```python
+from django.shortcuts import render
+
+from .models import MenuItem
+
+
+def menu_list(request):
+    menu_items = MenuItem.objects.all()
+    return render(
+        request,
+        "little_lemon/menu_list.html",
+        {"menu_items": menu_items},
+    )
+```
+
+Generic class-based version:
+
+```python
+from django.views.generic import ListView
+
+from .models import MenuItem
+
+
+class MenuItemListView(ListView):
+    model = MenuItem
+    template_name = "little_lemon/menu_list.html"
+    context_object_name = "menu_items"
+```
+
+Map the generic view to a URL with `as_view()`:
+
+```python
+from django.urls import path
+
+from .views import MenuItemListView
+
+
+urlpatterns = [
+    path("menu/", MenuItemListView.as_view(), name="menu_list"),
+]
+```
+
+In this example, `ListView` handles the repeated workflow:
+
+- get objects from the model,
+- prepare context data,
+- render a template,
+- return an HTTP response.
+
+The tradeoff is:
+
+- function-based views are explicit and easier while learning,
+- generic views are shorter and reduce repetition,
+- generic views can feel less obvious at first because Django performs more work internally.
+
 Function-based views are the best starting point in this introductory section. Class-based views and generic views become useful as projects grow and repeated view patterns appear.
 
 #### Creating Views and View Logic
 
+- A view function can return text or HTML by returning an `HttpResponse`.
+- A view function does not become visible in the browser by itself.
+  - It must be mapped to a URL.
+  - The URL mapping is defined in a `urls.py` file.
+- The first argument to `path()` is the URL suffix.
+  - For example, `path("say-hello/", views.hello)` maps the `/say-hello/` URL suffix.
+- If the browser opens a URL that is not mapped, Django returns a `404 Page not found` response.
+- View logic can use normal Python code.
+  - For example, a view can import `datetime` and return the current year.
+- A view can return simple HTML markup.
+  - Later sections use templates for larger, cleaner HTML pages.
+
+Example `views.py`:
+
+```python
+from datetime import date
+
+from django.http import HttpResponse
+
+
+def hello(request):
+    return HttpResponse("Hello World")
+
+
+def homepage(request):
+    return HttpResponse("Welcome to Little Lemon")
+
+
+def display_date(request):
+    date_joined = date.today().year
+    return HttpResponse(str(date_joined))
+
+
+def menu(request):
+    content = """
+    <h1 style="color: #495e57;">Little Lemon Menu</h1>
+    <p>Falafel</p>
+    <p>Pasta</p>
+    <p>Salad</p>
+    """
+    return HttpResponse(content)
+```
+
+Example `urls.py`:
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("say-hello/", views.hello, name="hello"),
+    path("homepage/", views.homepage, name="homepage"),
+    path("display-date/", views.display_date, name="display_date"),
+    path("menu/", views.menu, name="menu"),
+]
+```
+
+Example URLs:
+
+```text
+http://127.0.0.1:8000/say-hello/
+http://127.0.0.1:8000/homepage/
+http://127.0.0.1:8000/display-date/
+http://127.0.0.1:8000/menu/
+```
 
 #### Exercise: Create Views and Map to URLs
 
+Folder: [`lab/02-django-views/`](./lab/02-django-views/).
+
+Completed files:
+
+- [`myapp/views.py`](./lab/02-django-views/myproject/myapp/views.py)
+  - Imports `HttpResponse`.
+  - Defines the `home(request)` view.
+  - Returns:
+
+```html
+<h1> Welcome to Little Lemon! </h1>
+```
+
+- [`myapp/urls.py`](./lab/02-django-views/myproject/myapp/urls.py)
+  - Imports `path`.
+  - Imports the app's `views`.
+  - Maps the app root route to `views.home`.
+
+```python
+urlpatterns = [
+    path("", views.home, name="home"),
+]
+```
+
+- [`myproject/urls.py`](./lab/02-django-views/myproject/myproject/urls.py)
+  - Imports `include`.
+  - Includes `myapp.urls` at the project root.
+
+```python
+urlpatterns = [
+    path("", include("myapp.urls")),
+    path("admin/", admin.site.urls),
+]
+```
+
+- [`myproject/settings.py`](./lab/02-django-views/myproject/myproject/settings.py)
+  - Registers the app by adding `myapp.apps.MyappConfig` to `INSTALLED_APPS`.
+
+Verification:
+
+```bash
+python manage.py check
+```
+
+Result:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+Run the project from `lab/02-django-views/myproject`:
+
+```bash
+python manage.py runserver
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000/
+```
+
+Expected page content:
+
+```text
+Welcome to Little Lemon!
+```
 
 ### Requests and URLs
 
