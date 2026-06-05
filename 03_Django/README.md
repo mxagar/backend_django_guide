@@ -139,6 +139,9 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Class-based Views](#class-based-views-1)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
+      - [Models](#models)
+      - [Model Relationships](#model-relationships)
+      - [Creating Models](#creating-models)
     - [Models and Forms](#models-and-forms)
     - [Admin](#admin)
     - [Database Configuration](#database-configuration)
@@ -4146,6 +4149,380 @@ Key idea: class-based views are best when a view has multiple HTTP behaviors or 
 ## 3. Models
 
 ### Models and Migrations
+
+#### Models
+
+Dynamic web applications need persistent data. Users submit information through the presentation layer, and the application often needs to store, retrieve, update, and delete that data later.
+
+In Django, a **model** is the Python representation of stored data. It is the model part of the Model-View-Template, or MVT, pattern.
+
+Key ideas:
+
+- A model is the single source of truth for a type of data.
+- A model usually maps to one database table.
+- Each model attribute usually maps to one database field.
+- A model is a Python class that subclasses `django.db.models.Model`.
+- Django provides a database API so you can work with records using Python instead of writing SQL manually.
+
+Example model:
+
+```python
+from django.db import models
+
+
+class User(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+```
+
+Django automatically adds a primary key field named `id` unless you define your own primary key.
+
+Defining a model class does not create the database table by itself. To apply model changes to the database, Django uses migrations.
+
+**SQL Compared With Django Models**
+
+Without a framework, a developer may create database tables directly and write SQL queries such as `CREATE TABLE`, `INSERT`, `SELECT`, `UPDATE`, and `DELETE`.
+
+With Django models, the same work is done through Python classes and model methods.
+
+| Operation | SQL idea | Django model idea |
+| --- | --- | --- |
+| Create table | `CREATE TABLE` | Define a model, then run migrations |
+| Create record | `INSERT` | Create an object and call `save()` |
+| Read record | `SELECT` | Use model manager methods such as `objects.get()` |
+| Update record | `UPDATE` | Get an object, change fields, then call `save()` |
+| Delete record | `DELETE` | Get an object, then call `delete()` |
+
+Example CRUD operations:
+
+```python
+# Create
+user = User(first_name="John", last_name="Jones")
+user.save()
+
+# Read
+user = User.objects.get(id=1)
+
+# Update
+user.last_name = "Smith"
+user.save()
+
+# Delete
+user.delete()
+```
+
+The `objects` attribute is Django's default model manager. It provides methods for querying the database, such as `get()`, `filter()`, and `all()`.
+
+Key idea: models let Django developers describe database structure and behavior in Python. They replace much of the manual SQL needed for common CRUD operations, while migrations handle turning model definitions into database tables.
+
+#### Model Relationships
+
+Model relationships describe how database tables connect to each other.
+
+**Primary and Foreign Keys**
+
+| Term | Meaning |
+| --- | --- |
+| Primary key | A field whose value uniquely identifies each row in a table. |
+| Foreign key | A field in one table that points to the primary key of another table. |
+
+Relationships help:
+
+- avoid repeated data,
+- reduce typing errors,
+- keep related records consistent,
+- protect data integrity when records are changed or deleted.
+
+For example, instead of storing a full product name in every customer purchase row, a `Customer` or `Order` table can store a `product_id` foreign key that points to the matching product.
+
+**Relationship Types**
+
+| Relationship | Django field | Meaning |
+| --- | --- | --- |
+| One-to-one | `OneToOneField` | One record in model A matches one record in model B. |
+| One-to-many | `ForeignKey` | One record in model A can match many records in model B. |
+| Many-to-many | `ManyToManyField` | Many records in model A can match many records in model B. |
+
+**`on_delete`**
+
+Relationship fields such as `ForeignKey` and `OneToOneField` require an `on_delete` option. It tells Django what to do when the referenced object is deleted.
+
+| Option | Behavior |
+| --- | --- |
+| `models.CASCADE` | Delete the related object too. |
+| `models.PROTECT` | Prevent deletion of the referenced object. |
+| `models.RESTRICT` | Prevent deletion by raising `RestrictedError` when restricted related objects exist. |
+
+**One-To-One**
+
+A one-to-one relationship is useful when one object should have exactly one matching object.
+
+Example: one college has one principal, and one principal belongs to one college.
+
+```python
+from django.db import models
+
+
+class College(models.Model):
+    college_id = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=50)
+    strength = models.IntegerField()
+    website = models.URLField()
+
+
+class Principal(models.Model):
+    college = models.OneToOneField(College, on_delete=models.CASCADE)
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+```
+
+After migrations, Django creates a unique relationship from `Principal` to `College`, so each college can be linked to only one principal.
+
+Equivalent SQL shape:
+
+```sql
+CREATE TABLE "myapp_college" (
+    "college_id" integer NOT NULL PRIMARY KEY,
+    "name" varchar(50) NOT NULL,
+    "strength" integer NOT NULL,
+    "website" varchar(200) NOT NULL
+);
+
+CREATE TABLE "myapp_principal" (
+    "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "qualification" varchar(50) NOT NULL,
+    "email" varchar(50) NOT NULL,
+    "college_id" integer NOT NULL UNIQUE
+        REFERENCES "myapp_college" ("college_id")
+        DEFERRABLE INITIALLY DEFERRED
+);
+```
+
+**One-To-Many**
+
+A one-to-many relationship is useful when one object can be connected to many objects.
+
+Example: one subject can be taught by many teachers.
+
+```python
+from django.db import models
+
+
+class Subject(models.Model):
+    subject_code = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=30)
+    credits = models.IntegerField()
+
+
+class Teacher(models.Model):
+    teacher_id = models.IntegerField(primary_key=True)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+```
+
+After migrations, Django creates a foreign key column on the `Teacher` table that references the `Subject` table.
+
+Equivalent SQL shape:
+
+```sql
+CREATE TABLE "myapp_subject" (
+    "subject_code" integer NOT NULL PRIMARY KEY,
+    "name" varchar(30) NOT NULL,
+    "credits" integer NOT NULL
+);
+
+CREATE TABLE "myapp_teacher" (
+    "teacher_id" integer NOT NULL PRIMARY KEY,
+    "qualification" varchar(50) NOT NULL,
+    "email" varchar(50) NOT NULL,
+    "subject_id" integer NOT NULL
+        REFERENCES "myapp_subject" ("subject_code")
+        DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX "myapp_teacher_subject_id_idx"
+    ON "myapp_teacher" ("subject_id");
+```
+
+**Many-To-Many**
+
+A many-to-many relationship is useful when many objects on each side can connect to many objects on the other side.
+
+Example: one teacher can teach many subjects, and one subject can be taught by many teachers.
+
+```python
+from django.db import models
+
+
+class Teacher(models.Model):
+    teacher_id = models.IntegerField(primary_key=True)
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+
+
+class Subject(models.Model):
+    subject_code = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=30)
+    credits = models.IntegerField()
+    teachers = models.ManyToManyField(Teacher)
+```
+
+After migrations, Django creates an extra join table between `Subject` and `Teacher`. That join table stores pairs of subject IDs and teacher IDs.
+
+Equivalent SQL shape:
+
+```sql
+CREATE TABLE "myapp_teacher" (
+    "teacher_id" integer NOT NULL PRIMARY KEY,
+    "qualification" varchar(50) NOT NULL,
+    "email" varchar(50) NOT NULL
+);
+
+CREATE TABLE "myapp_subject" (
+    "subject_code" integer NOT NULL PRIMARY KEY,
+    "name" varchar(30) NOT NULL,
+    "credits" integer NOT NULL
+);
+
+CREATE TABLE "myapp_subject_teachers" (
+    "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "subject_id" integer NOT NULL
+        REFERENCES "myapp_subject" ("subject_code")
+        DEFERRABLE INITIALLY DEFERRED,
+    "teacher_id" integer NOT NULL
+        REFERENCES "myapp_teacher" ("teacher_id")
+        DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE UNIQUE INDEX "myapp_subject_teachers_subject_id_teacher_id_uniq"
+    ON "myapp_subject_teachers" ("subject_id", "teacher_id");
+
+CREATE INDEX "myapp_subject_teachers_subject_id_idx"
+    ON "myapp_subject_teachers" ("subject_id");
+
+CREATE INDEX "myapp_subject_teachers_teacher_id_idx"
+    ON "myapp_subject_teachers" ("teacher_id");
+```
+
+Key idea: Django model relationships let Python classes express relational database links. Migrations turn fields such as `OneToOneField`, `ForeignKey`, and `ManyToManyField` into the needed database constraints and join tables.
+
+#### Creating Models
+
+Models are created in an app's `models.py` file. This demo uses a Little Lemon menu example inside an app named `menuapp`.
+
+**Create the Model**
+
+A model class inherits from `models.Model`. Each class attribute defines a database field.
+
+```python
+# menuapp/models.py
+from django.db import models
+
+
+class Menu(models.Model):
+    name = models.CharField(max_length=100)
+    cuisine = models.CharField(max_length=100)
+    price = models.IntegerField()
+
+    def __str__(self):
+        return self.name
+```
+
+Field examples from the demo:
+
+| Field | Use |
+| --- | --- |
+| `CharField(max_length=100)` | Stores text values such as item names and cuisine types. |
+| `IntegerField()` | Stores whole numbers such as a price. |
+
+The `__str__()` method controls how model objects display in the shell, admin, and query results. Without it, Django shows generic labels such as `Menu object (1)`.
+
+**Register the App**
+
+Before Django can use the model, the app must be listed in `INSTALLED_APPS`.
+
+```python
+# settings.py
+
+INSTALLED_APPS = [
+    # ...
+    "menuapp",
+]
+```
+
+If the app is not installed, importing the model in the Django shell can fail because Django has not loaded the app into the project.
+
+**Create and Apply Migrations**
+
+After defining the model, create a migration and apply it:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+`makemigrations` creates a Python migration file that describes the database changes. `migrate` applies those changes to the database, creating the table and columns.
+
+**Use the Django Shell**
+
+Open the Django shell:
+
+```bash
+python manage.py shell
+```
+
+Import the model:
+
+```python
+from menuapp.models import Menu
+```
+
+Check existing records:
+
+```python
+Menu.objects.all()
+```
+
+At first, this returns an empty `QuerySet` if no menu items exist.
+
+**Create Records**
+
+Create a menu item:
+
+```python
+menu_item = Menu.objects.create(
+    name="Pasta",
+    cuisine="Italian",
+    price=10,
+)
+```
+
+`objects.create()` creates and saves the record in one step.
+
+You can then query again:
+
+```python
+Menu.objects.all()
+```
+
+**Update Records**
+
+Retrieve a record, change an attribute, and save it:
+
+```python
+menu_item = Menu.objects.get(pk=1)
+menu_item.cuisine = "Mediterranean"
+menu_item.save()
+```
+
+This works like normal Python object manipulation, but `save()` persists the change to the database.
+
+**Other Ways to Work With Data**
+
+The demo uses the Django shell to show how model operations work internally. Later, the same data can also be viewed and updated through the Django admin interface.
+
+Key idea: creating a model is only the first step. To use it fully, add the app to `INSTALLED_APPS`, run migrations, then interact with records through Django's model manager, usually `objects`.
 
 ### Models and Forms
 
