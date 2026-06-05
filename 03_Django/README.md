@@ -132,6 +132,8 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Instance namespace](#instance-namespace)
         - [Using namespaces in views](#using-namespaces-in-views)
         - [Using namespaces in templates](#using-namespaces-in-templates)
+      - [Exercise: Creating URLs and Mapping to Views](#exercise-creating-urls-and-mapping-to-views)
+      - [Error Handling](#error-handling)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
     - [Models and Forms](#models-and-forms)
@@ -3766,6 +3768,128 @@ Namespaces help resolve conflicts when multiple apps in the same project use the
 
 Some of these ideas connect closely to Django templates. They become clearer once templates are covered in more detail.
 
+#### Exercise: Creating URLs and Mapping to Views
+
+Folder: [`lab/04-django-urls-views/`](./lab/04-django-urls-views/).
+
+This exercise adds four function-based views for the Little Lemon pages and maps them through an app-level URL configuration. The project-level `urls.py` already includes `myapp.urls`, so the app can define its own routes for the home, about, menu, and booking pages.
+
+The completed exercise also applies the additional step from the lab: the `about` view is mapped to `aboutus/` instead of `about/`.
+
+Summary of the completed views:
+
+```python
+from django.http import HttpResponse
+
+
+def home(request):
+    return HttpResponse("Welcome to Little Lemon!")
+
+
+def about(request):
+    return HttpResponse("About us")
+
+
+def menu(request):
+    return HttpResponse("Menu")
+
+
+def book(request):
+    return HttpResponse("Make a booking")
+```
+
+Summary of the app-level URL mappings:
+
+```python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("", views.home, name="home"),
+    path("aboutus/", views.about, name="about"),
+    path("menu/", views.menu, name="menu"),
+    path("book/", views.book, name="book"),
+]
+```
+
+Expected browser paths:
+
+| URL path | View function | Response text |
+| --- | --- | --- |
+| `/` | `home` | `Welcome to Little Lemon!` |
+| `/aboutus/` | `about` | `About us` |
+| `/menu/` | `menu` | `Menu` |
+| `/book/` | `book` | `Make a booking` |
+
+#### Error Handling
+
+Errors can still happen even after testing and QA. Some errors come from application code, but others come from unreliable networks, missing resources, permission problems, invalid requests, or server failures.
+
+HTTP responses include status codes that describe the result of a request:
+
+- `1xx`: informational responses
+- `2xx`: successful responses
+- `3xx`: redirects or moved resources
+- `4xx`: client-side request problems
+- `5xx`: server-side failures
+
+Common client error responses:
+
+| Status code | Meaning | Typical cause |
+| --- | --- | --- |
+| `400 Bad Request` | The request is invalid. | The request parameters are missing, malformed, or not what the server expects. |
+| `401 Unauthorized` | Authentication is required. | The user must log in before the request can be processed. |
+| `403 Forbidden` | The request is understood but refused. | The user does not have permission to access the resource. |
+| `404 Not Found` | The requested resource does not exist. | The URL path does not match an available resource or route. |
+
+Common server error responses:
+
+| Status code | Meaning | Typical cause |
+| --- | --- | --- |
+| `500 Internal Server Error` | The server failed while processing the request. | The application crashed, is not running correctly, or timed out while responding. |
+
+Django handles many error cases by raising exceptions and then passing control to an error handling view. Django provides default error views, but a project can customize them so error pages match the style and behavior of the site.
+
+Custom error handlers are configured in the root URL configuration for the project. Setting these variables in an app-level URL configuration has no effect.
+
+```python
+handler400 = "myproject.views.bad_request"
+handler403 = "myproject.views.permission_denied"
+handler404 = "myproject.views.page_not_found"
+handler500 = "myproject.views.server_error"
+```
+
+The main handler variables are:
+
+| Handler | Default purpose |
+| --- | --- |
+| `handler400` | Bad request view |
+| `handler403` | Permission denied view |
+| `handler404` | Page not found view |
+| `handler500` | Server error view |
+
+A custom error view accepts the request and returns an appropriate response. Some error views also receive an exception argument.
+
+```python
+from django.http import HttpResponseNotFound
+
+
+def page_not_found(request, exception):
+    return HttpResponseNotFound("Page not found")
+```
+
+Django also provides `HttpResponse` subclasses for common error responses:
+
+| Class | Status code |
+| --- | --- |
+| `HttpResponseBadRequest` | `400` |
+| `HttpResponseForbidden` | `403` |
+| `HttpResponseNotFound` | `404` |
+| `HttpResponseServerError` | `500` |
+
+Key idea: error handling is not only about fixing broken code. It is also about giving clear, appropriate responses when a request cannot be completed.
 
 ## 3. Models
 
