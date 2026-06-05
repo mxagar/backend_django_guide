@@ -134,6 +134,7 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Using namespaces in templates](#using-namespaces-in-templates)
       - [Exercise: Creating URLs and Mapping to Views](#exercise-creating-urls-and-mapping-to-views)
       - [Error Handling](#error-handling)
+      - [Handling Errors in Views](#handling-errors-in-views)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
     - [Models and Forms](#models-and-forms)
@@ -3890,6 +3891,135 @@ Django also provides `HttpResponse` subclasses for common error responses:
 | `HttpResponseServerError` | `500` |
 
 Key idea: error handling is not only about fixing broken code. It is also about giving clear, appropriate responses when a request cannot be completed.
+
+#### Handling Errors in Views
+
+In Django, a view receives an `HttpRequest`, runs the needed logic, and returns an `HttpResponse`. Error handling inside a view means returning the right response, raising the right exception, or allowing Django to display a configured error page.
+
+**Returning Error Responses**
+
+Each response has a status code. For example, `404` means the requested resource was not found.
+
+One option is to return a specialized response class such as `HttpResponseNotFound`:
+
+```python
+from django.http import HttpResponse, HttpResponseNotFound
+
+
+def my_view(request):
+    if condition:
+        return HttpResponseNotFound("<h1>Page not found</h1>")
+
+    return HttpResponse("<h1>Page was found</h1>")
+```
+
+You can also return a normal `HttpResponse` and set its status code explicitly:
+
+```python
+from django.http import HttpResponse
+
+
+def my_view(request):
+    if condition:
+        return HttpResponse("<h1>Page not found</h1>", status=404)
+
+    return HttpResponse("<h1>Page was found</h1>")
+```
+
+The specialized response class is clearer because the status code is built into the class name. `HttpResponseNotFound` automatically sends a `404` response.
+
+**Raising `Http404`**
+
+A common cause of a `404` is a user requesting an object that does not exist. In that case, a view can raise `Http404` instead of manually returning a `404` response.
+
+Example: a user requests details for a product by ID. If no product exists with that primary key, the view raises `Http404`.
+
+```python
+from django.http import Http404, HttpResponse
+
+from .models import Product
+
+
+def detail(request, id):
+    try:
+        product = Product.objects.get(pk=id)
+    except Product.DoesNotExist:
+        raise Http404("Product does not exist")
+
+    return HttpResponse("Product Found")
+```
+
+This pattern keeps the view focused on the real business logic: find the object, or report that it does not exist.
+
+**Useful Response Classes**
+
+| Class | Status code | Use case |
+| --- | --- | --- |
+| `HttpResponseBadRequest` | `400` | Invalid request data |
+| `HttpResponseForbidden` | `403` | User lacks permission |
+| `HttpResponseNotFound` | `404` | Resource does not exist |
+| `HttpResponseServerError` | `500` | Server-side failure |
+
+**Custom Error Pages**
+
+To show a custom page for a `404` error, create a `404.html` template in the project templates folder.
+
+```text
+project/
+  templates/
+    404.html
+```
+
+Django uses custom error pages when `DEBUG` is disabled. During development, `DEBUG=True` usually shows a detailed traceback instead.
+
+![Standard 404 error page display on browser](./assets/page_not_found.png)
+
+```python
+# settings.py
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = False
+```
+
+![Page displaying the info that requested resource was not found on the server](./assets/page_not_found_2.png)
+
+**Common Exception Classes**
+
+Django exception classes are defined in `django.core.exceptions`.
+
+| Exception | Meaning |
+| --- | --- |
+| `ObjectDoesNotExist` | Base exception for model-specific `DoesNotExist` exceptions |
+| `EmptyResultSet` | A query does not return any result |
+| `FieldDoesNotExist` | A requested model field does not exist |
+| `MultipleObjectsReturned` | A query expected one object but returned multiple objects |
+| `PermissionDenied` | The user does not have permission to perform the requested action |
+| `ViewDoesNotExist` | A requested view cannot be found, often because of an incorrect URLconf mapping |
+
+In addition to Django exceptions, views can also handle standard Python exceptions and database-related exceptions.
+
+**Form Validation Errors**
+
+For `POST` or `PUT` requests, the request body often contains form data. Django forms include built-in validation through fields such as `EmailField`, `FileField`, `IntegerField`, and `MultipleChoiceField`.
+
+The `is_valid()` method returns `True` when the submitted data passes validation. If validation fails, the view can return an error response, re-render the form with errors, or raise an exception when appropriate.
+
+```python
+from django.http import Http404
+
+
+def my_view(request):
+    if request.method == "POST":
+        form = MyForm(request.POST)
+
+        if form.is_valid():
+            # Process the form data.
+            pass
+
+        raise Http404("Invalid form data")
+```
+
+Key idea: handle errors in views by choosing the response that best matches the situation. Return an error response for direct control, raise an exception when Django should handle the error flow, and use custom templates when the user should see a polished error page.
 
 ## 3. Models
 
