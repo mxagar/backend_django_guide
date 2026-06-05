@@ -135,6 +135,8 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Exercise: Creating URLs and Mapping to Views](#exercise-creating-urls-and-mapping-to-views)
       - [Error Handling](#error-handling)
       - [Handling Errors in Views](#handling-errors-in-views)
+      - [Demo: Handling Errors in Views](#demo-handling-errors-in-views)
+      - [Class-based Views](#class-based-views-1)
   - [3. Models](#3-models)
     - [Models and Migrations](#models-and-migrations)
     - [Models and Forms](#models-and-forms)
@@ -4020,6 +4022,126 @@ def my_view(request):
 ```
 
 Key idea: handle errors in views by choosing the response that best matches the situation. Return an error response for direct control, raise an exception when Django should handle the error flow, and use custom templates when the user should see a polished error page.
+
+#### Demo: Handling Errors in Views
+
+This demo applies the previous error-handling ideas to a project-level `404` handler.
+
+- With `DEBUG=True`, Django shows a technical 404 page for unmatched URLs.
+- That developer page can include details such as the request method and requested URL.
+- With `DEBUG=False`, Django shows the standard user-facing 404 page instead.
+- When `DEBUG=False`, `ALLOWED_HOSTS` must contain at least one allowed host.
+- The custom `handler404` variable belongs in the root URL configuration, outside the `urlpatterns` list.
+- The custom 404 view can live in a project-level `views.py` file.
+- A custom 404 view receives both `request` and `exception`.
+- The 404 handler responds to URL paths that do not match any configured route.
+- Existing routes still render normally; the handler only catches unmatched routes.
+- `HttpResponseNotFound` may look the same in the browser as a normal response, but the client receives a real `404` status code.
+- The actual status code can be checked in the browser's developer tools, in the Network tab.
+
+Example root URL configuration:
+
+```python
+from django.contrib import admin
+from django.urls import path
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+]
+
+handler404 = "myproject.views.handler404"
+```
+
+Example project-level error view:
+
+```python
+from django.http import HttpResponseNotFound
+
+
+def handler404(request, exception):
+    return HttpResponseNotFound("<h1>404: Page not found</h1>")
+```
+
+Example production-style settings for testing the custom page:
+
+```python
+# settings.py
+
+DEBUG = False
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+```
+
+For a learning demo, `ALLOWED_HOSTS = ["*"]` can make local testing quick, but real projects should list the specific hosts they expect.
+
+Good custom error pages should be easy for users to understand, match the site's style, and provide a clear path back to a useful page such as the homepage.
+
+#### Class-based Views
+
+Class-based views, often shortened to CBVs, are Django views written as classes instead of plain functions. They are useful when view logic grows beyond a simple request-and-response function.
+
+Core idea:
+
+- A view still receives an HTTP request and returns an HTTP response.
+- A function-based view usually checks `request.method` with `if` or `elif`.
+- A class-based view separates HTTP method handling into class methods such as `get()`, `post()`, `put()`, and `delete()`.
+- This keeps each request type's logic in its own method.
+
+Example class-based view:
+
+```python
+from django.http import HttpResponse
+from django.views import View
+
+
+class MenuView(View):
+    def get(self, request):
+        return HttpResponse("Show the menu")
+
+    def post(self, request):
+        return HttpResponse("Create a menu item")
+```
+
+Map a class-based view with `as_view()`:
+
+```python
+from django.urls import path
+
+from .views import MenuView
+
+
+urlpatterns = [
+    path("menu/", MenuView.as_view(), name="menu"),
+]
+```
+
+Why use class-based views:
+
+| Benefit | Meaning |
+| --- | --- |
+| Method separation | `GET`, `POST`, `PUT`, and `DELETE` logic can live in separate methods. |
+| Reuse | Shared behavior can be inherited from parent classes. |
+| Organization | Complex view logic can be grouped into a class. |
+| Extensibility | Mixins can add focused behavior without rewriting the whole view. |
+
+Class-based views use object-oriented programming ideas:
+
+- **Inheritance** lets one view class reuse behavior from another class.
+- **Mixins** are small reusable classes that add a specific capability.
+- **Multiple inheritance** lets a view combine behavior from more than one parent class or mixin.
+
+Common reusable actions in class-based and generic views:
+
+| Action | Purpose |
+| --- | --- |
+| Create | Create a model instance |
+| List | Display a queryset |
+| Retrieve | Display one model instance |
+| Update | Update a model instance |
+| Delete | Delete a model instance |
+
+Use mixins carefully. They can reduce duplication, but combining too many mixins can make the view harder to understand.
+
+Key idea: class-based views are best when a view has multiple HTTP behaviors or reusable logic. Function-based views are still a good choice for simple views.
 
 ## 3. Models
 
