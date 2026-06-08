@@ -144,6 +144,7 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Creating Models](#creating-models)
       - [Migrations](#migrations)
       - [How to Use Migrations](#how-to-use-migrations)
+      - [Example: Working with Migrations](#example-working-with-migrations)
     - [Models and Forms](#models-and-forms)
     - [Admin](#admin)
     - [Database Configuration](#database-configuration)
@@ -4821,6 +4822,90 @@ python manage.py migrate
 ```
 
 Commit model changes and their generated migration files together so every environment can reproduce the same database schema.
+
+#### Example: Working with Migrations
+
+Before creating migrations, ensure the app is listed in `INSTALLED_APPS`. Django only detects model changes from installed apps.
+
+**Creating and Applying Changes**
+
+The two core commands have different responsibilities:
+
+```bash
+python manage.py makemigrations myapp
+python manage.py migrate
+```
+
+- `makemigrations` compares the current models with the recorded migration state and creates new migration files. It does not change the database.
+- `migrate` executes pending migration operations and changes the database schema.
+
+Each detected change creates another migration in the app's `migrations/` directory:
+
+```text
+myapp/migrations/
+├── 0001_initial.py
+├── 0002_rename_course_menuitem_category.py
+└── 0003_rename_name_menuitem_item_name.py
+```
+
+These files form an ordered history. The filenames describe the operations, while each migration's `dependencies` define its actual position in the history.
+
+**Renaming Fields**
+
+When a field name changes, Django may ask whether it was renamed:
+
+```text
+Was menuitem.course renamed to menuitem.category (a CharField)? [y/N]
+```
+
+Confirming creates a `RenameField` operation that preserves existing column data. Rejecting it may cause Django to treat the change as deleting one field and adding another, which can lose data.
+
+Always review rename prompts and the generated migration before applying it.
+
+**Checking Progress**
+
+Use `showmigrations` to compare migration files with the migrations recorded as applied in the database:
+
+```bash
+python manage.py showmigrations myapp
+```
+
+```text
+myapp
+ [X] 0001_initial
+ [X] 0002_rename_course_menuitem_category
+ [ ] 0003_rename_name_menuitem_item_name
+```
+
+`[X]` means applied; `[ ]` means pending.
+
+**Previewing and Reversing Migrations**
+
+Before moving an app back to an earlier migration, preview the operations:
+
+```bash
+python manage.py migrate myapp 0001 --plan
+```
+
+The command lists which later migrations Django would unapply without changing the database. Remove `--plan` to perform the rollback:
+
+```bash
+python manage.py migrate myapp 0001
+```
+
+Rolling back changes the database schema, but it does not rewrite the current model classes. Update the models separately if the code must match the older schema.
+
+**Inspecting Generated SQL**
+
+Use `sqlmigrate` to inspect the backend-specific SQL represented by one migration:
+
+```bash
+python manage.py sqlmigrate myapp 0003
+```
+
+For a field rename, the output may include an `ALTER TABLE` statement. This command only displays SQL; it does not apply or unapply the migration.
+
+Key idea: model edits describe the desired schema, `makemigrations` records the transition, and `migrate` moves the database through that versioned history.
 
 ### Models and Forms
 
