@@ -142,6 +142,7 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Models](#models)
       - [Model Relationships](#model-relationships)
       - [Creating Models](#creating-models)
+      - [Migrations](#migrations)
     - [Models and Forms](#models-and-forms)
     - [Admin](#admin)
     - [Database Configuration](#database-configuration)
@@ -4523,6 +4524,121 @@ This works like normal Python object manipulation, but `save()` persists the cha
 The demo uses the Django shell to show how model operations work internally. Later, the same data can also be viewed and updated through the Django admin interface.
 
 Key idea: creating a model is only the first step. To use it fully, add the app to `INSTALLED_APPS`, run migrations, then interact with records through Django's model manager, usually `objects`.
+
+#### Migrations
+
+Django models describe the intended database schema in Python. When a model changes, a **migration** records the operations needed to bring the actual database schema into sync.
+
+For example, adding a `city` field to a model requires adding a matching column to its database table. Django generates and applies the required schema change, so developers usually do not need to write an `ALTER TABLE` statement manually.
+
+**Migration Workflow**
+
+1. Change a model by adding, renaming, or removing fields or models.
+2. Generate a migration file:
+
+```bash
+python manage.py makemigrations
+```
+
+3. Review the generated migration in the app's `migrations/` directory.
+4. Apply pending migrations to the database:
+
+```bash
+python manage.py migrate
+```
+
+Migration files are Python files that describe ordered database operations. They should be committed to version control so every developer and deployment environment can apply the same schema changes.
+
+**Schema Change Example**
+
+Suppose the application needs to store each user's city. First, add the field to the Django model:
+
+```python
+from django.db import models
+
+
+class User(models.Model):
+    name = models.CharField(max_length=100)
+    city = models.CharField(max_length=100, blank=True)
+```
+
+Then generate and apply the migration:
+
+```bash
+# Generate and apply the migration
+python manage.py makemigrations
+python manage.py migrate
+```
+
+Conceptually, Django performs a database operation similar to this SQL:
+
+```sql
+ALTER TABLE app_user
+ADD COLUMN city VARCHAR(100) NOT NULL DEFAULT '';
+```
+
+The exact SQL varies by database backend. To inspect the SQL Django plans to run for a migration, use:
+
+```bash
+# Check the SQL applied in the background ~~for~~ a specific migration
+python manage.py sqlmigrate app 0002
+```
+
+**ORM and SQL Data Operations**
+
+Migrations change the database **schema**. After the schema exists, Django's ORM reads and changes the **data** stored in it.
+
+Create a user:
+
+```python
+# Django ORM
+User.objects.create(name="Ada", city="London")
+```
+
+```sql
+-- Equivalent SQL
+INSERT INTO app_user (name, city)
+VALUES ('Ada', 'London');
+```
+
+Query users from London:
+
+```python
+# Django ORM
+User.objects.filter(city="London")
+```
+
+```sql
+-- Equivalent SQL
+SELECT *
+FROM app_user
+WHERE city = 'London';
+```
+
+Update Ada's city:
+
+```python
+# Django ORM
+User.objects.filter(name="Ada").update(city="Paris")
+```
+
+```sql
+-- Equivalent SQL
+UPDATE app_user
+SET city = 'Paris'
+WHERE name = 'Ada';
+```
+
+**Why Use Migrations?**
+
+| Benefit | Explanation |
+| --- | --- |
+| Schema synchronization | Keeps the database structure aligned with Django models. |
+| Version history | Records how the schema changed over time. |
+| Team consistency | Lets each developer update their local database with the same operations. |
+| Easier maintenance | Keeps schema changes in the codebase instead of relying on manually executed SQL. |
+
+Think of migrations as version control for the database schema: models describe the desired structure, migration files record the changes, and `migrate` applies them.
 
 ### Models and Forms
 
