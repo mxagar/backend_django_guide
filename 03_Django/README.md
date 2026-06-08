@@ -143,6 +143,7 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Model Relationships](#model-relationships)
       - [Creating Models](#creating-models)
       - [Migrations](#migrations)
+      - [How to Use Migrations](#how-to-use-migrations)
     - [Models and Forms](#models-and-forms)
     - [Admin](#admin)
     - [Database Configuration](#database-configuration)
@@ -4566,7 +4567,7 @@ Then generate and apply the migration:
 
 ```bash
 # Generate and apply the migration
-python manage.py makemigrations
+python manage.py makemigrations  # Automatically creates a file <seq_num>_<descriptive_name>.py
 python manage.py migrate
 ```
 
@@ -4580,7 +4581,8 @@ ADD COLUMN city VARCHAR(100) NOT NULL DEFAULT '';
 The exact SQL varies by database backend. To inspect the SQL Django plans to run for a migration, use:
 
 ```bash
-# Check the SQL applied in the background ~~for~~ a specific migration
+# Check the SQL applied in the background for a specific migration
+# 0002 refers to the migration file created for the city field change: 0002_add_city.py
 python manage.py sqlmigrate app 0002
 ```
 
@@ -4639,6 +4641,186 @@ WHERE name = 'Ada';
 | Easier maintenance | Keeps schema changes in the codebase instead of relying on manually executed SQL. |
 
 Think of migrations as version control for the database schema: models describe the desired structure, migration files record the changes, and `migrate` applies them.
+
+#### How to Use Migrations
+
+Django's migration system turns model changes into versioned database-schema operations.
+
+| Command | Purpose |
+| --- | --- |
+| `makemigrations` | Detect model changes and create migration files. |
+| `migrate` | Apply or unapply migrations. |
+| `showmigrations` | Show which migrations are applied or pending. |
+| `sqlmigrate` | Display the SQL for a migration without executing it. |
+
+**Apply Initial Migrations**
+
+A new Django project includes apps such as `auth`, `admin`, and `sessions` in `INSTALLED_APPS`. Apply their existing migrations to create the required database tables:
+
+```bash
+python manage.py migrate
+```
+
+**Create an App and Model**
+
+Create an app:
+
+```bash
+python manage.py startapp myapp
+```
+
+Add the app to `INSTALLED_APPS`, then define a model in `myapp/models.py`:
+
+```python
+from django.db import models
+
+
+class Person(models.Model):
+    name = models.CharField(max_length=20)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+```
+
+**Create a Migration**
+
+Generate a migration after changing a model:
+
+```bash
+# Generate a migration for the new Person model
+# Automatically creates a file <seq_num>_<descriptive_name>.py
+python manage.py makemigrations myapp
+# To specify a custom name for the migration, use:
+python manage.py makemigrations myapp --name initial_person
+```
+
+Example output:
+
+```text
+Migrations for 'myapp':
+  myapp/migrations/0001_initial.py
+    + Create model Person
+```
+
+Django creates a migration file containing operations similar to:
+
+```python
+class Migration(migrations.Migration):
+    initial = True
+    dependencies = []
+    operations = [
+        migrations.CreateModel(
+            name="Person",
+            fields=[
+                ("id", models.BigAutoField(primary_key=True)),
+                ("name", models.CharField(max_length=20)),
+                ("email", models.EmailField(max_length=254)),
+                ("phone", models.CharField(max_length=20)),
+            ],
+        ),
+    ]
+```
+
+Review generated migrations before applying them, especially after renaming or deleting fields.
+
+**Inspect and Apply the Migration**
+
+Inspect the SQL without changing the database:
+
+```bash
+# Check the SQL applied in the background for a specific migration
+# 0001 refers to the migration file created for the initial Person model: 0001_initial.py
+python manage.py sqlmigrate myapp 0001
+```
+
+The output will contain backend-specific SQL similar to:
+
+```sql
+CREATE TABLE "myapp_person" (
+    "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "name" varchar(20) NOT NULL,
+    "email" varchar(254) NOT NULL,
+    "phone" varchar(20) NOT NULL
+);
+```
+
+`sqlmigrate` is optional. Run it before `migrate` when you want to review the generated SQL; it can also be run afterward because it only reads the migration file.
+
+Apply the migration:
+
+```bash
+# Apply the migration to create the Person table in the database
+python manage.py migrate
+```
+
+**Change an Existing Model**
+
+Add another field:
+
+```python
+class Person(models.Model):
+    name = models.CharField(max_length=20)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    # New field added after the initial migration
+    age = models.PositiveIntegerField(null=True, blank=True)
+```
+
+Create the next migration:
+
+```bash
+# Automatically creates a file <seq_num>_<descriptive_name>.py
+python manage.py makemigrations myapp
+# To specify a custom name for the migration, use:
+# python manage.py makemigrations myapp --name add_age_to_person
+```
+
+This produces a new migration such as `0002_person_age.py`. Existing migration files remain unchanged, preserving the schema history.
+
+**Check Migration Status**
+
+```bash
+python manage.py showmigrations myapp
+```
+
+Example output:
+
+```text
+myapp
+ [X] 0001_initial
+ [ ] 0002_person_age
+```
+
+- `[X]` means the migration is applied.
+- `[ ]` means the migration is pending.
+
+Apply pending migrations with `python manage.py migrate`.
+
+**Move Back to an Earlier Migration**
+
+Target an earlier migration to unapply every later migration for that app:
+
+```bash
+python manage.py migrate myapp 0001
+```
+
+To unapply every migration for the app:
+
+```bash
+python manage.py migrate myapp zero
+```
+
+Rolling back a migration can remove columns or tables and may destroy data. Check the migration operations and create a backup before doing this with important databases.
+
+**Recommended Workflow**
+
+```bash
+python manage.py makemigrations myapp
+python manage.py showmigrations myapp
+python manage.py sqlmigrate myapp 0002  # Optional inspection
+python manage.py migrate
+```
+
+Commit model changes and their generated migration files together so every environment can reproduce the same database schema.
 
 ### Models and Forms
 
