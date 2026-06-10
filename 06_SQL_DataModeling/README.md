@@ -17,4 +17,3 @@ From these specializations, I have selected the following topics/courses:
 
 This module deals with the sixth topic/course: **SQL & Python Data Modeling for the Web**.
 
-TBD.

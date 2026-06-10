@@ -2,8 +2,6 @@
   "course-name": "SQL and Data Modeling for the Web with Python",
   "course-url": "https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046",
   "course-learning-link": "https://www.udacity.com/enrollment/cd0046",
-  "username": "UDACITY_USERNAME",
-  "password": "UDACITY_PASSWORD",
   "assets-folder": "assets",
   "exercises-folder": "lab"
 }

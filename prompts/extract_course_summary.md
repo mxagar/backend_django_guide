@@ -15,8 +15,6 @@ The <course-folder> should contain the <config-file>, which is a JSON file with 
   "course-name": "SQL and Data Modeling for the Web with Python",
   "course-url": "https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046",
   "course-learning-link": "https://www.udacity.com/enrollment/cd0046",
-  "username": "UDACITY_USERNAME",
-  "password": "UDACITY_PASSWORD",
   "assets-folder": "assets",
   "exercises-folder": "lab"
 }
@@ -35,7 +33,8 @@ You need to summarize the contents of an online course for faster learning. You 
 The course name is the following: {course-name}.
 The course public URL is the following: {course-url}.
 The course learning link is the following: {course-learning-link}.
-You will find the credentials to log in in the .env file at the root level of this folder; the variables to use are {username} and {password}.
+
+The user must log in manually in the web browser. Once the user confirms that the course learning page is authenticated and ready, analyze the page without requesting, reading, handling, entering, storing, or transmitting login secrets.
 
 The course is organized in sections or modules, and each of them has some subsections and lectures. These lectures can contain:
 
@@ -50,7 +49,7 @@ The summary should be arranged as follows:
 
 Tools you can use:
 
-- Playwright MCP if you need to log in and navigate through the course to extract the information using the browser.
+- Browser automation or page inspection tools to analyze the course after the user logs in manually.
 - Context7 MCP every time you have code snippets; check that that the code is correct and properly formatted according to the latest version of the used libraries or frameworks.
 - Any other tool you consider useful.
 
@@ -96,7 +95,7 @@ Editing rules:
 
 I can imagine you could follow this plan or series of steps:
 
-1. Log in to the course platform using the provided credentials.
+1. Open the course learning link. If it is not authenticated, ask the user to log in manually in the browser and confirm when the course page is ready.
 2. Extract the table of contents of the course, including sections, subsections, and lectures. Create the section headers in the README.md of {course-folder} according to the course structure; create that README.md if it does not exist. Similarly, create the folders {assets-folder} and {exercises-folder} if they do not exist.
 3. For each lecture or learning unit, extract the content as follows:
    - Extract the text, the images and the video transcripts, if available. Put the extracted information in their corresponding place: text in the README.md, images and related media in {assets-folder}, and exercises in {exercises-folder}.
@@ -105,4 +104,3 @@ I can imagine you could follow this plan or series of steps:
 - 4. Notify me clearly when you are done and request to donwload the missing pieces.
 - 5. Once I have provided you with the missing pieces, run the summarization of the README.md section by section, using the editing rules and summary format described above. For each section, replace the original text with the generated summary, but keep the section header and neighboring sections unchanged.
   - When exercises are processed (code files, notebooks, etc.), add the summary of the exercise directly below the link to the exercise in the README.md. Also, update the environment requirements files with the dependencies needed to run the exercise, if they are not already included. These will be either conda environment files, pip requirements files, or uv files, depending on the course. The root README.md should have a "setup" (or similar) section which specifies how to set up the environment.
-

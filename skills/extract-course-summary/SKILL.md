@@ -1,6 +1,6 @@
 ---
 name: extract-course-summary
-description: Extract an authenticated online course into a course-folder README, local assets, and numbered exercise files, then summarize it for learning. Use when the user invokes /extract-course-summary with folder and config arguments, asks to capture a course table of contents and lecture material, or asks to resume course summarization after supplying previously missing media or exercises.
+description: Extract an online course from a learning page where the user has manually authenticated in their web browser, then create a course-folder README, local assets, and numbered exercise files and summarize them for learning. Use when the user invokes /extract-course-summary with folder and config arguments, asks to capture a course table of contents and lecture material, or asks to resume course summarization after supplying previously missing media or exercises.
 ---
 
 # Extract Course Summary
@@ -32,22 +32,17 @@ Read the JSON config before accessing the course. Require these string keys:
   "course-name": "Course title",
   "course-url": "https://public-course-page.example",
   "course-learning-link": "https://learning-platform.example/course",
-  "username": "ENV_USERNAME_VARIABLE",
-  "password": "ENV_PASSWORD_VARIABLE",
   "assets-folder": "assets",
   "exercises-folder": "lab"
 }
 ```
 
-Interpret `username` and `password` as environment-variable names, never as credentials. Read their values from `.env` at the workspace root. Do not print, summarize, write, or expose credential values. Do not commit credentials or authenticated URLs containing secrets.
-
 Validate before extraction:
 
-- Confirm the course folder, config file, and root `.env` exist.
+- Confirm the course folder and config file exist.
 - Confirm all required config keys are present and non-empty.
-- Confirm the named credential variables exist in `.env`.
 - Resolve the configured asset and exercise folders inside the course folder; reject paths that escape it.
-- Prefer `course-learning-link` for authenticated course content and use `course-url` for public metadata or fallback context.
+- Use `course-learning-link` as the required source for course content and use `course-url` only for public metadata or fallback context.
 
 ## Output Contract
 
@@ -65,7 +60,7 @@ Use relative Markdown links from `README.md`. Give files descriptive lowercase s
 
 ### 1. Inspect Existing State
 
-1. Read the config and root `.env` securely.
+1. Read the config.
 2. Inspect the existing course `README.md`, assets folder, exercises folder, and environment files.
 3. Determine whether this is:
    - a fresh extraction,
@@ -75,10 +70,13 @@ Use relative Markdown links from `README.md`. Give files descriptive lowercase s
 
 ### 2. Access the Course
 
-1. Use an available browser automation tool, preferably Playwright MCP, when login or interactive navigation is required.
-2. Log in with the credential values read from `.env`.
-3. Avoid changing account settings, enrollment state, progress state, submissions, or other remote data unless the user explicitly requests it.
-4. If browser automation is unavailable or blocked, extract public content where possible and record the blocked authenticated items as missing.
+1. Open or inspect `course-learning-link` in a browser session controlled or shared by the user.
+2. If the learning page is not authenticated, ask the user to log in manually in that browser and tell you when the course page is ready.
+3. Never request, read, handle, enter, store, or transmit login secrets.
+4. After the user confirms login, analyze the already-authenticated learning page.
+5. Prefer read-only page inspection or content APIs exposed by the page.
+6. Avoid changing account settings, enrollment state, course progress, submissions, quiz answers, or other remote data unless the user explicitly requests it.
+7. If browser inspection is unavailable or blocked, record the authenticated course content as missing instead of replacing it with public or speculative material.
 
 ### 3. Build the Course Outline
 
