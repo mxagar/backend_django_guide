@@ -1,4 +1,36 @@
-I would like to summarize the contents of an online course  for faster learning. Here I explain how I would like to be the summary, so that you can generate it for me. You will find specific information represented by variables in curly brackets. At the end of the prompt, the values of these variables are provided.
+I need a new skill called `/extract-course-summary` which extracts some online course content and summarizes it. The skill call should be as follows:
+
+```
+# General call
+/extract-course-summary folder <course-folder> config <config-file>
+
+# Example call
+/extract-course-summary folder @06_SQL_DataModelling config course_config.json
+```
+
+The <course-folder> should contain the <config-file>, which is a JSON file with the following structure:
+
+```json
+{
+  "course-name": "SQL and Data Modeling for the Web with Python",
+  "course-url": "https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046",
+  "course-learning-link": "https://www.udacity.com/enrollment/cd0046",
+  "username": "UDACITY_USERNAME",
+  "password": "UDACITY_PASSWORD",
+  "assets-folder": "assets",
+  "exercises-folder": "lab"
+}
+```
+
+Then, the skill needs to carry out the attached instructions.
+
+Create the skill.
+
+---
+
+(Skill instructions)
+
+You need to summarize the contents of an online course for faster learning. You will find specific information represented by variables in curly brackets. The values of these variables are provided in the <config-file>. Therefore, first read the <config-file> to get the values of the variables.
 
 The course name is the following: {course-name}.
 The course public URL is the following: {course-url}.
@@ -16,13 +48,11 @@ The summary should be arranged as follows:
 - Save any images in the assets folder {assets-folder} inside the course folder. Images should have descriptive names, not random strings. Then, the summary should reference them with a link where it belongs.
 - Save any exercises or lab sessions in the exercises folder {exercises-folder} inside the course folder. Each exercise should have a file or a folder, prefixed with a number "01", "02", etc., according to the appearance order in the course. Then, the summary should reference it with a link where it belongs.
 
-
 Tools you can use:
 
 - Playwright MCP if you need to log in and navigate through the course to extract the information using the browser.
 - Context7 MCP every time you have code snippets; check that that the code is correct and properly formatted according to the latest version of the used libraries or frameworks.
 - Any other tool you consider useful.
-
 
 Summary format:
 
@@ -47,7 +77,6 @@ Summary format:
 - Include purpose, major steps, important inputs/outputs, assumptions, and relevant API choices.
 - Note any modernization performed, but keep this brief.
 
-
 Editing rules:
 
 - Use structured parsers when practical:
@@ -65,20 +94,15 @@ Editing rules:
 - If an API cannot be verified through Context7, state that verification was not available and avoid unnecessary changes.
 
 
-Some additional and styling guidelines:
+I can imagine you could follow this plan or series of steps:
 
-- A
-- B
+1. Log in to the course platform using the provided credentials.
+2. Extract the table of contents of the course, including sections, subsections, and lectures. Create the section headers in the README.md of {course-folder} according to the course structure; create that README.md if it does not exist. Similarly, create the folders {assets-folder} and {exercises-folder} if they do not exist.
+3. For each lecture or learning unit, extract the content as follows:
+   - Extract the text, the images and the video transcripts, if available. Put the extracted information in their corresponding place: text in the README.md, images and related media in {assets-folder}, and exercises in {exercises-folder}.
+   - Keep a list of the pieces you could not extract in the README.md, so that you can mention them to me; I will fetch them manually. Typically, these will be exercises or media.
+   - You don't have to donwload the videos, but if they have public URLs (like YouTube or Vimeo), you can include them in the summary.
+- 4. Notify me clearly when you are done and request to donwload the missing pieces.
+- 5. Once I have provided you with the missing pieces, run the summarization of the README.md section by section, using the editing rules and summary format described above. For each section, replace the original text with the generated summary, but keep the section header and neighboring sections unchanged.
+  - When exercises are processed (code files, notebooks, etc.), add the summary of the exercise directly below the link to the exercise in the README.md. Also, update the environment requirements files with the dependencies needed to run the exercise, if they are not already included. These will be either conda environment files, pip requirements files, or uv files, depending on the course. The root README.md should have a "setup" (or similar) section which specifies how to set up the environment.
 
----
-
-Here are the values of the variables:
-
-{course-name} = SQL and Data Modeling for the Web with Python
-{course-url} = https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046
-{course-learning-link} = https://www.udacity.com/enrollment/cd0046
-{username} = UDACITY_USERNAME
-{password}= UDACITY_PASSWORD
-{course-folder} = 06_SQL_DataModelling
-{assets-folder} = assets
-{exercises-folder} = lab
