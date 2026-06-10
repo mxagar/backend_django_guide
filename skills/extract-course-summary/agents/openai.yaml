@@ -1,0 +1,4 @@
+interface:
+  display_name: "Extract Course Summary"
+  short_description: "Extract and summarize online courses"
+  default_prompt: "Use $extract-course-summary folder <course-folder> config <config-file> to extract and summarize an online course."
