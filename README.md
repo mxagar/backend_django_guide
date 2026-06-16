@@ -12,7 +12,7 @@ From these specializations, I have selected the following topics/courses:
 3. [Django Web Framework](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/django-web-framework?authProvider)
 4. [APIs](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/apis)
 5. [The Full Stack](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/the-full-stack?authProvider=deutschetelekom)
-6. [SQL & Python Data Modeling for the Web](https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046)
+6. [Flask SQLAlchemy Data Modelling](https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046)
 7. [Software Architecture Patterns](https://www.udacity.com/course/software-architecture-patterns--cd14601)
 8. [Identity and Access Management](https://www.udacity.com/course/identity-access-management--cd0039)
 
@@ -46,6 +46,9 @@ source .venv/bin/activate
 # Start running commands in the environment
 uv run python path/to/script.py
 uv run pytest
+
+# To update the submodules, run the following command:
+git submodule update --init --recursive
 ```
 
 Common uv usage commands:

@@ -5,7 +5,7 @@ I need a new skill called `/extract-course-summary` which extracts some online c
 /extract-course-summary folder <course-folder> config <config-file>
 
 # Example call
-/extract-course-summary folder @06_SQL_DataModelling config course_config.json
+/extract-course-summary folder @06_Flask_SQLAlchemy_DataModelling config course_config.json
 ```
 
 The <course-folder> should contain the <config-file>, which is a JSON file with the following structure:

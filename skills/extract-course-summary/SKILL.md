@@ -16,7 +16,7 @@ Expect this form:
 Example:
 
 ```text
-/extract-course-summary folder @06_SQL_DataModeling config course_config.json
+/extract-course-summary folder @06_Flask_SQLAlchemy_DataModelling config course_config.json
 ```
 
 Treat a leading `@` on the folder value as a workspace-reference marker, not part of the folder name. Resolve `<course-folder>` from the workspace root unless the user clearly supplies another base path. Resolve `<config-file>` inside the course folder; reject paths that escape that folder.
