@@ -5708,6 +5708,14 @@ Customer.objects.filter(reservation_day="Friday").filter(seats=4)
 
 #### Additional Resources
 
+- [Models - official documentation](https://docs.djangoproject.com/en/4.1/topics/db/models/)
+- [Migrations - official documentation](https://docs.djangoproject.com/en/4.1/topics/migrations/)
+- [Other Model Instance methods (including the String Dunder method)](https://docs.djangoproject.com/en/dev/ref/models/instances/#model-instance-methods)
+- [Using Models - Mozilla](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Models)
+- [Detailed overview of Migrations](https://docs.djangoproject.com/en/4.1/topics/migrations/)
+- [Migration operations](https://docs.djangoproject.com/en/4.1/ref/migration-operations/)
+- [Understanding ORM](https://docs.djangoproject.com/en/4.1/ref/models/class/)
+
 ### Models and Forms
 
 #### Forms
