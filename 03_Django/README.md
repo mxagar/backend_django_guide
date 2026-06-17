@@ -145,9 +145,38 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Migrations](#migrations)
       - [How to Use Migrations](#how-to-use-migrations)
       - [Example: Working with Migrations](#example-working-with-migrations)
+      - [A History of Changes](#a-history-of-changes)
+      - [Exercise: Models and Migrations](#exercise-models-and-migrations)
+      - [Models and Foreign Keys](#models-and-foreign-keys)
+      - [Exercise: Models and Foreign Keys](#exercise-models-and-foreign-keys)
+      - [ORM: Object Relationship Mapping](#orm-object-relationship-mapping)
+      - [Using ORM](#using-orm)
+      - [Additional Resources](#additional-resources-3)
     - [Models and Forms](#models-and-forms)
+      - [Forms](#forms)
+      - [Django Forms](#django-forms)
+      - [Django Fields](#django-fields)
+      - [Form API](#form-api)
+      - [Creating Forms](#creating-forms)
+      - [Model Form](#model-form)
+      - [Exercise: Working with Forms](#exercise-working-with-forms)
+      - [Additional Resources](#additional-resources-4)
     - [Admin](#admin)
+      - [Django Admin](#django-admin-1)
+      - [Managing Users in Django Admin](#managing-users-in-django-admin)
+      - [Adding Groups and Users](#adding-groups-and-users)
+      - [Permissions](#permissions)
+      - [Enforcing Permissions](#enforcing-permissions)
+      - [Exercise: Using Django Admin](#exercise-using-django-admin)
+      - [Additional Resources](#additional-resources-5)
     - [Database Configuration](#database-configuration)
+      - [Database Options](#database-options)
+      - [Configuring MySQL Connection](#configuring-mysql-connection)
+      - [Setting Up a MySQL Connection](#setting-up-a-mysql-connection)
+      - [Extra: Configuring PostgreSQL Connection](#extra-configuring-postgresql-connection)
+      - [Exercise: Connecting to a Database](#exercise-connecting-to-a-database)
+      - [Summary: Models](#summary-models)
+      - [Additional Resources](#additional-resources-6)
   - [4. Templates](#4-templates)
     - [Templates](#templates)
     - [Working with Templates](#working-with-templates)
@@ -4907,11 +4936,69 @@ For a field rename, the output may include an `ALTER TABLE` statement. This comm
 
 Key idea: model edits describe the desired schema, `makemigrations` records the transition, and `migrate` moves the database through that versioned history.
 
+#### A History of Changes
+
+#### Exercise: Models and Migrations
+
+#### Models and Foreign Keys
+
+#### Exercise: Models and Foreign Keys
+
+#### ORM: Object Relationship Mapping
+
+#### Using ORM
+
+#### Additional Resources
+
 ### Models and Forms
+
+#### Forms
+
+#### Django Forms
+
+#### Django Fields
+
+#### Form API
+
+#### Creating Forms
+
+#### Model Form
+
+#### Exercise: Working with Forms
+
+#### Additional Resources
 
 ### Admin
 
+#### Django Admin
+
+#### Managing Users in Django Admin
+
+#### Adding Groups and Users
+
+#### Permissions
+
+#### Enforcing Permissions
+
+#### Exercise: Using Django Admin
+
+#### Additional Resources
+
 ### Database Configuration
+
+#### Database Options
+
+#### Configuring MySQL Connection
+
+#### Setting Up a MySQL Connection
+
+#### Extra: Configuring PostgreSQL Connection
+
+#### Exercise: Connecting to a Database
+
+#### Summary: Models
+
+#### Additional Resources
 
 ## 4. Templates
 
