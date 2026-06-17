@@ -5720,9 +5720,502 @@ Customer.objects.filter(reservation_day="Friday").filter(seats=4)
 
 #### Forms
 
+- Web applications often need to collect data from end users.
+  - Login and authentication forms collect user credentials.
+  - Registration forms collect new account details.
+  - Shopping and ordering forms collect order information.
+- HTML forms send user input to the server for processing.
+  - Form fields can include text inputs, checkboxes, and submit buttons.
+  - Submitted form data is handled by server-side code.
+  - In Django, common form submissions use a `POST` request with data in the request body.
+- A basic HTML form uses `action` and `method`.
+  - `action` defines which view receives the submitted form.
+  - `method="post"` sends the form data in the request body.
+  - A text input can collect a user's name.
+  - A submit input can display a button such as `Send name`.
+- Handwritten HTML forms can become hard to maintain.
+  - Large forms can contain many fields and conditional flows.
+  - Field `name` and `id` attributes must match what the backend expects.
+  - Mismatches between the form and server-side code can cause processing errors.
+- Django provides a `Form` class to define expected form fields in Python.
+  - The class represents the data expected in the request.
+  - Django can render the matching form fields as HTML.
+  - Field definitions can include validation rules such as `max_length`.
+  - The form class helps keep input names and backend processing aligned.
+- A Django form renders fields, labels, and validation-related attributes.
+  - It does not automatically render the surrounding `<form>` tag.
+  - It does not automatically render the submit button.
+  - The template must include the `<form>` element and place the rendered fields inside it.
+- The form class is connected to `{{ form }}` through the view.
+  - `forms.py` defines the form class.
+  - `views.py` creates a form instance.
+  - The view passes the form instance into the template context.
+  - The template renders the context variable with `{{ form }}`.
+- Form classes make changes easier to manage.
+  - Developers update the Python class instead of manually syncing many HTML inputs.
+  - Forms can benefit from object-oriented programming patterns.
+  - Complex forms can be split into smaller subclasses when needed.
+- Django can also generate forms from models.
+  - Submitted data often needs to be persisted in a database.
+  - Models define the database structure for stored information.
+  - Model-backed forms help align collected input with fields that need to be saved.
+  - This reduces errors caused by form fields and database fields drifting apart.
+  - Model form code is commonly placed in `forms.py`.
+
+File: `templates/order.html`
+
+```html
+<!-- Basic HTML form that sends a POST request to the order view. -->
+<form action="/order/" method="post">
+    <label for="your_name">Your name:</label>
+    <input id="your_name" type="text" name="your_name">
+    <input type="submit" value="Send name">
+</form>
+```
+
+File: `forms.py`
+
+```python
+from django import forms
+
+
+class NameForm(forms.Form):
+    # CharField represents a text input and validates max_length.
+    your_name = forms.CharField(max_length=100)
+```
+
+File: `views.py`
+
+```python
+from django.shortcuts import render
+
+from .forms import NameForm
+
+
+def order(request):
+    # Create a form instance from the form class.
+    form = NameForm()
+
+    # Pass the form instance into the template context as "form".
+    return render(request, "order.html", {"form": form})
+```
+
+Rendered field HTML and template usage in `templates/order.html`:
+
+```html
+<!-- Django renders fields such as labels and inputs. -->
+<label for="id_your_name">Your name:</label>
+<input type="text" name="your_name" maxlength="100" required id="id_your_name">
+
+<!-- The surrounding form tag and submit button still belong in the template. -->
+<form action="/order/" method="post">
+    {% csrf_token %} <!--  Django's protection against CSRF (Cross-Site Request Forgery) attacks -->
+    {{ form }}
+    <input type="submit" value="Send name">
+</form>
+```
+
+File: `forms.py`
+
+```python
+from django.forms import ModelForm
+
+from myapp.models import Customer
+
+
+class CustomerForm(ModelForm):
+    # ModelForm generates form fields from selected model fields.
+    class Meta:
+        model = Customer
+        fields = ["name", "email", "address"]
+```
+
 #### Django Forms
 
+- Django forms use form fields to represent expected input types.
+  - HTML forms collect input with elements such as text inputs, radio buttons, drop-down lists, and checkboxes.
+  - Django's `Form` class defines the expected attributes that build and process a form.
+  - Form fields are the building blocks inside a Django form class.
+  - Each field helps define both the expected data type and the rendered HTML input.
+- Different form fields handle different kinds of data.
+  - `CharField` accepts string input and usually renders as a text input.
+  - `EmailField` accepts email-formatted input and usually renders as an email input.
+  - `IntegerField` accepts only integers and usually renders as a number input.
+  - `MultipleChoiceField` lets users choose multiple options.
+  - `FileField` lets users upload a file.
+  - `DateField` can collect date values, often with a date-friendly widget.
+  - `ChoiceField` lets users choose one value from predefined options.
+- Form fields accept common arguments.
+  - `required` controls whether the field must have a value.
+    - Fields are required by default.
+    - Use `required=False` to make a field optional.
+  - `label` changes the label shown for the field.
+  - `initial` sets a default initial value.
+  - `help_text` adds descriptive guidance for the user.
+- Widgets control how a form field is rendered in HTML.
+  - A field defines the kind of data Django should accept.
+  - A widget defines the HTML representation of that field.
+  - `forms.Textarea` can render a `CharField` as a multi-line text area.
+  - Widget attributes such as `attrs={"rows": 5}` can customize the generated HTML.
+  - `forms.RadioSelect` can render choices as radio buttons instead of a drop-down list.
+- Django form fields include basic validation.
+  - `EmailField` rejects values that do not look like valid email addresses.
+  - Field-specific validation helps catch incorrect input before backend processing continues.
+  - Choosing the right field type is essential because each form has different data requirements.
+- The Little Lemon examples show common form needs.
+  - A customer form can collect a name and age.
+  - A reservation form can collect a reservation date.
+  - A menu preference form can collect a favorite dish.
+  - Feedback and survey-style forms may need different field types and widgets.
+
+File: `forms.py`
+
+```python
+from django import forms
+
+
+FAVORITE_DISH_CHOICES = [
+    ("pasta", "Pasta"),
+    ("falafel", "Falafel"),
+    ("cheesecake", "Cheesecake"),
+]
+
+
+class CustomerForm(forms.Form):
+    # CharField accepts string input.
+    name = forms.CharField(max_length=200, label="Customer name")
+
+    # IntegerField accepts whole numbers.
+    age = forms.IntegerField(required=False, help_text="Optional customer age.")
+
+    # CharField can render as a multi-line textarea by overriding the widget.
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 5}),
+    )
+
+    # EmailField validates that the input looks like an email address.
+    email = forms.EmailField(label="Enter an email address")
+
+    # DateField can use a date-friendly HTML widget.
+    reservation_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+    # ChoiceField renders as a drop-down by default.
+    favorite_dish = forms.ChoiceField(choices=FAVORITE_DISH_CHOICES)
+
+    # The same choices can be rendered as radio buttons with RadioSelect.
+    favorite_dish_radio = forms.ChoiceField(
+        choices=FAVORITE_DISH_CHOICES,
+        widget=forms.RadioSelect,
+    )
+```
+
 #### Django Fields
+
+##### Models And Database Tables
+
+A Django model is a Python class that maps to a database table through Django's Object Relational Mapping (ORM) layer.
+
+- Each model class usually subclasses `django.db.models.Model`.
+- Each model attribute usually maps to a database table field.
+- The Django ORM stores and retrieves data by using model methods instead of raw Structured Query Language (SQL).
+- A model class is usually defined in the app's `models.py` file.
+
+File: `myapp/models.py`
+
+```python
+from django.db import models
+
+
+class Person(models.Model):
+    first_name = models.CharField(max_length=20)
+    last_name = models.CharField(max_length=20)
+```
+
+After the app is added to `INSTALLED_APPS` and migrations are applied, Django creates a table for the model.
+
+Example SQL shape:
+
+```sql
+CREATE TABLE myapp_person (
+    id INTEGER PRIMARY KEY,
+    first_name VARCHAR(20),
+    last_name VARCHAR(20)
+);
+```
+
+The `first_name` and `last_name` class attributes correspond to fields in the database table.
+
+##### Table Names
+
+Django automatically names model tables with the pattern `appname_modelname`.
+
+- A `Person` model in an app named `myapp` becomes `myapp_person`.
+- You can override the table name with `db_table` inside the model's `Meta` class.
+
+```python
+class Student(CommonInfo):
+    # ...
+
+    class Meta(CommonInfo.Meta):
+        db_table = "student_info"
+```
+
+##### Model Fields And ModelForms
+
+Choose a model field type that matches the data stored in the database column.
+
+- Model field types are defined in `django.db.models`.
+- Django can use model field information to generate forms through `ModelForm`.
+- The field type helps Django choose the corresponding form field and widget.
+  - For example, a model `CharField` can become a text input in a generated form.
+
+##### Field Properties
+
+A field can define common options in addition to field-specific options.
+
+`primary_key`
+
+- `primary_key=False` is the default.
+- `primary_key=True` makes the field the table's primary key.
+- If no primary key is defined, Django automatically adds an auto-incrementing primary key field.
+- Only one field can be the primary key.
+
+`default`
+
+- `default` supplies a value when a new object is created.
+- The default can be a fixed value or a callable.
+
+```python
+class Person(models.Model):
+    name = models.CharField(max_length=50)
+    address = models.CharField(max_length=80, default="Mumbai")
+```
+
+`unique`
+
+- `unique=True` requires every row to have a different value for that field.
+- This constraint is enforced by the database.
+
+```python
+tax_code = models.CharField(
+    max_length=20,
+    unique=True,
+)
+```
+
+`choices`
+
+- `choices` limits a field to predefined values.
+- It is commonly rendered as a drop-down in forms.
+- Each choice is a two-item pair.
+  - The first value is stored in the database.
+  - The second value is displayed to the user.
+
+```python
+SEMESTER_CHOICES = (
+    ("1", "Civil"),
+    ("2", "Electrical"),
+    ("3", "Mechanical"),
+    ("4", "CompSci"),
+)
+
+
+class Student(models.Model):
+    semester = models.CharField(
+        max_length=20,
+        choices=SEMESTER_CHOICES,
+        default="1",
+    )
+```
+
+##### Field Types
+
+The `django.db.models` module has many field types.
+
+`CharField`
+
+- Stores short string data.
+- Requires `max_length`.
+- Use `TextField` for longer text.
+
+`IntegerField`
+
+- Stores integer values.
+- Related integer fields include `BigIntegerField`, `SmallIntegerField`, and auto-incrementing ID fields.
+
+`FloatField` and `DecimalField`
+
+- `FloatField` stores floating-point numbers.
+- `DecimalField` stores fixed-precision decimal numbers.
+
+```python
+class Student(models.Model):
+    grade = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+    )
+```
+
+`DateTimeField` and `DateField`
+
+- `DateTimeField` stores date and time values.
+- `DateField` stores date-only values.
+
+`EmailField`
+
+- Stores email text.
+- Adds built-in email validation.
+
+`FileField`
+
+- Stores uploaded file information.
+- Uses `upload_to` to define the upload path.
+
+`ImageField`
+
+- Extends file handling for uploaded images.
+- Validates that the uploaded file is an image.
+
+`URLField`
+
+- Stores URL text.
+- Adds built-in URL validation.
+
+##### Relationship Fields
+
+Database models can have several relationship types.
+
+- One-to-one.
+- One-to-many.
+- Many-to-many.
+
+Django provides relationship fields for these model relationships.
+
+##### `ForeignKey`
+
+`ForeignKey` establishes a one-to-many relationship between two models.
+
+- It requires the related model.
+- It requires `on_delete` to define what happens when the referenced object is deleted.
+- A common example is one customer having many vehicles.
+
+```python
+class Customer(models.Model):
+    name = models.CharField(max_length=255)
+
+
+class Vehicle(models.Model):
+    name = models.CharField(max_length=255)
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="vehicles",
+    )
+```
+
+`on_delete` controls deletion behavior.
+
+- `models.CASCADE` deletes dependent objects when the referenced object is deleted.
+- `models.PROTECT` prevents deletion of the referenced object while dependent objects still reference it.
+- `models.RESTRICT` prevents deletion by raising `RestrictedError`, with special handling for objects deleted in the same operation through cascading relationships.
+
+##### `on_delete=models.CASCADE`
+
+Use `CASCADE` when dependent objects should be deleted with the referenced object.
+
+- If a `Vehicle` belongs to a `Customer`, deleting the customer deletes the related vehicles.
+
+##### `on_delete=models.PROTECT`
+
+Use `PROTECT` when the referenced object must not be deleted while related objects exist.
+
+- If a customer has vehicles, the customer cannot be deleted.
+- Django raises `ProtectedError` when deletion is blocked.
+
+##### `on_delete=models.RESTRICT`
+
+Use `RESTRICT` when deletion should be blocked with `RestrictedError`, except in allowed cascading delete scenarios.
+
+```python
+class Artist(models.Model):
+    name = models.CharField(max_length=10)
+
+
+class Album(models.Model):
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE)
+
+
+class Song(models.Model):
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE)
+    album = models.ForeignKey(Album, on_delete=models.RESTRICT)
+```
+
+Create example instances:
+
+```python
+artist1 = Artist.objects.create(name="Danny")
+artist2 = Artist.objects.create(name="John")
+album1 = Album.objects.create(artist=artist1)
+album2 = Album.objects.create(artist=artist2)
+song1 = Song.objects.create(artist=artist1, album=album1)
+song2 = Song.objects.create(artist=artist1, album=album2)
+```
+
+In this setup:
+
+- `artist1` can be deleted safely in the example scenario.
+- Deleting `artist2` can raise `RestrictedError` because of the restricted album relationship.
+
+##### `OneToOneField`
+
+`OneToOneField` establishes a one-to-one relationship between two models.
+
+- A `ForeignKey` with `unique=True` behaves similarly.
+- The reverse side of a `OneToOneField` returns a single object.
+- Example: one college can have only one principal, and one person can be principal of only one college.
+
+```python
+class College(models.Model):
+    college_id = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=50)
+    strength = models.IntegerField()
+    website = models.URLField()
+
+
+class Principal(models.Model):
+    college = models.OneToOneField(
+        College,
+        on_delete=models.CASCADE,
+    )
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+```
+
+##### `ManyToManyField`
+
+`ManyToManyField` establishes a many-to-many relationship between two models.
+
+- Multiple objects of one model can relate to multiple objects of another model.
+- Example: one subject can be taught by many teachers, and one teacher can teach many subjects.
+
+```python
+class Teacher(models.Model):
+    teacher_id = models.IntegerField(primary_key=True)
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+
+
+class Subject(models.Model):
+    subject_code = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=30)
+    credits = models.IntegerField()
+    teachers = models.ManyToManyField(Teacher)
+```
+
+Key idea: Django model fields define table columns, validation rules, form behavior, and relationships between database tables.
 
 #### Form API
 
