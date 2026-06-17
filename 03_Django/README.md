@@ -143,9 +143,11 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Model Relationships](#model-relationships)
       - [Creating Models](#creating-models)
       - [Migrations](#migrations)
+      - [Note about Database Connection](#note-about-database-connection)
       - [How to Use Migrations](#how-to-use-migrations)
       - [Example: Working with Migrations](#example-working-with-migrations)
       - [A History of Changes](#a-history-of-changes)
+      - [Excurs: What are Database Indices?](#excurs-what-are-database-indices)
       - [Exercise: Models and Migrations](#exercise-models-and-migrations)
       - [Models and Foreign Keys](#models-and-foreign-keys)
       - [Exercise: Models and Foreign Keys](#exercise-models-and-foreign-keys)
@@ -4672,6 +4674,58 @@ WHERE name = 'Ada';
 
 Think of migrations as version control for the database schema: models describe the desired structure, migration files record the changes, and `migrate` applies them.
 
+#### Note about Database Connection
+
+- Django gets its database connection settings from the `DATABASES` dictionary in `settings.py`.
+  - The `"default"` entry is the main database connection used by the project.
+  - The `"ENGINE"` value tells Django which database backend to use.
+  - The `"NAME"` value identifies the database name or database file.
+- A new Django project uses SQLite by default.
+  - SQLite stores the whole database in one local file.
+  - The default database file is usually named `db.sqlite3`.
+  - With the default project setup, Django creates this file at `BASE_DIR / "db.sqlite3"`.
+  - `BASE_DIR` points to the folder that contains `manage.py`.
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+```
+
+- The SQLite database file is created when migrations are applied.
+  - Running `migrate` creates the database file if it does not already exist.
+  - It also creates the tables required by installed Django apps.
+  - Built-in apps can create tables for admin, authentication, sessions, and content types.
+
+```bash
+python manage.py migrate
+```
+
+- Other databases use the same `DATABASES` setting but require connection details.
+  - MySQL commonly uses `django.db.backends.mysql`.
+  - PostgreSQL commonly uses `django.db.backends.postgresql`.
+  - Server-based databases usually need a database name, user, password, host, and port.
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "database_name",
+        "USER": "database_user",
+        "PASSWORD": "database_password",
+        "HOST": "localhost",
+        "PORT": "3306",
+    }
+}
+```
+
+- Key idea: migrations create or update the schema inside the database that `settings.py` points to.
+  - For SQLite, Django can create the local `db.sqlite3` file automatically.
+  - For MySQL or PostgreSQL, the database server and database usually need to exist before Django can connect and run migrations.
+
 #### How to Use Migrations
 
 Django's migration system turns model changes into versioned database-schema operations.
@@ -4938,7 +4992,202 @@ Key idea: model edits describe the desired schema, `makemigrations` records the 
 
 #### A History of Changes
 
+- Django migrations provide a versioned history of database-schema changes.
+  - Models describe the desired database structure in Python code.
+  - Migration files record how the database schema should change over time.
+  - The database can then be updated without manually writing repeated SQL statements.
+- Migration history is useful because web application requirements often change in small steps.
+  - A model may need a new field.
+  - A field may need to be renamed.
+  - A model or table may need to be removed.
+  - The same schema changes may need to run on several databases or environments.
+- Migrations support Django's DRY (don't repeat yourself) principle.
+  - Developers make the change once in the model.
+  - Django generates a migration from that model change.
+  - The migration can be shared through version control and applied consistently.
+- Migration files live inside each app's `migrations/` folder.
+  - Files use an ordered numeric prefix such as `0001`, `0002`, and `0003`.
+  - File names often describe the operation, such as an initial model creation or a field rename.
+  - Existing migration files remain as the schema history for the app.
+
+```text
+myapp/
+  migrations/
+    0001_initial.py
+    0002_add_customer_city.py
+    0003_rename_name_customer_full_name.py
+```
+
+- `makemigrations` creates migration files from model changes.
+  - It detects changes in installed apps.
+  - It writes Python migration files.
+  - It does not change the database by itself.
+- `migrate` applies unapplied migrations to the database.
+  - It synchronizes the database schema with the migration history.
+  - It can apply migrations for all apps.
+  - It can also target a specific app.
+
+```bash
+python manage.py makemigrations myapp
+python manage.py migrate
+```
+
+- `showmigrations` displays which migrations Django knows about.
+  - `[X]` means the migration has already been applied.
+  - `[ ]` means the migration exists but is still pending.
+
+```bash
+python manage.py showmigrations myapp
+```
+
+```text
+myapp
+ [X] 0001_initial
+ [X] 0002_add_customer_city
+ [ ] 0003_rename_name_customer_full_name
+```
+
+- Django tracks applied migrations in the `django_migrations` database table.
+  - `id` stores an auto-incremented row identifier.
+  - `app` stores the app that owns the migration.
+  - `name` stores the migration file name without `.py`.
+  - `applied` stores the timestamp when the migration was applied.
+  - Django checks this table before running migrations.
+  - Already-applied migrations are not applied again to the same database.
+- Migration files are Python files with a `Migration` class.
+  - `dependencies` list migrations that must run first.
+  - `operations` list schema actions Django should perform.
+
+```python
+class Migration(migrations.Migration):
+    dependencies = [
+        ("myapp", "0001_initial"),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="customer",
+            name="city",
+            field=models.CharField(max_length=100, default=""),
+        ),
+    ]
+```
+
+- Common migration operations describe database-schema changes.
+  - `CreateModel` creates a model and its database table.
+  - `DeleteModel` deletes a model and drops its database table.
+  - `AddField` adds a model field and database column.
+  - `AlterField` changes a field definition and matching database column.
+  - `AddIndex` creates a database index.
+- `sqlmigrate` shows the SQL for a specific migration without applying it.
+  - It helps inspect what Django plans to run.
+  - The exact SQL can differ by database backend.
+
+```bash
+python manage.py sqlmigrate myapp 0003
+```
+
+- Key idea: migrations are Django's database-schema timeline.
+  - Models describe the intended structure.
+  - Migration files record each schema change.
+  - The `django_migrations` table records which changes have already been applied.
+
+#### Excurs: What are Database Indices?
+
+  - A database index is a helper structure that makes lookups faster.
+  - It works like an index at the back of a book.
+    - Without an index, the database may need to scan many rows.
+    - With an index, the database can often jump to matching rows more quickly.
+  - Indexes are useful for columns that are often used in filtering, sorting, or joins.
+  - `AddIndex` is the Django migration operation that creates an index in the database.
+  - Indexes have a tradeoff.
+    - They can make read queries faster.
+    - They use extra storage.
+    - They can make inserts, updates, and deletes slightly slower because the index must also be updated.
+
+```python
+class Customer(models.Model):
+    email = models.EmailField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["email"]),
+        ]
+```
+
+```python
+migrations.AddIndex(
+    model_name="customer",
+    index=models.Index(fields=["email"], name="customer_email_idx"),
+)
+```
+
 #### Exercise: Models and Migrations
+
+Folder: [`lab/05-django-models/`](./lab/05-django-models/)
+
+- Completed the model and migration-file parts of the lab.
+  - Created a `Drinks` model in `myapp/models.py`.
+  - Added the required `price` field.
+  - Created the initial `drink` field first, then renamed it to `drink_name`.
+  - Registered the `Drinks` model in `myapp/admin.py`.
+  - Added the missing `migrations/__init__.py` file.
+  - Created `0001_initial.py` for the initial `Drinks` table.
+  - Created `0002_rename_drink_drinks_drink_name.py` for the field rename.
+- Verified the migration state without applying the database changes.
+  - `python manage.py makemigrations --check --dry-run` reported `No changes detected`.
+  - `python manage.py showmigrations myapp` showed both app migrations as pending.
+  - Applying migrations with SQLite failed in this lab folder with `disk I/O error`, so no final `db.sqlite3` artifact was kept.
+
+Solution code for `models.py` before the initial migration:
+
+```python
+from django.db import models
+
+
+# Create your models here.
+class Drinks(models.Model):
+    drink = models.CharField(max_length=200)
+    price = models.IntegerField()
+```
+
+Solution code for `models.py` before the second migration:
+
+```python
+from django.db import models
+
+
+# Create your models here.
+class Drinks(models.Model):
+    drink_name = models.CharField(max_length=200)
+    price = models.IntegerField()
+```
+
+Solution code for `admin.py`:
+
+```python
+from django.contrib import admin
+
+from .models import Drinks
+
+
+# Register your models here.
+admin.site.register(Drinks)
+```
+
+Commands to perform the migrations:
+
+```bash
+python3 manage.py makemigrations
+python3 manage.py migrate
+```
+
+Commands used to verify the migration files in this lab:
+
+```bash
+python manage.py makemigrations --check --dry-run
+python manage.py showmigrations myapp
+```
 
 #### Models and Foreign Keys
 
