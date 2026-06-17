@@ -145,6 +145,7 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Migrations](#migrations)
       - [Note about Database Connection](#note-about-database-connection)
       - [How to Use Migrations](#how-to-use-migrations)
+      - [Excurs: Registering Models in admin.py](#excurs-registering-models-in-adminpy)
       - [Example: Working with Migrations](#example-working-with-migrations)
       - [A History of Changes](#a-history-of-changes)
       - [Excurs: What are Database Indices?](#excurs-what-are-database-indices)
@@ -152,6 +153,18 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Models and Foreign Keys](#models-and-foreign-keys)
       - [Exercise: Models and Foreign Keys](#exercise-models-and-foreign-keys)
       - [ORM: Object Relationship Mapping](#orm-object-relationship-mapping)
+        - [What Is ORM?](#what-is-orm)
+        - [Django Models And ORM](#django-models-and-orm)
+        - [QuerySet Example](#queryset-example)
+        - [Open The Django Shell](#open-the-django-shell)
+        - [Create A Model Object With `save()`](#create-a-model-object-with-save)
+        - [Add A Model Object With `objects.create()`](#add-a-model-object-with-objectscreate)
+        - [Create Related `Vehicle` Objects](#create-related-vehicle-objects)
+        - [Fetch Model Objects](#fetch-model-objects)
+        - [Filter Model Objects](#filter-model-objects)
+        - [Access Related Objects](#access-related-objects)
+        - [Update A Model Object](#update-a-model-object)
+        - [Delete A Model Object](#delete-a-model-object)
       - [Using ORM](#using-orm)
       - [Additional Resources](#additional-resources-3)
     - [Models and Forms](#models-and-forms)
@@ -4906,6 +4919,33 @@ python manage.py migrate
 
 Commit model changes and their generated migration files together so every environment can reproduce the same database schema.
 
+#### Excurs: Registering Models in admin.py
+
+- Optional: Register a model in `admin.py` when it should be manageable through the Django Admin interface.
+  - The admin interface lets authorized users create, view, update, and delete model records in the browser.
+  - Registered models appear in the `/admin/` site after the admin app is enabled and a superuser can log in.
+- Admin registration is not required for database table creation.
+  - Tables are created from models and migrations.
+  - The app must be listed in `INSTALLED_APPS`.
+  - The migrations must be created with `makemigrations` and applied with `migrate`.
+- Admin registration is not required for normal ORM queries.
+  - Code can use `Drinks.objects.all()` or `Drinks.objects.create(...)` without registering `Drinks` in `admin.py`.
+  - Registration only affects whether the model appears in Django Admin.
+
+```python
+from django.contrib import admin
+
+from .models import Drinks
+
+
+admin.site.register(Drinks)
+```
+
+- Key distinction:
+  - Need a database table: define the model and run migrations.
+  - Need to query the model in Python: define the model and use the ORM.
+  - Need browser-based admin management: register the model in `admin.py`.
+
 #### Example: Working with Migrations
 
 Before creating migrations, ensure the app is listed in `INSTALLED_APPS`. Django only detects model changes from installed apps.
@@ -5191,11 +5231,480 @@ python manage.py showmigrations myapp
 
 #### Models and Foreign Keys
 
+- A foreign key creates a relationship between two database tables.
+  - In Django, `models.ForeignKey` defines a many-to-one relationship.
+  - Many records in one model can point to one record in another model.
+  - The foreign key is stored as a database column containing the related row's primary key.
+- The Little Lemon menu example uses categories and menu items.
+  - One cuisine category can contain many menu items.
+  - Each menu item belongs to one category.
+  - This is a one-to-many relationship from category to menu items.
+- The example needs two models.
+  - `MenuCategory` stores category names such as Italian, Greek, and Turkish.
+  - `Menu` stores menu item names, prices, and a reference to a category.
+- `ForeignKey` needs the related model and an `on_delete` rule.
+  - The related model tells Django which table to connect to.
+  - `on_delete=models.PROTECT` prevents deleting a category while menu items still reference it.
+  - `null=True` and `default=None` allow existing or empty menu rows to have no category during setup.
+- The database stores the relationship through an ID column.
+  - A menu item can store the ID of its related category.
+  - If Greek has ID `2`, a Greek salad row can reference category ID `2`.
+  - Django uses the ID internally while the ORM lets Python code work with related objects.
+- `related_name` names the reverse relationship in the ORM.
+  - It does not change the database column into readable category text.
+  - It lets a category access its related menu items through a clearer attribute.
+  - For example, `category.menu_items.all()` can return all menu items in that category.
+- The models must still follow the normal migration workflow.
+  - Add or change the models in `models.py`.
+  - Register models in `admin.py` only if they should appear in Django Admin.
+  - Run `makemigrations` to create migration files.
+  - Run `migrate` to apply the schema changes to the database.
+
+File: `myapp/models.py`
+
+```python
+from django.db import models
+
+
+class MenuCategory(models.Model):
+    menu_category_name = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.menu_category_name
+
+
+class Menu(models.Model):
+    menu_item = models.CharField(max_length=200)
+    price = models.IntegerField()
+    category = models.ForeignKey(
+        # Connect each Menu row to one MenuCategory row.
+        MenuCategory,
+
+        # Prevent deleting a category while menu items still reference it.
+        on_delete=models.PROTECT,
+
+        # Allow the category field to be empty in the database.
+        null=True,
+
+        # Use no category as the default value when one is not provided.
+        default=None,
+
+        # Give MenuCategory a clear reverse lookup: category.menu_items.all().
+        related_name="menu_items",
+    )
+
+    def __str__(self):
+        return self.menu_item
+
+
+# Example MenuCategory instance:
+# greek = MenuCategory.objects.create(menu_category_name="Greek")
+#
+# Example Menu instance linked to that category:
+# Menu.objects.create(menu_item="Greek salad", price=12, category=greek)
+```
+
+File: `myapp/admin.py`
+
+```python
+from django.contrib import admin
+
+from .models import Menu, MenuCategory
+
+
+admin.site.register(Menu)
+admin.site.register(MenuCategory)
+```
+
+Run from the project folder that contains `manage.py`:
+
+```bash
+python3 manage.py makemigrations
+python3 manage.py migrate
+```
+
 #### Exercise: Models and Foreign Keys
+
+Folder: [`lab/06-django-foreign-keys/`](./lab/06-django-foreign-keys/)
+
+- Completed the model and migration-file parts of the lab.
+  - Created a `DrinksCategory` model for drink categories.
+  - Created a `Drinks` model for individual drinks.
+  - Added a `ForeignKey` from `Drinks` to `DrinksCategory`.
+  - Used `on_delete=models.PROTECT` to prevent deleting a category that still has drinks.
+  - Registered both models in `admin.py`.
+  - Added `migrations/__init__.py`.
+  - Created `0001_initial.py`, which creates both database tables and the foreign key relationship.
+- Verified the migration state without applying the database changes.
+  - `python manage.py makemigrations --check --dry-run` reported `No changes detected`.
+  - `python manage.py showmigrations myapp` showed `0001_initial` as pending.
+  - `python manage.py migrate` failed in this lab folder with a SQLite `disk I/O error`, so the migration should be run manually from a normal terminal.
+
+File: `myapp/models.py`
+
+```python
+from django.db import models
+
+# Create your models here.
+class DrinksCategory(models.Model):
+    category_name = models.CharField(max_length=200)
+
+class Drinks(models.Model):
+    drink = models.CharField(max_length=200)
+    price = models.IntegerField()
+    category_id = models.ForeignKey(DrinksCategory, on_delete=models.PROTECT, default=None)
+```
+
+File: `myapp/admin.py`
+
+```python
+from django.contrib import admin
+from .models import Drinks
+from .models import DrinksCategory
+
+# Register your models here.
+admin.site.register(Drinks)
+admin.site.register(DrinksCategory)
+```
+
+Run from the project folder that contains `manage.py`:
+
+```bash
+cd 03_Django/lab/06-django-foreign-keys/myproject
+
+python3 manage.py makemigrations
+
+python3 manage.py migrate
+```
+
+Use the Django shell to create example records:
+
+```bash
+# Open the Django shell from the folder that contains manage.py.
+python manage.py shell
+```
+
+```python
+# Import both models.
+from myapp.models import Drinks, DrinksCategory
+
+# Create and save a drink category.
+cat = DrinksCategory(category_name="coffee")
+cat.save()
+
+# Retrieve the category so it can be used as a foreign key.
+fk = DrinksCategory.objects.get(pk=1)
+
+# Create and save a drink linked to the category.
+drink = Drinks(drink="mocha", price=7, category_id=fk)
+drink.save()
+
+# Optional checks.
+DrinksCategory.objects.all()
+Drinks.objects.all()
+```
 
 #### ORM: Object Relationship Mapping
 
+##### What Is ORM?
+
+Object Relational Mapping (ORM) lets object-oriented code interact with a relational database.
+
+- Python applications work with objects.
+  - Objects can contain non-scalar values and relationships.
+  - They are not always represented directly as primitive values such as integers and strings.
+- Relational databases store data in tables.
+  - Tables are made of rows and columns.
+  - Column values are usually scalar database types such as integers, strings, dates, and booleans.
+- The program needs a translation layer between Python objects and database tables.
+  - ORM maps Python classes to database tables.
+  - ORM maps class attributes to database fields.
+  - ORM lets developers perform database operations without writing raw Structured Query Language (SQL) for every query.
+
+With ORM, developers can focus more on application logic and less on repetitive database-access code.
+
+##### Django Models And ORM
+
+Django has its own ORM layer.
+
+- Each Django model is a Python class that subclasses `django.db.models.Model`.
+- Each model attribute usually represents a database field.
+- Django migrations propagate model definitions into database tables.
+- Models help developers perform CRUD operations.
+  - Create records.
+  - Read records.
+  - Update records.
+  - Delete records.
+
+To retrieve objects from the database, Django uses a model manager, usually available as `objects`, to construct a `QuerySet`.
+
+##### QuerySet Example
+
+The following example uses an app named `demoapp`.
+
+File: `demoapp/models.py`
+
+```python
+from django.db import models
+
+
+class Customer(models.Model):
+    name = models.CharField(max_length=255)
+
+
+class Vehicle(models.Model):
+    name = models.CharField(max_length=255)
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="vehicles",
+    )
+```
+
+This creates two related tables:
+
+- `Customer`
+  - Stores customer records.
+- `Vehicle`
+  - Stores vehicle records.
+  - References `Customer` with a foreign key.
+  - Creates a one-to-many relationship because one customer can have many vehicles.
+
+Apply migrations so Django creates the corresponding database tables.
+
+##### Open The Django Shell
+
+Open the interactive Django shell from the project folder that contains `manage.py`.
+
+The command is the same idea on Windows, macOS, and Linux.
+
+```bash
+python manage.py shell
+```
+
+##### Create A Model Object With `save()`
+
+Create an object of the `Customer` class and save it to the database.
+
+```python
+from demoapp.models import Customer
+
+c = Customer(name="Henry")
+c.save()
+```
+
+The `save()` method creates a row in the mapped `Customer` table.
+
+##### Add A Model Object With `objects.create()`
+
+`Customer.objects` is the model manager.
+
+- The manager exposes the query API for the model.
+- It can create, retrieve, update, and delete database records.
+- `objects.create()` creates and saves a row in one step.
+- In SQL terms, it performs an `INSERT`.
+
+```python
+Customer.objects.create(name="Hameed")
+```
+
+##### Create Related `Vehicle` Objects
+
+The `Vehicle.customer` field expects a `Customer` object because it is a `ForeignKey`.
+
+Fetch the customer with primary key `2`.
+
+```python
+from demoapp.models import Customer, Vehicle
+
+c = Customer.objects.get(pk=2)
+c.name
+```
+
+Expected value:
+
+```text
+'Hameed'
+```
+
+Use that customer object as the `customer` value on new vehicles.
+
+```python
+v = Vehicle(name="Honda", customer=c)
+v.save()
+
+v = Vehicle(name="Toyota", customer=c)
+v.save()
+```
+
+Add two vehicles for the customer named `Henry`.
+
+```python
+c = Customer.objects.get(name="Henry")
+
+Vehicle.objects.create(name="Ford", customer=c)
+Vehicle.objects.create(name="Nissan", customer=c)
+```
+
+##### Fetch Model Objects
+
+A `QuerySet` represents a collection of database objects.
+
+- It usually represents a `SELECT` query.
+- It can be filtered before Django evaluates it.
+- It can be iterated over like a normal Python collection.
+
+Use `all()` to fetch every object for a model.
+
+```python
+model.objects.all()
+```
+
+Example:
+
+```python
+lst = Customer.objects.all()
+[c.name for c in lst]
+```
+
+Expected result:
+
+```text
+['Henry', 'Hameed']
+```
+
+##### Filter Model Objects
+
+Use `filter()` to retrieve objects that match criteria.
+
+- In SQL terms, this is similar to adding a `WHERE` clause.
+- Django field lookups use double underscores, such as `name__startswith`.
+
+```python
+model.objects.filter(criteria)
+```
+
+Example:
+
+```python
+mydata = Customer.objects.filter(name__startswith="H")
+```
+
+##### Access Related Objects
+
+`Vehicle` objects can access their related `Customer` objects through the foreign key attribute.
+
+```python
+lst = Vehicle.objects.all()
+
+for v in lst:
+    print(v.name, ":", v.customer.name)
+```
+
+Expected output:
+
+```text
+Honda : Hameed
+Toyota : Hameed
+Ford : Henry
+Nissan : Henry
+```
+
+##### Update A Model Object
+
+To update a record:
+
+- Fetch the object.
+- Change an attribute.
+- Call `save()`.
+
+```python
+c = Customer.objects.get(name="Henry")
+c.name = "Helen"
+c.save()
+```
+
+##### Delete A Model Object
+
+Use `delete()` to remove the database row represented by an object.
+
+```python
+c = Customer.objects.get(pk=4)
+c.delete()
+```
+
+Example return value:
+
+```text
+(1, {'demoapp.Customer': 1})
+```
+
+Key idea: Django's ORM and `QuerySet` API let developers perform CRUD operations on database tables through Python objects instead of writing raw SQL queries.
+
 #### Using ORM
+
+- This section adds a Little Lemon reservation example to the earlier ORM overview.
+  - The earlier section already covered ORM basics, managers, `QuerySet`, `all()`, `get()`, `filter()`, `save()`, and `delete()`.
+  - The new focus here is how QuerySet API calls map to common SQL-style query logic.
+- Django's QuerySet API supports several kinds of operations.
+  - Methods that return new querysets, such as `filter()`.
+  - Operators that return new querysets, such as combining querysets with `&`.
+  - Methods that return something other than a queryset, such as `get()`.
+- The Little Lemon example uses a `Customer` model for restaurant reservations.
+  - `name` stores the customer name.
+  - `reservation_day` stores the day of the reservation.
+  - `seats` stores the number of requested seats.
+  - The model has already been migrated and the database already contains entries.
+- `get()` retrieves one matching object instead of returning a queryset.
+  - It is useful when the query should match exactly one row.
+  - It is similar to selecting a specific row in Structured Query Language (SQL).
+  - `Customer.objects.get(id=4)` returns the customer with ID `4`.
+- `filter()` returns a new queryset.
+  - It is useful when zero, one, or many rows may match.
+  - It is similar to adding a SQL `WHERE` clause.
+  - `Customer.objects.filter(reservation_day="Saturday")` returns Saturday reservations.
+- Chained `filter()` calls combine conditions with SQL-style `AND` logic.
+  - Each filter narrows the previous queryset.
+  - The result contains only rows that satisfy every condition.
+  - `Customer.objects.filter(reservation_day="Friday").filter(seats=4)` returns Friday reservations for four seats.
+- The QuerySet API is broad.
+  - Simple lookup methods are only the beginning.
+  - More advanced queries can use additional queryset methods, operators, and lookup expressions.
+
+File: `myapp/models.py`
+
+```python
+from django.db import models
+
+
+class Customer(models.Model):
+    name = models.CharField(max_length=200)
+    reservation_day = models.CharField(max_length=20)
+    seats = models.IntegerField()
+```
+
+Run from the project folder that contains `manage.py`:
+
+```bash
+# Open the Django shell.
+python3 manage.py shell
+```
+
+Use the Django shell to query reservation data:
+
+```python
+# Import the model before querying it.
+from myapp.models import Customer
+
+# Return one object with the exact ID.
+Customer.objects.get(id=4)
+
+# Return all Saturday reservations as a QuerySet.
+Customer.objects.filter(reservation_day="Saturday")
+
+# Return only Friday reservations for four seats.
+Customer.objects.filter(reservation_day="Friday").filter(seats=4)
+```
 
 #### Additional Resources
 
