@@ -171,6 +171,18 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Forms](#forms)
       - [Django Forms](#django-forms)
       - [Django Fields](#django-fields)
+        - [Models And Database Tables](#models-and-database-tables)
+        - [Table Names](#table-names)
+        - [Model Fields And ModelForms](#model-fields-and-modelforms)
+        - [Field Properties](#field-properties)
+        - [Field Types](#field-types)
+        - [Relationship Fields](#relationship-fields)
+        - [`ForeignKey`](#foreignkey)
+        - [`on_delete=models.CASCADE`](#on_deletemodelscascade)
+        - [`on_delete=models.PROTECT`](#on_deletemodelsprotect)
+        - [`on_delete=models.RESTRICT`](#on_deletemodelsrestrict)
+        - [`OneToOneField`](#onetoonefield)
+        - [`ManyToManyField`](#manytomanyfield)
       - [Form API](#form-api)
       - [Creating Forms](#creating-forms)
       - [Model Form](#model-form)
@@ -6218,6 +6230,335 @@ class Subject(models.Model):
 Key idea: Django model fields define table columns, validation rules, form behavior, and relationships between database tables.
 
 #### Form API
+
+##### HTML Form
+
+Almost every web application collects data from users with forms.
+
+- A form is a document where users enter responses into labeled fields.
+- Common examples include registration forms, travel booking forms, and job application forms.
+- HTML forms use the `<form>` tag and input elements such as text inputs, radio buttons, checkboxes, dropdowns, and lists.
+
+```html
+<form action="/form/" method="POST">
+    <label for="name">Name of Applicant</label>
+    <input type="text" id="name" name="name">
+
+    <label for="add">Address</label>
+    <input type="text" id="add" name="add">
+
+    <label for="post">Post</label>
+    <select id="post" name="post">
+        <option value="Manager">Manager</option>
+        <option value="Cashier">Cashier</option>
+        <option value="Operator">Operator</option>
+    </select>
+
+    <input type="submit" value="Submit">
+</form>
+```
+
+HTML has limited validation support by itself, so applications often need additional validation before or after form submission.
+
+##### Django Form
+
+Django includes a `Form` class in the `django.forms` module.
+
+- A user-defined form class subclasses `forms.Form`.
+- Form attributes are field objects.
+- Field objects define expected input and validation.
+- Django form fields render to corresponding HTML form elements.
+  - `forms.CharField` usually renders as a text input.
+  - `forms.ChoiceField` usually renders as a `<select>` element.
+
+File: `myapp/forms.py`
+
+```python
+from django import forms
+
+
+class ApplicationForm(forms.Form):
+    pass
+```
+
+The application form from the HTML example can be represented as a Django form class.
+
+File: `myapp/forms.py`
+
+```python
+from django import forms
+
+
+class ApplicationForm(forms.Form):
+    name = forms.CharField(label="Name of Applicant", max_length=50)
+    address = forms.CharField(label="Address", max_length=100)
+    posts = (
+        ("Manager", "Manager"),
+        ("Cashier", "Cashier"),
+        ("Operator", "Operator"),
+    )
+    field = forms.ChoiceField(choices=posts)
+```
+
+By convention, user-defined form classes are stored in a `forms.py` file inside the app package.
+
+##### Django Form Fields
+
+Django provides many form field types.
+
+- `CharField` renders as an HTML text input.
+  - Use `widget=forms.Textarea` for longer multiline text.
+- `IntegerField` accepts only integer numbers.
+  - Use `min_value` and `max_value` to restrict the allowed range.
+- `FloatField` validates floating-point numbers.
+  - `DecimalField` validates numbers with a specified number of decimal places.
+- `FileField` renders as an HTML file input.
+- `ImageField` works like `FileField` but validates that the uploaded file is an image.
+  - Pillow must be installed for image validation.
+- `EmailField` validates that the input is a valid email address.
+- `ChoiceField` renders as a dropdown using a sequence of two-item choices.
+
+```python
+first_name = forms.CharField(label="Enter first name", max_length=50)
+age = forms.IntegerField(min_value=20, max_value=60)
+price = forms.FloatField()
+upload = forms.FileField()
+email = forms.EmailField(max_length=254)
+gender = forms.ChoiceField(choices=GENDER_CHOICES)
+```
+
+##### Rendering A Form Object In The Shell
+
+A `Form` instance can render itself as HTML.
+
+Open the Django shell:
+
+```bash
+python manage.py shell
+```
+
+Create and print a form instance:
+
+```python
+from myapp import forms
+
+f = forms.ApplicationForm()
+print(f)
+```
+
+Example rendered HTML:
+
+```html
+<tr>
+    <th><label for="id_name">Name of Applicant:</label></th>
+    <td>
+        <input type="text" name="name" maxlength="50" required id="id_name">
+    </td>
+</tr>
+<tr>
+    <th><label for="id_address">Address:</label></th>
+    <td>
+        <input type="text" name="address" maxlength="100" required id="id_address">
+    </td>
+</tr>
+<tr>
+    <th><label for="id_field">Field:</label></th>
+    <td>
+        <select name="field" id="id_field">
+            <option value="Manager">Manager</option>
+            <option value="Cashier">Cashier</option>
+            <option value="Operator">Operator</option>
+        </select>
+    </td>
+</tr>
+```
+
+##### Form Template
+
+A Django form object renders the form fields, but it does not render the surrounding `<form>` tag.
+
+- Add the `<form>` tag in the template.
+- Add `{% csrf_token %}` for POST forms.
+- Place the form object inside the template where the fields should appear.
+- Add a submit button manually.
+
+File: `templates/form.html`
+
+```html
+<html>
+<body>
+    <form action="/form/" method="POST">
+        {% csrf_token %}
+        <table>
+            {{ form }}
+        </table>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>
+```
+
+File: `views.py`
+
+```python
+from django.shortcuts import render
+
+from .forms import ApplicationForm
+
+
+def index(request):
+    form = ApplicationForm()
+    return render(request, "form.html", {"form": form})
+```
+
+##### Form Rendering Variations
+
+Django can render a form in different HTML layouts.
+
+`{{ form.as_table }}` renders fields as table rows.
+
+```html
+<table>
+    <tr>
+        <th><label for="id_name">Name of Applicant:</label></th>
+        <td><input type="text" name="name" maxlength="50" required id="id_name"></td>
+    </tr>
+    <tr>
+        <th><label for="id_address">Address:</label></th>
+        <td><input type="text" name="address" maxlength="100" required id="id_address"></td>
+    </tr>
+    <tr>
+        <th><label for="id_field">Field:</label></th>
+        <td>
+            <select name="field" id="id_field">
+                <option value="Manager">Manager</option>
+                <option value="Cashier">Cashier</option>
+                <option value="Operator">Operator</option>
+            </select>
+        </td>
+    </tr>
+</table>
+<input type="submit">
+```
+
+Output:
+
+![Output display with the name of applicant and address tab as well as field dropdown selection](./assets/form_1.png)
+
+`{{ form.as_p }}` renders fields wrapped in `<p>` tags.
+
+```html
+<p>
+    <label for="id_name">Name of Applicant:</label>
+    <input type="text" name="name" maxlength="50" required id="id_name">
+</p>
+<p>
+    <label for="id_address">Address:</label>
+    <input type="text" name="address" maxlength="100" required id="id_address">
+</p>
+<p>
+    <label for="id_field">Field:</label>
+    <select name="field" id="id_field">
+        <option value="Manager">Manager</option>
+        <option value="Cashier">Cashier</option>
+        <option value="Operator">Operator</option>
+    </select>
+</p>
+```
+
+The form is displayed in the browser:
+
+![Browser display of the output with name of applicant and address tabs as well as field dropdown selection](./assets/form_2.png)
+
+`{{ form.as_ul }}` renders fields wrapped in `<li>` tags.
+
+```html
+<li>
+    <label for="id_name">Name of Applicant:</label>
+    <input type="text" name="name" maxlength="50" required id="id_name">
+</li>
+<li>
+    <label for="id_address">Address:</label>
+    <input type="text" name="address" maxlength="100" required id="id_address">
+</li>
+<li>
+    <label for="id_field">Field:</label>
+    <select name="field" id="id_field">
+        <option value="Manager">Manager</option>
+        <option value="Cashier">Cashier</option>
+        <option value="Operator">Operator</option>
+    </select>
+</li>
+<input type="submit">
+```
+
+The form renders in the browser:
+
+![Browser display of the output with bullets before the name of applicant and address tabs as well as field dropdown selection](./assets/form_3.png)
+
+`{{ form.as_div }}` renders fields wrapped in `<div>` tags.
+
+```html
+<div>
+    <label for="id_name">Name of Applicant:</label>
+    <input type="text" name="name" maxlength="50" required id="id_name">
+</div>
+<div>
+    <label for="id_address">Address:</label>
+    <input type="text" name="address" maxlength="100" required id="id_address">
+</div>
+<div>
+    <label for="id_field">Field:</label>
+    <select name="field" id="id_field">
+        <option value="Manager">Manager</option>
+        <option value="Cashier">Cashier</option>
+        <option value="Operator">Operator</option>
+    </select>
+</div>
+<input type="submit">
+```
+
+The form renders in the browser:
+
+![Browser display of the form](./assets/form_4.png)
+
+##### Reading Form Contents
+
+The form's `action` attribute points to the URL that receives the submitted data.
+
+- If `action="/form/"`, map a view to the `/form/` URL.
+- The view receives the submitted `POST` data.
+- The data can be used to create database rows or perform other processing.
+- Bind submitted data with `ApplicationForm(request.POST)`.
+- Validate submitted data with `form.is_valid()`.
+- Access validated values through `form.cleaned_data`.
+
+File: `views.py`
+
+```python
+from django.http import HttpResponse
+from django.shortcuts import render
+
+from .forms import ApplicationForm
+
+
+def form(request):
+    if request.method == "POST":
+        form = ApplicationForm(request.POST)
+
+        if form.is_valid():
+            name = form.cleaned_data["name"]
+            address = form.cleaned_data["address"]
+            post = form.cleaned_data["field"]
+            return HttpResponse("Form successfully submitted")
+
+    else:
+        form = ApplicationForm()
+
+    return render(request, "form.html", {"form": form})
+```
+
+Key idea: Django's Form API defines fields in Python, renders them as HTML, validates submitted data, and exposes cleaned values for backend processing.
 
 #### Creating Forms
 
