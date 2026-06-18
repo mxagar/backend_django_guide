@@ -6699,7 +6699,7 @@ python manage.py runserver
   - Choose which model fields should appear in the form.
 - `fields = "__all__"` includes all editable model fields in the form.
   - This is convenient for learning and small examples.
-  - In real applications, explicitly listing fields is often safer because it avoids exposing unintended fields.
+  - In real applications, explicitly listing fields is often safer because it avoids exposing unintended fields: `["field1", "field2"]`.
 - The view must handle both display and submission.
   - For a normal page load, create an empty form instance.
   - For a `POST` request, bind the form to `request.POST`.
@@ -6937,6 +6937,12 @@ Comment: Prefer indoors
 
 
 #### Additional Resources
+
+- [Models - official documentation](https://docs.djangoproject.com/en/4.1/topics/db/models/)
+- [Migrations - official documentation](https://docs.djangoproject.com/en/4.1/topics/migrations/)
+- [Using Models - Mozilla](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Models)
+- [Detailed overview of Migrations](https://docs.djangoproject.com/en/4.1/topics/migrations/#module-django.db.migrations)
+- [Migration operations](https://docs.djangoproject.com/en/4.1/ref/migration-operations/)
 
 ### Admin
 
