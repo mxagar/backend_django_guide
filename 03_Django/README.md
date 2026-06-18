@@ -184,6 +184,13 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [`OneToOneField`](#onetoonefield)
         - [`ManyToManyField`](#manytomanyfield)
       - [Form API](#form-api)
+        - [HTML Form](#html-form)
+        - [Django Form](#django-form)
+        - [Django Form Fields](#django-form-fields)
+        - [Rendering A Form Object In The Shell](#rendering-a-form-object-in-the-shell)
+        - [Form Template](#form-template)
+        - [Form Rendering Variations](#form-rendering-variations)
+        - [Reading Form Contents](#reading-form-contents)
       - [Creating Forms](#creating-forms)
       - [Model Form](#model-form)
       - [Exercise: Working with Forms](#exercise-working-with-forms)
@@ -6562,7 +6569,246 @@ Key idea: Django's Form API defines fields in Python, renders them as HTML, vali
 
 #### Creating Forms
 
+- This section mostly repeats the earlier [Form API](#form-api) workflow.
+  - The earlier section already covers `forms.Form`, rendering forms in templates, `csrf_token`, `as_p`, validation, and `POST` processing.
+  - The new example here is an employee work-entry form for the Little Lemon website.
+- The example adds a few new form-building details.
+  - `forms.TimeField` collects a time value.
+  - `forms.ChoiceField` can use a tuple of choices stored in a constant.
+  - `required=False` makes a field optional.
+  - `help_text` displays guidance beside a field.
+  - Inline styling can be added in the template, though CSS is usually cleaner for larger projects.
+- The full setup touches several project files.
+  - `forms.py` defines the form class.
+  - `views.py` creates a form instance and passes it to the template.
+  - `home.html` renders the form with `POST`, `{% csrf_token %}`, and a submit button.
+  - App-level `urls.py` maps a path to the view.
+  - Project-level `urls.py` includes the app routes.
+  - `settings.py` must include the app in `INSTALLED_APPS`.
+- Running the development server lets you test the form in the browser.
+  - The form displays `first_name`, `last_name`, `shift`, and `time_log` fields.
+  - `{{ form.as_p }}` renders form fields wrapped in paragraph tags.
+  - Submitting an empty required form shows Django's built-in validation.
+
+File: `myapp/forms.py`
+
+```python
+from django import forms
+
+
+SHIFTS = (
+    ("morning", "Morning"),
+    ("afternoon", "Afternoon"),
+    ("evening", "Evening"),
+)
+
+
+class InputForm(forms.Form):
+    # Optional text fields for the employee name.
+    first_name = forms.CharField(max_length=200, required=False)
+    last_name = forms.CharField(max_length=200, required=False)
+
+    # ChoiceField renders a selectable list of predefined shift options.
+    shift = forms.ChoiceField(choices=SHIFTS)
+
+    # TimeField validates time input; help_text gives user-facing guidance.
+    time_log = forms.TimeField(help_text="Enter the exact time.")
+```
+
+File: `myapp/views.py`
+
+```python
+from django.shortcuts import render
+
+from .forms import InputForm
+
+
+def form_view(request):
+    # Create a blank form instance for display.
+    form = InputForm()
+
+    # Pass the form into the template context.
+    context = {"form": form}
+    return render(request, "home.html", context)
+```
+
+File: `myapp/templates/home.html`
+
+```html
+<form method="post" style="background-color: lightyellow;">
+    {% csrf_token %}
+
+    <!-- Render fields as paragraph elements. -->
+    {{ form.as_p }}
+
+    <input type="submit" value="Submit">
+</form>
+```
+
+File: `myapp/urls.py`
+
+```python
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("form/", views.form_view, name="form_view"),
+]
+```
+
+File: `myproject/urls.py`
+
+```python
+from django.urls import include, path
+
+urlpatterns = [
+    path("", include("myapp.urls")),
+]
+```
+
+File: `settings.py`
+
+```python
+INSTALLED_APPS = [
+    # ...
+    "myapp",
+]
+```
+
+Run from the project folder that contains `manage.py`:
+
+```bash
+python manage.py runserver
+```
+
 #### Model Form
+
+- `ModelForm` connects a Django form directly to a Django model.
+  - A regular `forms.Form` defines form fields manually.
+  - A `ModelForm` generates form fields from a model.
+  - It can save valid submitted data directly into the model's database table.
+- `ModelForm` is useful when form input should become database records.
+  - Example: Little Lemon employees log their work entry times.
+  - The form collects a name and time value.
+  - The submitted values are saved into a table created from the model.
+- Creating a `ModelForm` follows a similar pattern to creating models and forms.
+  - Define the model in `models.py`.
+  - Define the `ModelForm` in `forms.py`.
+  - Use an inner `Meta` class to connect the form to the model.
+  - Choose which model fields should appear in the form.
+- `fields = "__all__"` includes all editable model fields in the form.
+  - This is convenient for learning and small examples.
+  - In real applications, explicitly listing fields is often safer because it avoids exposing unintended fields.
+- The view must handle both display and submission.
+  - For a normal page load, create an empty form instance.
+  - For a `POST` request, bind the form to `request.POST`.
+  - Use `form.is_valid()` to validate submitted data.
+  - Use `form.save()` to create the database row.
+- The model should be registered in `admin.py` if it should appear in Django Admin.
+  - Registration is not required for saving through `ModelForm`.
+  - It is useful for inspecting saved entries in the admin interface.
+- Migrations are still required.
+  - The model defines the table structure.
+  - `makemigrations` creates the migration file.
+  - `migrate` creates the database table.
+- The template can reuse the same form-rendering approach from previous sections.
+  - Use `method="post"`.
+  - Include `{% csrf_token %}`.
+  - Render the form with `{{ form }}` or `{{ form.as_p }}`.
+  - Add a submit button.
+
+File: `myapp/models.py`
+
+```python
+from django.db import models
+
+
+class Logger(models.Model):
+    # Store the employee name submitted by the form.
+    name = models.CharField(max_length=200)
+
+    # Store the logged entry time submitted by the form.
+    time_log = models.TimeField()
+```
+
+File: `myapp/forms.py`
+
+```python
+from django.forms import ModelForm
+
+from .models import Logger
+
+
+class LogForm(ModelForm):
+    class Meta:
+        # Connect this form to the Logger model.
+        model = Logger
+
+        # Include all editable fields from Logger in the form.
+        fields = "__all__"
+```
+
+File: `myapp/admin.py`
+
+```python
+from django.contrib import admin
+
+from .models import Logger
+
+
+admin.site.register(Logger)
+```
+
+File: `myapp/views.py`
+
+```python
+from django.shortcuts import render
+
+from .forms import LogForm
+
+
+def form_view(request):
+    # Start with an empty form for normal page loads.
+    form = LogForm()
+
+    if request.method == "POST":
+        # Bind submitted POST data to the ModelForm.
+        form = LogForm(request.POST)
+
+        if form.is_valid():
+            # Save valid form data as a Logger row in the database.
+            form.save()
+
+    return render(request, "home.html", {"form": form})
+```
+
+File: `myapp/templates/home.html`
+
+```html
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Submit">
+</form>
+```
+
+Run from the project folder that contains `manage.py`:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver
+```
+
+Example submitted data:
+
+```text
+name: Kyle McGregor
+time_log: 11:11
+```
+
+Key idea: `ModelForm` removes duplication between form definitions and model definitions, then lets validated form data be saved directly to the database.
 
 #### Exercise: Working with Forms
 
