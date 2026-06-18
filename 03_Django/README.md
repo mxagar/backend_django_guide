@@ -6812,6 +6812,130 @@ Key idea: `ModelForm` removes duplication between form definitions and model def
 
 #### Exercise: Working with Forms
 
+Folder: [`lab/07-django-forms/`](./lab/07-django-forms/)
+
+- Completed the ModelForm lab for the Little Lemon booking form.
+  - Created a `Booking` model in `models.py`.
+  - Created a `BookingForm` model form in `forms.py`.
+  - Registered the `Booking` model in `admin.py`.
+  - Enabled the existing `form_view` in `views.py`.
+  - Reused the existing `booking.html` template.
+  - Left migration commands for manual execution, as requested.
+- The booking form stores reservation requests in the database.
+  - `first_name` stores the guest's first name.
+  - `last_name` stores the guest's last name.
+  - `guest_count` stores the number of guests.
+  - `reservation_time` uses `auto_now=True`, so Django fills it automatically and it is not shown in the form.
+  - `comments` stores extra reservation notes.
+
+File: `myapp/models.py`
+
+```python
+from django.db import models
+
+# Create your models here.
+class Booking(models.Model):
+    first_name = models.CharField(max_length=200)
+    last_name = models.CharField(max_length=200)
+    guest_count = models.IntegerField()
+    reservation_time = models.DateField(auto_now=True)
+    comments = models.CharField(max_length=1000)
+```
+
+File: `myapp/forms.py`
+
+```python
+from django import forms
+
+from .models import Booking
+
+class BookingForm(forms.ModelForm):
+    class Meta:
+        model = Booking
+        fields = "__all__"
+```
+
+File: `myapp/admin.py`
+
+```python
+from django.contrib import admin
+from .models import Booking
+
+# Register your models here.
+admin.site.register(Booking)
+```
+
+File: `myapp/views.py`
+
+```python
+from django.shortcuts import render
+from myapp.forms import BookingForm
+
+def form_view(request):
+    form = BookingForm()
+    if request.method == 'POST':
+        form = BookingForm(request.POST)
+        if form.is_valid():
+            form.save()
+    context = {"form" : form}
+    return render(request, "booking.html", context)
+```
+
+File: `myapp/templates/booking.html`
+
+```html
+<p> Booking for Little Lemon ! </p>
+
+<form action = "" method = "post", style="background-color: #E0E0E2;">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Submit">
+</form>
+```
+
+Existing route:
+
+File: `myapp/urls.py`
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('booking/', views.form_view),
+]
+```
+
+Run these commands manually from the folder that contains `manage.py`:
+
+```bash
+cd 03_Django/lab/07-django-forms/myproject
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver 8080
+```
+
+Open the form in the browser:
+
+```text
+http://127.0.0.1:8080/booking
+```
+
+Example form data from the instructions:
+
+```text
+First name: Jason
+Last name: Murphy
+Guest count: 5
+Reservation time: auto-filled by Django because auto_now=True
+Comment: Prefer indoors
+```
+
+![Exercise 07 Form](./assets/exercise-07-form.png)
+
+![Exercise 07 Results](./assets/exercise-07-results.png)
+
+
 #### Additional Resources
 
 ### Admin
