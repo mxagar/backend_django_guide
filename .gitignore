@@ -209,3 +209,4 @@ __marimo__/
 # Added
 .vscode
 .DS_Store
+.claude/skills

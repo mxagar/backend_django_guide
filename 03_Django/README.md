@@ -198,6 +198,13 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Admin](#admin)
       - [Django Admin](#django-admin-1)
       - [Managing Users in Django Admin](#managing-users-in-django-admin)
+        - [Superuser and Permissions](#superuser-and-permissions)
+        - [Security Risks with the Default User Admin](#security-risks-with-the-default-user-admin)
+        - [Customizing the User Admin](#customizing-the-user-admin)
+        - [Making Fields Read-Only](#making-fields-read-only)
+        - [Restricting a Field to Superusers Only](#restricting-a-field-to-superusers-only)
+        - [Registering and Customizing a Custom Model](#registering-and-customizing-a-custom-model)
+        - [Customizing the Model List Display](#customizing-the-model-list-display)
       - [Adding Groups and Users](#adding-groups-and-users)
       - [Permissions](#permissions)
       - [Enforcing Permissions](#enforcing-permissions)
@@ -6958,7 +6965,210 @@ Comment: Prefer indoors
 
 #### Django Admin
 
+- Django automatically generates a unified admin interface for site administrators to add, edit, and delete content such as users, permissions, and database records.
+- The interface is built from model metadata once models are registered - no manual UI code is needed.
+- It is intended for site managers only, not for public visitors.
+- Enabled by default via `django.contrib.admin` in `INSTALLED_APPS` inside `settings.py`.
+- The admin URL path (`/admin`) is pre-configured in the project's URL configuration.
+- Before accessing the interface, create a superuser with `python3 manage.py createsuperuser`, which prompts for username, email, and password.
+  - Django rejects a username that already exists.
+  - Weak passwords trigger a warning but can be accepted by pressing `Y`; use strong passwords in production.
+- Access the interface by navigating to `<server-url>/admin` and logging in with the superuser credentials.
+- The default interface shows: Authentication (Groups, Users), registered models, and a Recent Actions log.
+  - Model entries can be added, edited, or deleted directly through the interface forms.
+  - Per-user settings include username, password, personal info, group membership, and individual permissions.
+  - A per-user history log tracks changes made through the admin.
+
+```bash
+python3 manage.py createsuperuser
+# Prompts: Username, Email address, Password (×2)
+# Then run the server and open http://127.0.0.1:8000/admin
+```
+
 #### Managing Users in Django Admin
+
+Django's authorization and authentication system is provided by `django.contrib.admin`, which is installed by default and visible in `INSTALLED_APPS` inside `settings.py`.
+
+##### Superuser and Permissions
+
+A superuser can add or modify users and groups. After logging in, the admin interface looks like this:
+
+![Admin interface display for superuser login](./assets/django_admin_welcome.png)
+
+Adding users through the interface is straightforward -- follow the on-screen prompts.
+
+A user with no permissions assigned cannot perform any meaningful task. Permissions can be granted:
+- Individually, per user.
+- Via groups -- create a group with a shared set of permissions and add users to it.
+
+![User Permission Display](./assets/django_admin_groups.png)
+
+A user whose `is_staff` property is `True` can log in to the admin interface.
+
+##### Security Risks with the Default User Admin
+
+Django's default admin has no restrictions on staff users. A staff user can:
+- Manage other users.
+- Edit their own permissions.
+- Grant themselves superuser rights.
+
+The out-of-box implementation does not prevent this.
+
+![Demonstration of example users from Admin superuser page](./assets/django_admin_user_select.png)
+
+##### Customizing the User Admin
+
+To override the default User admin, unregister the built-in one and register a custom subclass of `UserAdmin`.
+
+**Step 1 -- Unregister the default User admin** in `admin.py`:
+
+```python
+from django.contrib import admin
+from django.contrib.auth.models import User
+
+# Unregister the provided model admin:
+admin.site.unregister(User)
+```
+
+**Step 2 -- Register a custom UserAdmin** using the `@admin.register()` decorator:
+
+```python
+from django.contrib.auth.admin import UserAdmin
+
+@admin.register(User)
+class NewAdmin(UserAdmin):
+    pass
+```
+
+At this point the interface looks the same, but you can now add customizations.
+
+##### Making Fields Read-Only
+
+`UserAdmin` exposes a `readonly_fields` list. Fields in this list are shown as disabled in the change form and cannot be edited by anyone.
+
+To prevent `date_joined` from ever being changed after a user is created:
+
+```python
+from django.contrib.auth.admin import UserAdmin
+
+@admin.register(User)
+class NewAdmin(UserAdmin):
+    readonly_fields = [
+        "date_joined",
+    ]
+```
+
+##### Restricting a Field to Superusers Only
+
+To let superusers edit a field (e.g. `username`) but block staff users, override `get_form()` and disable the field conditionally:
+
+```python
+from django.contrib.auth.admin import UserAdmin
+
+@admin.register(User)
+class NewAdmin(UserAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        is_superuser = request.user.is_superuser
+
+        if not is_superuser:
+            form.base_fields['username'].disabled = True
+
+        return form
+```
+
+`get_form()` generates the change form for a model. Checking `request.user.is_superuser` and setting `field.disabled = True` prevents non-superusers from modifying that field.
+
+##### Registering and Customizing a Custom Model
+
+Add a Django app (e.g. `myapp`) and register it in `INSTALLED_APPS`:
+
+```python
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'myapp.apps.MyappConfig',
+]
+```
+
+Define a `Person` model in `myapp/models.py`:
+
+```python
+from django.db import models
+
+class Person(models.Model):
+    last_name = models.TextField()
+    first_name = models.TextField()
+```
+
+Register the model in `myapp/admin.py`:
+
+```python
+from django.contrib import admin
+from .models import Person
+
+admin.site.register(Person)
+```
+
+Log in as the superuser -- `myapp` and its `Person` model now appear in the admin interface.
+
+![Django administration page displaying groups and users for their authentication](./assets/django_admin_user_groups.png)
+
+After adding a `Person` object, the list shows a generic label like "Person object (1)" by default.
+
+![One-person objection adding display](./assets/django_admin_user_groups_add.png)
+
+To show a meaningful label, add `__str__()` to the model:
+
+```python
+from django.db import models
+
+class Person(models.Model):
+    last_name = models.TextField()
+    first_name = models.TextField()
+
+    def __str__(self):
+        return f"{self.last_name}, {self.first_name}"
+```
+
+Refreshing the list page now shows each person's name.
+
+![Refreshed view of person adding page](./assets/django_admin_user_groups_add_2.png)
+
+##### Customizing the Model List Display
+
+Replace `admin.site.register()` with a `ModelAdmin` subclass decorated with `@admin.register()`. Use `list_display` to show specific fields as columns:
+
+```python
+from django.contrib import admin
+from .models import Person
+
+@admin.register(Person)
+class PersonAdmin(admin.ModelAdmin):
+    list_display = ("last_name", "first_name")
+```
+
+The list view now shows `last_name` and `first_name` as clickable columns.
+
+![User display with their clickable names to edit](./assets/django_admin_users.png)
+
+Add `search_fields` to enable a search box that filters results. The lookup `first_name__startswith` matches entries whose first name begins with the search string:
+
+```python
+from django.contrib import admin
+from .models import Person
+
+@admin.register(Person)
+class PersonAdmin(admin.ModelAdmin):
+    list_display = ("last_name", "first_name")
+    search_fields = ("first_name__startswith",)
+```
+
+![User list page with a search tab](./assets/django_admin_users_2.png)
 
 #### Adding Groups and Users
 
