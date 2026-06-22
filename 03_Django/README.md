@@ -208,6 +208,11 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Adding Groups and Users](#adding-groups-and-users)
       - [Permissions](#permissions)
       - [Enforcing Permissions](#enforcing-permissions)
+        - [Model Permissions in the Admin Interface](#model-permissions-in-the-admin-interface)
+        - [Enforcing Permissions at the View Level](#enforcing-permissions-at-the-view-level)
+        - [Enforcing Permissions in Templates](#enforcing-permissions-in-templates)
+        - [Enforcing Permissions in URL Patterns](#enforcing-permissions-in-url-patterns)
+      - [Users and Permissions](#users-and-permissions)
       - [Exercise: Using Django Admin](#exercise-using-django-admin)
       - [Additional Resources](#additional-resources-5)
     - [Database Configuration](#database-configuration)
@@ -7172,9 +7177,297 @@ class PersonAdmin(admin.ModelAdmin):
 
 #### Adding Groups and Users
 
+- A `Reservation` model is defined in `models.py` with five fields: customer name, contact details, arrival time, guest count, and notes.
+- The app must be listed in `INSTALLED_APPS` in `settings.py` before running migrations.
+- Create a superuser with `python manage.py createsuperuser`; always use a strong password in production.
+- Register the model in `admin.py` so it appears in the admin panel.
+- Access the admin panel at `<server-url>/admin` and log in with the superuser credentials.
+  - The panel shows a **Site Administration** section with **Groups** and **Users** links.
+  - Registered app models appear in a separate section.
+- Add records through the admin UI using the **Add** button for each model.
+  - The form reflects the model's fields directly.
+  - **Save and add another** resets the form after saving so multiple records can be added quickly.
+- By default, model instances display as `Reservation object (n)` in the list; define `__str__` to show a meaningful label instead.
+- Click a record in the admin list to open its edit form; options to delete and view history are also available.
+- Add a new user via the **Users** --> **Add user** link; Django enforces password strength rules.
+  - After saving, set personal info (first name, last name, email) and permissions (active, staff, superuser).
+  - Users with the **staff** flag can log in to the admin panel.
+  - Individual model-level permissions (view, add, change, delete) can be assigned per user.
+  - Users can also be added to **Groups** for shared permission sets.
+- Create a group via **Groups** --> **Add group**, give it a name (e.g. `staff`), and assign the desired permissions.
+- Changes made in the admin panel are immediately reflected in the underlying database table.
+
+```python
+# models.py -- Reservation model with a human-readable __str__
+from django.db import models
+
+class Reservation(models.Model):
+    name = models.CharField(max_length=100)
+    contact = models.CharField(max_length=100)
+    time = models.DateTimeField()
+    count = models.IntegerField()
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+# admin.py -- register the model so it appears in the admin panel
+from django.contrib import admin
+from .models import Reservation
+
+admin.site.register(Reservation)
+```
+
+```bash
+# Apply migrations, create a superuser, then start the server.
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver 8080
+# Visit http://127.0.0.1:8080/admin
+```
+
 #### Permissions
 
+- Django's built-in authentication system handles both authentication (who you are) and authorization (what you can do).
+- Every user belongs to one of three classifications:
+  - **Superuser** -- top-level administrator; has every permission in the system automatically, including over other users and all model data.
+  - **Staff user** -- can log in to the admin interface (`is_staff = True`), but CRUD (create, read, update, delete) permissions on individual models must still be granted explicitly. Superusers are staff by default.
+  - **Regular user** -- cannot access the admin site; marked active by default; may be marked inactive if authentication fails or the account is banned.
+- Users can be created via the admin panel or the Django shell.
+- Django auto-generates four permissions for every model, named with the pattern `<app>.<action>_<model>`:
+  - `myapp.add_mymodel`
+  - `myapp.change_mymodel`
+  - `myapp.delete_mymodel`
+  - `myapp.view_mymodel`
+- Check whether a user holds a permission with `user.has_perm("<app>.<action>_<model>")`; it returns `True` or `False`.
+- If a user lacks the required permission, raise `PermissionDenied` instead of returning the normal response.
+- Assigning permissions per user is impractical at scale; use **groups** instead.
+  - A group is a named collection of permissions.
+  - A user can belong to any number of groups and inherits all permissions from each group.
+  - Individual permissions can still be added directly to a user even when they belong to a group.
+- To enforce a permission on a view, use the `@permission_required(("<app>.<action>_<model>")` decorator.
+
+```python
+from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
+
+# Create a user and grant staff status via the shell.
+user = User.objects.create_user(username="jean", email="jean@example.com", password="str0ngPass!")
+user.is_staff = True
+user.save()
+
+# Auto-generated permission names for a model called Reservation in myapp:
+# myapp.add_reservation
+# myapp.change_reservation
+# myapp.delete_reservation
+# myapp.view_reservation
+
+# Check a permission in a view and deny access if it is missing.
+def my_view(request):
+    if not request.user.has_perm("myapp.add_reservation"):
+        raise PermissionDenied
+    # ... normal view logic
+
+# Enforce a permission with the decorator (raises 403 if not met).
+from django.contrib.auth.decorators import permission_required
+
+@permission_required("myapp.add_reservation")
+def add_reservation(request):
+    ...
+```
+
 #### Enforcing Permissions
+
+Django models themselves have no way to enforce permissions because they are unaware of the requesting user. User identity arrives through the request context, so permissions are typically enforced at the view layer, though they can also be checked in templates and URL patterns.
+
+##### Model Permissions in the Admin Interface
+
+The Django Admin interface lets you grant and enforce permissions on model data. By default every user receives Add, Change, View, and Delete permissions on all models.
+
+Custom permissions can be defined on a model's inner `Meta` class and will appear in the user-permission list in the admin panel.
+
+```python
+# models.py
+from django.db import models
+
+class Product(models.Model):
+    ProductID = models.IntegerField()
+    name = models.TextField()
+    category = models.TextField()
+
+    class Meta:
+        permissions = [("can_change_category", "Can change category")]
+```
+
+The codename `can_change_category` is referenced in code as `"myapp.can_change_category"`.
+
+![User permission display list](./assets/django_admin_model_permissions.png)
+
+##### Enforcing Permissions at the View Level
+
+When a user is logged in, their details are available as `request.user`. For unauthenticated requests, `request.user` is an `AnonymousUser` instance. There are four common ways to enforce permissions in views.
+
+**1. Raise `PermissionDenied` manually**
+
+Check `request.user.is_anonymous` (a property, not a method) and raise a 403 error directly.
+
+```python
+from django.core.exceptions import PermissionDenied
+
+def myview(request):
+    if request.user.is_anonymous:
+        raise PermissionDenied()
+```
+
+**2. `@login_required` decorator**
+
+Redirects unauthenticated users to the login page; only authenticated users can reach the view.
+
+```python
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+
+@login_required
+def myview(request):
+    return HttpResponse("Hello World")
+```
+
+**3. `@user_passes_test()` decorator**
+
+Takes a callable that receives the user object and returns `True` or `False`. The view is only called when the callable returns `True`. An optional `login_url` argument redirects users who fail the test.
+
+```python
+from django.contrib.auth.decorators import user_passes_test
+
+def testpermission(user):
+    # is_authenticated is a property in Django 1.10+
+    return user.is_authenticated and user.has_perm("myapp.can_change_category")
+
+@user_passes_test(testpermission, login_url="/login/")
+def change_ctg(request):
+    # Logic for changing the category of a Product instance
+    ...
+```
+
+**4. `@permission_required()` decorator**
+
+The cleanest option when a single permission gate is needed. Pass `raise_exception=True` to return a 403 response instead of redirecting; combine with `@login_required` to redirect unauthenticated users first.
+
+```python
+from django.contrib.auth.decorators import login_required, permission_required
+
+@login_required
+@permission_required("myapp.can_change_category", raise_exception=True)
+def store_creator(request):
+    # Logic for changing the category of a Product instance
+    ...
+```
+
+**Class-based views -- `PermissionRequiredMixin`**
+
+For class-based views, mix in `PermissionRequiredMixin` and set the `permission_required` attribute. A list can be used to require multiple permissions.
+
+```python
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.views.generic import ListView
+from .models import Product
+
+class ProductListView(PermissionRequiredMixin, ListView):
+    permission_required = "myapp.view_product"
+    # Require multiple permissions:
+    # permission_required = ["myapp.view_product", "myapp.can_change_category"]
+    template_name = "product.html"
+    model = Product
+```
+
+##### Enforcing Permissions in Templates
+
+Django's template language exposes two special context variables: `user` and `perms`. These are injected by the view's context processors.
+
+Check whether the user is authenticated:
+
+```html
+<html>
+<body>
+  {% if user.is_authenticated %}
+    {# Rendered only for authenticated users #}
+  {% endif %}
+</body>
+</html>
+```
+
+Check a specific permission with `perms.<app>.<codename>`:
+
+```html
+<html>
+<body>
+  {% if perms.myapp.can_change_category %}
+    {# Rendered only for users with the can_change_category permission #}
+  {% endif %}
+</body>
+</html>
+```
+
+##### Enforcing Permissions in URL Patterns
+
+Decorators can be applied directly in `urlpatterns` using `path()`. This is useful when a URL maps straight to a view that needs a permission gate without modifying the view function itself.
+
+```python
+from django.urls import path
+from django.contrib.auth.decorators import login_required, permission_required
+from . import views
+
+urlpatterns = [
+    path("users_only/", login_required(views.myview)),
+    path(
+        "category/",
+        permission_required(
+            "myapp.can_change_category", login_url="login"
+        )(views.myview),
+    ),
+]
+```
+
+#### Users and Permissions
+
+- Permissions can be managed either through the Django shell or the Django admin web interface.
+- `django.contrib.auth` must be in `INSTALLED_APPS`; running `migrate` after adding it creates four default permissions per model: `add`, `change`, `delete`, and `view`.
+- Permissions can be scoped per model type or per individual object instance using the `ModelAdmin` class methods.
+- Custom permissions are declared in a model's inner `Meta` class alongside the auto-generated ones.
+- `User` objects expose two ManyToMany fields for permission management:
+  - `user_permissions` -- holds individual `Permission` objects assigned directly to the user.
+  - `groups` -- holds `Group` objects; the user inherits all permissions belonging to each group.
+- Both fields support the queryset methods `set()`, `add()`, `remove()`, and `clear()` to grant or revoke permissions.
+- A user assigned to a group inherits all of that group's permissions automatically; additional individual permissions can still be added on top.
+
+**Managing permissions via the admin interface:**
+
+- Navigate to **Authentication and Authorization --> Groups** to create named groups and assign model-level permissions to them using the available permissions chooser.
+- Navigate to **Authentication and Authorization --> Users** to create users, then edit each user to:
+  - set personal info (first name, last name, email),
+  - set the permission level (active, staff, superuser),
+  - assign the user to one or more groups.
+- The user list can be filtered by staff status, superuser status, or group membership.
+- The admin home page shows a **Recent Actions** panel for a quick audit of recent changes.
+
+```python
+# Django shell -- create a user and assign a permission
+from django.contrib.auth.models import User, Permission
+
+user = User.objects.create_user("mario", "mario@example.com", "str0ngPass!")
+user = User.objects.get(username="mario")
+
+# Add a single permission (codename pattern: <action>_<model>)
+perm = Permission.objects.get(codename="change_menu")
+user.user_permissions.add(perm)
+
+# Verify auto-generated permissions after migrate (all return True for a superuser)
+user.has_perm("myapp.add_mymodel")
+user.has_perm("myapp.change_mymodel")
+user.has_perm("myapp.delete_mymodel")
+user.has_perm("myapp.view_mymodel")
+```
 
 #### Exercise: Using Django Admin
 
