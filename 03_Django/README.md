@@ -7519,15 +7519,68 @@ from django.contrib.auth.models import User
 User.objects.create_superuser('admin', 'admin@littlelemon.com', 'lemonAdmin@3!')
 "
 
+# Command to create a super user via CLI
+python3 manage.py createsuperuser
+
 # Start the server and open http://127.0.0.1:8080/admin
 python manage.py runserver 8080
 ```
 
 #### Additional Resources
 
+- [django-admin and manage.py -- official documentation](https://docs.djangoproject.com/en/4.1/ref/django-admin/)
+- [Using the Django authentication system](https://docs.djangoproject.com/en/4.1/topics/auth/default/)
+- [Django Admin site -- MDN web docs](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Admin_site)
+- [Django Admin-site -- Comprehensive](https://docs.djangoproject.com/en/4.1/ref/contrib/admin/)
+- [Django permissions -- TestDriven](https://docs.djangoproject.com/en/4.1/topics/auth/customizing/)
+
 ### Database Configuration
 
 #### Database Options
+
+- Django defaults to SQLite, configured automatically in `settings.py` with no extra setup required.
+- SQLite is a zero-configuration database: no server process to start or stop, no additional config files needed.
+  - Best suited for small projects, rapid prototyping, and local test environments.
+  - Not recommended when moving from development to production where scalability matters.
+- Django supports multiple databases with minimal configuration: PostgreSQL, MariaDB, MySQL, Oracle, and SQLite.
+  - PostgreSQL and MySQL are the most commonly used in production.
+- Connecting to MySQL requires four pieces of information: host address, port number, database name, and a database driver.
+  - The driver (`mysqlclient`) translates Python ORM queries into SQL and must be installed separately.
+- All database connections are configured in the `DATABASES` dict inside `settings.py`.
+  - `CONN_MAX_AGE` controls connection lifetime: `0` closes after each request, `None` keeps connections persistent, any integer sets the lifetime in seconds.
+- MySQL credentials (name, user, password) can be stored in a separate options file (e.g., `/etc/mysql/my.cnf`) referenced from `settings.py`.
+  - Storing credentials outside the Django project directory is a deliberate security measure.
+- Django creates tables automatically via migration scripts, but the initial database itself must be created manually before running migrations.
+- Security practices: use strong credentials, restrict database access to the application server only, and never expose connection details in source control.
+
+```python
+# settings.py — default SQLite config (auto-generated)
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+# settings.py — MySQL config using an options file (recommended for production)
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "OPTIONS": {
+            "read_default_file": "/etc/mysql/my.cnf",  # credentials stored outside the project
+        },
+        "CONN_MAX_AGE": 60,  # keep connections alive for 60 seconds
+    }
+}
+
+# /etc/mysql/my.cnf — credentials file (outside the Django project)
+# [client]
+# database = mydb
+# user = myuser
+# password = mypassword
+# host = 127.0.0.1
+# port = 3306
+```
 
 #### Configuring MySQL Connection
 
