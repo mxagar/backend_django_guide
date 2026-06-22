@@ -7471,6 +7471,58 @@ user.has_perm("myapp.view_mymodel")
 
 #### Exercise: Using Django Admin
 
+Folder: [`lab/08-django-admin/`](./lab/08-django-admin/)
+
+- Created an `Employees` model in `myapp/models.py` with four fields (`first_name`, `last_name`, `role`, `shift`) and a `__str__` returning the employee's first name.
+- Registered the model in `myapp/admin.py` so it appears in the admin panel under the `myapp` section.
+- `myproject/settings.py` already listed `myapp.apps.MyappConfig` in `INSTALLED_APPS` -- no change needed.
+- Ran `makemigrations myapp` and `migrate` to create and apply the `Employees` table.
+- Created superuser `admin` / `admin@littlelemon.com` non-interactively via the Django shell.
+- **Manual steps via the browser** (server: `python manage.py runserver`, then `http://127.0.0.1:8000/admin`):
+  - Logged in with the superuser credentials.
+  - Added employee **Priya Giti** (role: Chef, shift: 1) using the **Add Employee** form; the `__str__` method causes the record to display as `Priya` instead of `Employee object (1)`.
+  - Created a second user **jason\_chef** (password: `lemonChef@123!`) and granted staff status plus all `admin | log entry` permissions.
+
+`myapp/models.py`
+
+```python
+from django.db import models
+
+
+class Employees(models.Model):
+    first_name = models.CharField(max_length=200)
+    last_name = models.CharField(max_length=200)
+    role = models.CharField(max_length=100)
+    shift = models.IntegerField()
+
+    def __str__(self) -> str:
+        return self.first_name
+```
+
+`myapp/admin.py`
+
+```python
+from django.contrib import admin
+from .models import Employees
+
+admin.site.register(Employees)
+```
+
+```bash
+# Run from myproject/ (directory containing manage.py)
+python manage.py makemigrations myapp
+python manage.py migrate
+
+# Create the superuser non-interactively
+python manage.py shell -c "
+from django.contrib.auth.models import User
+User.objects.create_superuser('admin', 'admin@littlelemon.com', 'lemonAdmin@3!')
+"
+
+# Start the server and open http://127.0.0.1:8080/admin
+python manage.py runserver 8080
+```
+
 #### Additional Resources
 
 ### Database Configuration
