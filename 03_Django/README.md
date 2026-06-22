@@ -565,6 +565,7 @@ The console or terminal displays migration output when the command runs.
 
 ```bash
 python manage.py runserver
+python manage.py runserver 8080
 ```
 
 ##### `shell`
@@ -933,6 +934,7 @@ It is created after running:
 
 ```shell
 python manage.py migrate
+python manage.py runserver 8080
 ```
 
 At this stage, it stores the database tables for Django's built-in apps, including admin, authentication, sessions, and content types. The database location is configured in `settings.py`:
@@ -1288,7 +1290,7 @@ Common commands:
 python manage.py startapp <app_name>
 python manage.py makemigrations
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver 8080
 python manage.py shell
 ```
 
@@ -4526,6 +4528,8 @@ After defining the model, create a migration and apply it:
 ```bash
 python manage.py makemigrations
 python manage.py migrate
+# Then, start the server, if desired:
+python manage.py runserver 8080
 ```
 
 `makemigrations` creates a Python migration file that describes the database changes. `migrate` applies those changes to the database, creating the table and columns.
@@ -4734,6 +4738,8 @@ DATABASES = {
 
 ```bash
 python manage.py migrate
+# Then, start the server, if desired:
+python manage.py runserver 8080
 ```
 
 - Other databases use the same `DATABASES` setting but require connection details.
@@ -4934,6 +4940,8 @@ python manage.py makemigrations myapp
 python manage.py showmigrations myapp
 python manage.py sqlmigrate myapp 0002  # Optional inspection
 python manage.py migrate
+# Then, start the server, if desired:
+python manage.py runserver 8080
 ```
 
 Commit model changes and their generated migration files together so every environment can reproduce the same database schema.
@@ -4976,6 +4984,8 @@ The two core commands have different responsibilities:
 ```bash
 python manage.py makemigrations myapp
 python manage.py migrate
+# Then, start the server, if desired:
+python manage.py runserver 8080
 ```
 
 - `makemigrations` compares the current models with the recorded migration state and creates new migration files. It does not change the database.
@@ -6798,7 +6808,7 @@ Run from the project folder that contains `manage.py`:
 ```bash
 python manage.py makemigrations
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver 8080
 ```
 
 Example submitted data:
