@@ -230,8 +230,17 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Create a Dedicated Database User](#create-a-dedicated-database-user)
         - [Run makemigrations Before migrate](#run-makemigrations-before-migrate)
       - [Extra: Configuring PostgreSQL Connection](#extra-configuring-postgresql-connection)
+        - [Install PostgreSQL](#install-postgresql)
+          - [Windows](#windows)
+          - [macOS](#macos)
+          - [Linux (Ubuntu / Debian)](#linux-ubuntu--debian)
+        - [Verify the Installation](#verify-the-installation)
+        - [Create a Database and User](#create-a-database-and-user)
+        - [Install the Python Driver](#install-the-python-driver)
+        - [Configure Django to Use PostgreSQL](#configure-django-to-use-postgresql)
+        - [Apply Migrations](#apply-migrations-1)
+        - [View PostgreSQL Data in VS Code](#view-postgresql-data-in-vs-code)
       - [Exercise: Connecting to a Database](#exercise-connecting-to-a-database)
-      - [Summary: Models](#summary-models)
       - [Additional Resources](#additional-resources-6)
   - [4. Templates](#4-templates)
     - [Templates](#templates)
@@ -7766,13 +7775,33 @@ Rather than connecting Django to MySQL as `root`, create a dedicated user for th
 
 ```sql
 CREATE USER 'admindjango' IDENTIFIED BY 'password';
+--- If we CREATE DATABASE feedback, we can grant all privileges to the new user for that database:
 GRANT ALL PRIVILEGES ON feedback.* TO 'admindjango';
+--- or if we want to grant access to all databases:
+GRANT ALL PRIVILEGES ON *.* TO 'admindjango';
 FLUSH PRIVILEGES;
 ```
 
 - `GRANT ALL PRIVILEGES ON <db>.*` gives the user full access to the target database.
 - `FLUSH PRIVILEGES` applies the permission changes immediately.
 - Update `settings.py` to use the new credentials (`USER`, `PASSWORD`, `NAME`).
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "feedback",  # changed from "mydatabase" to "feedback"
+        "USER": "admindjango",  # new user
+        "PASSWORD": os.environ.get("MYSQL_ADMIN_PASSWORD", ""),  # new user pw
+        "HOST": "127.0.0.1",
+        "PORT": "3306",
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
+        },
+    }
+}
+```
 
 ##### Run makemigrations Before migrate
 
@@ -7785,11 +7814,255 @@ python manage.py migrate
 
 #### Extra: Configuring PostgreSQL Connection
 
+Django supports PostgreSQL 14 and higher. This section covers every step from a fresh OS install to a running Django migration.
+
+##### Install PostgreSQL
+
+###### Windows
+
+Download and run the **EDB Interactive Installer** from [enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads). The wizard installs:
+- PostgreSQL server,
+- **pgAdmin** — a desktop GUI for managing databases,
+- **StackBuilder** — a package manager for add-ons.
+
+###### macOS
+
+Using Homebrew (CLI-first):
+
+```bash
+brew install postgresql@17
+brew services start postgresql@17
+```
+
+Or install [Postgres.app](https://postgresapp.com) for a menubar-managed server with no extra configuration.
+
+After a Homebrew install, add the client binaries to your path:
+
+```bash
+echo 'export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+###### Linux (Ubuntu / Debian)
+
+Quick install from the distribution repository:
+
+```bash
+sudo apt install postgresql postgresql-client
+sudo systemctl enable --now postgresql
+```
+
+For a specific version from the official PostgreSQL Apt Repository (PGDG):
+
+```bash
+sudo apt install -y postgresql-common
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+# The script prompts for a version; it sets up the repo and installs it.
+```
+
+For Red Hat / Rocky / AlmaLinux, use the [PGDG RPM repo](https://www.postgresql.org/download/linux/redhat/).
+
+##### Verify the Installation
+
+```bash
+psql --version        # e.g. psql (PostgreSQL) 17.x
+pg_isready            # prints "accepting connections" if the server is running
+```
+
+##### Create a Database and User
+
+Open the PostgreSQL interactive shell as the `postgres` superuser:
+
+```bash
+# Linux / macOS (Homebrew)
+psql -U postgres
+
+# macOS (Postgres.app — uses the OS user as default superuser)
+psql
+```
+
+Inside the psql shell:
+
+```sql
+-- Create a dedicated application user.
+CREATE USER djangouser WITH PASSWORD 'strongpassword';
+
+-- Create the database owned by that user.
+CREATE DATABASE myproject OWNER djangouser;
+
+-- Verify.
+\l          -- list all databases
+\du         -- list all users / roles
+\q          -- quit
+```
+
+> Using a dedicated user (not `postgres`) limits the blast radius if application credentials are ever leaked.
+
+##### Install the Python Driver
+
+Django 5.x recommends **psycopg** (version 3). Install the binary variant, which bundles the C library and avoids needing `libpq-dev` on the system:
+
+```bash
+pip install "psycopg[binary,pool]"
+```
+
+The `pool` extra enables Django 5.1+ built-in connection pooling. If you need psycopg2 instead (e.g. for legacy compatibility):
+
+```bash
+pip install psycopg2-binary
+```
+
+Both drivers use the same `ENGINE` string in `settings.py`; Django detects which one is installed.
+
+##### Configure Django to Use PostgreSQL
+
+Open the project's `settings.py` and replace the default `DATABASES` entry:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "myproject",
+        "USER": "djangouser",
+        "PASSWORD": "strongpassword",
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
+    }
+}
+```
+
+Key fields:
+- `ENGINE` — always `"django.db.backends.postgresql"` for both psycopg2 and psycopg3.
+- `HOST` — use `"127.0.0.1"` for TCP; use `""` (empty string) to connect via a Unix socket (Linux default).
+- `PORT` — PostgreSQL defaults to `5432`.
+
+**Common `OPTIONS`** (all optional):
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "myproject",
+        "USER": "djangouser",
+        "PASSWORD": "strongpassword",
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
+        "CONN_MAX_AGE": 60,       # reuse connections for 60 s (0 = close after each request)
+        "OPTIONS": {
+            "pool": True,         # enable psycopg3 connection pool (Django 5.1+, psycopg[pool])
+            "sslmode": "require", # require TLS for remote servers; omit for localhost
+        },
+    }
+}
+```
+
+| Key | Where | Description |
+|-----|-------|-------------|
+| `CONN_MAX_AGE` | top-level | Seconds to reuse a connection; `None` means unlimited |
+| `pool` | `OPTIONS` | Enable psycopg3 built-in connection pool (Django 5.1+) |
+| `sslmode` | `OPTIONS` | TLS enforcement (`require`, `verify-full`, `disable`) |
+| `service` | `OPTIONS` | Name of a `pg_service.conf` entry (stores credentials outside code) |
+| `passfile` | `OPTIONS` | Path to a `.pgpass` file for credential storage |
+
+##### Apply Migrations
+
+```bash
+python manage.py migrate
+```
+
+Verify from the psql shell:
+
+```bash
+psql -U djangouser -d myproject
+```
+
+```sql
+\dt             -- list all tables created by migrate
+SELECT COUNT(*) FROM django_migrations;
+```
+
+##### View PostgreSQL Data in VS Code
+
+The **Database Client** extension (`cweijan.vscode-database-client2`) used in the MySQL section also supports PostgreSQL. Install or open it, click `+`, select **PostgreSQL**, and enter:
+
+- **Host**: `localhost`
+- **Port**: `5432`
+- **Database**: `myproject`
+- **User**: `djangouser`
+- **Password**: `strongpassword`
+
+After connecting, the database tree expands to show tables, views, and data — no psql shell needed for day-to-day inspection.
+
+Alternatively, **pgAdmin** (bundled with the EDB Windows installer, or available at [pgadmin.org](https://www.pgadmin.org)) provides a full-featured desktop GUI with a query editor, visual explain plans, and a server dashboard.
+
 #### Exercise: Connecting to a Database
 
-#### Summary: Models
+Folder: [`lab/10-django-msql-exercise/`](./lab/10-django-msql-exercise/)
+
+- The `myproject` Django project came pre-built with a SQLite `DATABASES` stub in `settings.py`.
+- The SQLite configuration was replaced with a MySQL connection pointing to a `feedback` database on localhost.
+- `STRICT_TRANS_TABLES` SQL mode is set via `OPTIONS.init_command` to prevent silent data truncation on insertion.
+- `mysqlclient` is expected to be installed as the Python--MySQL connector before running migrations.
+
+Before running Django, create the database and enter the MySQL shell:
+
+```bash
+mysql -u root -p
+```
+
+```sql
+CREATE DATABASE feedback;
+SHOW DATABASES;  -- verify feedback is listed
+EXIT;
+```
+
+Then apply migrations from the project directory:
+
+```bash
+cd lab/10-django-msql-exercise/myproject
+python manage.py makemigrations
+python manage.py migrate
+```
+
+**Files edited:**
+
+`lab/10-django-msql-exercise/myproject/myproject/settings.py`
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'feedback',
+        'USER': 'root',
+        'PASSWORD': '',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
+}
+
+INSTALLED_APPS = [
+    'myapp.apps.MyappConfig',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+]
+```
 
 #### Additional Resources
+
+- [Databases -- Django official](https://docs.djangoproject.com/en/4.1/ref/databases/)
+- [MySQL notes -- Django official](https://docs.djangoproject.com/en/4.1/ref/databases/#mysql-notes)
+- [Installing MySQL Client](https://docs.djangoproject.com/en/4.1/ref/databases/#mysql-db-api-drivers)
+- [Installing MySQL on MacOS](https://dev.mysql.com/doc/refman/5.7/en/macos-installation.html)
+- [Installing MySQL on Windows](https://dev.mysql.com/doc/refman/5.7/en/windows-installation.html)
+- [Installing and configuring MySQL with Django](https://docs.djangoproject.com/en/4.1/ref/databases/#mysql-notes)
+
 
 ## 4. Templates
 
