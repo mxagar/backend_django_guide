@@ -218,7 +218,17 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Database Configuration](#database-configuration)
       - [Database Options](#database-options)
       - [Configuring MySQL Connection](#configuring-mysql-connection)
+        - [Why MySQL over SQLite](#why-mysql-over-sqlite)
+        - [Install MySQL Server](#install-mysql-server)
+        - [Install the mysqlclient Driver](#install-the-mysqlclient-driver)
+        - [Create Project](#create-project)
+        - [Configure Django to Use MySQL](#configure-django-to-use-mysql)
+        - [Apply Migrations](#apply-migrations)
+        - [View MySQL Data in VS Code](#view-mysql-data-in-vs-code)
       - [Setting Up a MySQL Connection](#setting-up-a-mysql-connection)
+        - [Install MySQL on macOS](#install-mysql-on-macos)
+        - [Create a Dedicated Database User](#create-a-dedicated-database-user)
+        - [Run makemigrations Before migrate](#run-makemigrations-before-migrate)
       - [Extra: Configuring PostgreSQL Connection](#extra-configuring-postgresql-connection)
       - [Exercise: Connecting to a Database](#exercise-connecting-to-a-database)
       - [Summary: Models](#summary-models)
@@ -7554,7 +7564,7 @@ python manage.py runserver 8080
 - Security practices: use strong credentials, restrict database access to the application server only, and never expose connection details in source control.
 
 ```python
-# settings.py — default SQLite config (auto-generated)
+# settings.py -- default SQLite config (auto-generated)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -7562,7 +7572,7 @@ DATABASES = {
     }
 }
 
-# settings.py — MySQL config using an options file (recommended for production)
+# settings.py -- MySQL config using an options file (recommended for production)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -7573,7 +7583,7 @@ DATABASES = {
     }
 }
 
-# /etc/mysql/my.cnf — credentials file (outside the Django project)
+# /etc/mysql/my.cnf -- credentials file (outside the Django project)
 # [client]
 # database = mydb
 # user = myuser
@@ -7584,7 +7594,194 @@ DATABASES = {
 
 #### Configuring MySQL Connection
 
+By default, Django uses SQLite for storage and retrieval. However, Django supports these databases:
+
+- PostgreSQL
+- MariaDB
+- MySQL
+- Oracle
+- SQLite
+
+This section covers the steps to connect a Django application to MySQL.
+
+##### Why MySQL over SQLite
+
+SQLite has several limitations for production use:
+- serverless -- no standalone server process,
+- no user management or authentication system,
+- limited write concurrency.
+
+MySQL is open-source and addresses these with scalability and built-in authentication. It is well suited for applications that outgrow SQLite.
+
+##### Install MySQL Server
+
+Download the MySQL installer for your OS from the [MySQL Downloads page](https://www.mysql.com/downloads/) and follow the wizard-based installation steps.
+
+After installation, open a terminal and start the MySQL command-line client:
+
+```bash
+mysql -u root -p
+```
+
+Enter the password set during installation. Once at the MySQL prompt, create a database with UTF-8 support:
+
+```sql
+CREATE DATABASE mydatabase CHARACTER SET utf8mb4;
+```
+
+To verify, list the available databases:
+
+```sql
+SHOW DATABASES;
+```
+
+To exit the MySQL client, type:
+
+```text
+\q
+```
+
+##### Install the mysqlclient Driver
+
+Django recommends the `mysqlclient` driver (a DB API (Database API)-compliant native driver) to interface Python with MySQL. Install it with pip:
+
+```bash
+pip install mysqlclient
+```
+
+`mysqlclient` requires version 1.4.3 or later and is the preferred choice over the pure-Python `MySQL Connector/Python`.
+
+##### Create Project
+
+```bash
+cd 09-django-mysql
+
+# Create a Django project.
+django-admin startproject myproject
+
+# Move into the generated project directory.
+cd myproject
+
+# Create an app inside the project.
+python manage.py startapp myapp
+```
+
+##### Configure Django to Use MySQL
+
+Open the project's `settings.py` and replace the default SQLite `DATABASES` entry with the MySQL configuration:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "mydatabase",
+        "USER": "root",
+        "PASSWORD": os.environ.get("MYSQL_ROOT_PASSWORD", ""),
+        "HOST": "127.0.0.1",
+        "PORT": "3306",
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
+        },
+    }
+}
+```
+
+Note that `os.environ.get("MYSQL_PASSWORD", "")` retrieves the MySQL password from an environment variable previously set. If we are working locally, we can set it with `dotenv`; in that case, we need to add to `settings.py` these lines at the top:
+
+```python
+import os
+from dotenv import load_dotenv
+load_dotenv()
+```
+
+Key settings:
+- `ENGINE` -- specifies the MySQL backend.
+- `NAME` -- the database name created in the MySQL client.
+- `HOST` -- defaults to `127.0.0.1` (localhost); `PORT` defaults to `3306`.
+- `OPTIONS.init_command` -- sets strict SQL mode to prevent silent data truncation on insertion.
+- `OPTIONS.charset` -- sets the connection character set; `utf8mb4` is recommended.
+
+Additional optional `OPTIONS` keys:
+
+| Key | Description |
+|-----|-------------|
+| `init_command` | SQL command issued on each new connection |
+| `charset` | Connection character set; `utf8mb4` recommended |
+| `read_default_file` | Path to a MySQL option file (`.cnf`) to read credentials from |
+| `sql_mode` | Session SQL mode; activates `STRICT_TRANS_TABLES` by default |
+
+##### Apply Migrations
+
+The `startproject` template installs Django apps such as `admin`, `auth`, and `sessions` that require database tables. Run migrations to create them in the MySQL database:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+Verify the tables from the MySQL client:
+
+```sql
+USE mydatabase;
+SHOW TABLES;
+```
+
+##### View MySQL Data in VS Code
+
+Instead of the MySQL terminal, install the MySQL extension from the VS Code marketplace (search for "MySQL").
+
+After installing, click the `+` button in the MySQL panel and enter:
+
+- **Host**: `localhost`
+- **User**: `root`
+- **Password**: *(leave empty if none was set, or use the one set in the `.env` file)*
+
+> **Note:** If you see the error `Client does not support authentication protocol requested by server`, run these commands in the MySQL client to fix the authentication method:
+>
+> ```sql
+> ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';
+> FLUSH PRIVILEGES;
+> ```
+
+After connecting, `localhost` appears in the VS Code explorer. Expand it, select `mydatabase`, and all tables created by `migrate` for `INSTALLED_APPS` will be visible.
+
+![Display of mydatabase directory under localhost](./assets/vs_code_mysql.png)
+
 #### Setting Up a MySQL Connection
+
+New details compared to the previous section — install, user creation, and migration steps.
+
+##### Install MySQL on macOS
+
+On macOS, use Homebrew as the package manager to install MySQL:
+
+```bash
+brew install mysql
+```
+
+##### Create a Dedicated Database User
+
+Rather than connecting Django to MySQL as `root`, create a dedicated user for the project. From the MySQL shell:
+
+```sql
+CREATE USER 'admindjango' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON feedback.* TO 'admindjango';
+FLUSH PRIVILEGES;
+```
+
+- `GRANT ALL PRIVILEGES ON <db>.*` gives the user full access to the target database.
+- `FLUSH PRIVILEGES` applies the permission changes immediately.
+- Update `settings.py` to use the new credentials (`USER`, `PASSWORD`, `NAME`).
+
+##### Run makemigrations Before migrate
+
+When starting a new database connection, run `makemigrations` before `migrate` so any pending model changes are captured:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
 
 #### Extra: Configuring PostgreSQL Connection
 

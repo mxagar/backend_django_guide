@@ -42,6 +42,7 @@ dependencies = [
     "matplotlib",
     "mcp",
     "mysql-connector-python",
+    "mysqlclient",
     "numpy<2.3",
     "onnx",
     "onnxruntime",
