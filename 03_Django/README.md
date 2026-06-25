@@ -259,6 +259,11 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Creating Templates](#creating-templates)
       - [Exercise: Creating Templates](#exercise-creating-templates)
     - [Working with Templates](#working-with-templates)
+      - [Working with Template Language](#working-with-template-language)
+        - [Variables](#variables)
+        - [Tags](#tags)
+        - [Filters](#filters-1)
+        - [Comments](#comments)
     - [Debugging and Testing](#debugging-and-testing)
   - [5. Summary and Project](#5-summary-and-project)
 
@@ -8526,7 +8531,7 @@ Folder: [`lab/11-django-templates/`](./lab/11-django-templates/)
 - `views.py` -- implemented two view functions (`about` and `menu`); each builds the same `about_content` dict and passes it to `render()` under the `'content'` key.
 - `templates/about.html` -- created with a styled `<h1>` heading and a `<p>` tag using `{{ content.about }}` to render the dict value dynamically.
 - `templates/menu.html` -- created with `{% load static %}` at the top, a styled `<h1>` heading, and an `<img>` tag using `{% static 'img/dessert.jpg' %}` to serve the dessert image from the app's static folder.
-- URL routing was already wired in `myapp/urls.py` (`about/` → `views.about`, `menu/` → `views.menu`) and included in the project-level `urls.py`.
+- URL routing was already wired in `myapp/urls.py` (`about/` -> `views.about`, `menu/` -> `views.menu`) and included in the project-level `urls.py`.
 
 **Static files explained:**
 
@@ -8667,6 +8672,81 @@ def menu(request):
 ```
 
 ### Working with Templates
+
+#### Working with Template Language
+
+- DTL (Django Template Language) separates presentation logic from application logic.
+- It is based on the Jinja2 template engine and shares most of its features.
+- The Python interpreter does not execute DTL code, which adds a security layer.
+- DTL follows the DRY (don't repeat yourself) principle by letting developers write reusable markup.
+- The four DTL constructs are: **variables**, **tags**, **filters**, and **comments**.
+
+##### Variables
+
+- Variables are wrapped in double curly braces: `{{ variable }}`.
+- The template engine looks up the key in the context dict and replaces the placeholder with its value.
+- Dot notation supports dict key access, object attribute access, and list index lookup.
+
+```html
+<!-- context = {"restaurant_name": "Little Lemon", "menu": [{"name": "Pasta", "price": 12}]} -->
+
+<p>Welcome to {{ restaurant_name }} restaurant.</p>
+
+<!-- dot notation: dict key -> attribute -> list index, tried in that order -->
+<p>{{ menu.0.name }}</p>
+```
+
+##### Tags
+
+- Tags add control flow and logic to templates; they use `{% %}` syntax and always require a closing tag.
+- Common tags:
+  - `{% if %}` / `{% elif %}` / `{% else %}` / `{% endif %}` -- conditional rendering,
+  - `{% for %}` / `{% endfor %}` -- iteration over a list or queryset,
+  - `{% extends %}` / `{% block %}` -- template inheritance (covered separately).
+
+```html
+<!-- if tag: check login status -->
+{% if logged_in %}
+  <p>Welcome back!</p>
+{% else %}
+  <a href="/login/">Log in</a>
+{% endif %}
+
+<!-- for tag: render a menu list dynamically -->
+<ul>
+  {% for item in menu %}
+    <li>{{ item.name }} -- ${{ item.price }}</li>
+  {% endfor %}
+</ul>
+```
+
+##### Filters
+
+- Filters transform a variable's value before output using the `|` (pipe) operator.
+- Some filters accept an argument after a colon: `{{ variable|filter:"argument" }}`.
+
+```html
+<!-- upper: convert string to uppercase -->
+{{ restaurant_name|upper }}        {# "little lemon" -> "LITTLE LEMON" #}
+
+<!-- date: format a date object -->
+{{ order_date|date:"Y-m-d" }}      {# -> "2026-06-25" #}
+{{ order_date|date:"d M Y" }}      {# -> "25 Jun 2026" #}
+```
+
+##### Comments
+
+- Comments are ignored by the template engine and do not appear in the rendered HTML.
+- Use `{# #}` for single-line comments and `{% comment %}` / `{% endcomment %}` for multi-line blocks.
+
+```html
+{# This line is not rendered #}
+
+{% comment %}
+  This entire block is ignored.
+  Useful for temporarily disabling template sections.
+{% endcomment %}
+```
 
 ### Debugging and Testing
 
