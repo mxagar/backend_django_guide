@@ -244,6 +244,18 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Additional Resources](#additional-resources-6)
   - [4. Templates](#4-templates)
     - [Templates](#templates)
+      - [Templates](#templates-1)
+        - [Django Template Engine and DTL](#django-template-engine-and-dtl)
+        - [Template Engine Configuration](#template-engine-configuration)
+        - [Template Inheritance](#template-inheritance)
+      - [Template Examples](#template-examples)
+        - [HTML Response](#html-response)
+        - [Rendering a Template](#rendering-a-template-1)
+        - [Variable Tag](#variable-tag)
+        - [If and For Tags](#if-and-for-tags)
+        - [Filters](#filters)
+        - [Built-in Filter Reference](#built-in-filter-reference)
+        - [Custom Filters](#custom-filters)
     - [Working with Templates](#working-with-templates)
     - [Debugging and Testing](#debugging-and-testing)
   - [5. Summary and Project](#5-summary-and-project)
@@ -7759,7 +7771,7 @@ After connecting, `localhost` appears in the VS Code explorer. Expand it, select
 
 #### Setting Up a MySQL Connection
 
-New details compared to the previous section — install, user creation, and migration steps.
+New details compared to the previous section -- install, user creation, and migration steps.
 
 ##### Install MySQL on macOS
 
@@ -7822,8 +7834,8 @@ Django supports PostgreSQL 14 and higher. This section covers every step from a 
 
 Download and run the **EDB Interactive Installer** from [enterprisedb.com/downloads/postgres-postgresql-downloads](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads). The wizard installs:
 - PostgreSQL server,
-- **pgAdmin** — a desktop GUI for managing databases,
-- **StackBuilder** — a package manager for add-ons.
+- **pgAdmin** -- a desktop GUI for managing databases,
+- **StackBuilder** -- a package manager for add-ons.
 
 ###### macOS
 
@@ -7877,7 +7889,7 @@ Open the PostgreSQL interactive shell as the `postgres` superuser:
 # Linux / macOS (Homebrew)
 psql -U postgres
 
-# macOS (Postgres.app — uses the OS user as default superuser)
+# macOS (Postgres.app -- uses the OS user as default superuser)
 psql
 ```
 
@@ -7932,9 +7944,9 @@ DATABASES = {
 ```
 
 Key fields:
-- `ENGINE` — always `"django.db.backends.postgresql"` for both psycopg2 and psycopg3.
-- `HOST` — use `"127.0.0.1"` for TCP; use `""` (empty string) to connect via a Unix socket (Linux default).
-- `PORT` — PostgreSQL defaults to `5432`.
+- `ENGINE` -- always `"django.db.backends.postgresql"` for both psycopg2 and psycopg3.
+- `HOST` -- use `"127.0.0.1"` for TCP; use `""` (empty string) to connect via a Unix socket (Linux default).
+- `PORT` -- PostgreSQL defaults to `5432`.
 
 **Common `OPTIONS`** (all optional):
 
@@ -7991,7 +8003,7 @@ The **Database Client** extension (`cweijan.vscode-database-client2`) used in th
 - **User**: `djangouser`
 - **Password**: `strongpassword`
 
-After connecting, the database tree expands to show tables, views, and data — no psql shell needed for day-to-day inspection.
+After connecting, the database tree expands to show tables, views, and data -- no psql shell needed for day-to-day inspection.
 
 Alternatively, **pgAdmin** (bundled with the EDB Windows installer, or available at [pgadmin.org](https://www.pgadmin.org)) provides a full-featured desktop GUI with a query editor, visual explain plans, and a server dashboard.
 
@@ -8067,6 +8079,365 @@ INSTALLED_APPS = [
 ## 4. Templates
 
 ### Templates
+
+#### Templates
+
+- A template is a text-based document or Python string marked up with the Django Template Language (DTL).
+- Templates have two types of content:
+  - **Static** -- plain HTML that does not change between requests.
+  - **Dynamic** -- DTL syntax that inserts context-dependent data, written inside `{{ }}`.
+- The `render()` shortcut ties the template to the view; it takes three arguments:
+  - `request` -- the incoming HTTP request,
+  - a template path string,
+  - a context dict whose keys become the variable names available inside the template.
+- When rendered, every `{{ variable }}` placeholder is replaced with its value looked up in the context dict.
+- Templates form the **presentation layer** of Django's MVT (Model-View-Template) architecture, keeping display logic separate from business logic.
+
+View passing context to a template:
+
+```python
+# myapp/views.py
+from django.shortcuts import render
+
+
+def menu_item(request):
+    context = {
+        "dish_name": "Pasta",
+        "price": 12.50,
+    }
+    return render(request, "myapp/menu_item.html", context)
+```
+
+Template receiving the context:
+
+```html
+<!-- myapp/templates/myapp/menu_item.html -->
+<h1>{{ dish_name }}</h1>
+<p>Price: ${{ price }}</p>
+```
+
+##### Django Template Engine and DTL
+
+- Python is dynamic; HTML is static. The Django template engine bridges the gap by processing DTL inside HTML files before sending the response.
+- DTL provides four types of constructs:
+  - **Variables** -- `{{ name }}` -- output a value from the context.
+  - **Tags** -- `{% tag %}` -- add logic such as loops, conditionals, and block definitions.
+  - **Filters** -- `{{ name|filter }}` -- transform a variable's value before output.
+  - **Comments** -- `{# comment #}` -- notes ignored by the engine.
+- Tags map context dict values into the template and implement control flow (e.g. `{% for item in items %}`).
+
+```html
+<!-- Variables -->
+<p>Welcome, {{ username }}!</p>
+
+<!-- Filter: make the name uppercase -->
+<p>{{ dish_name|upper }}</p>
+
+<!-- Tag: for loop -->
+<ul>
+  {% for item in menu %}
+    <li>{{ item.name }} -- ${{ item.price }}</li>
+  {% endfor %}
+</ul>
+
+<!-- Tag: conditional -->
+{% if user.is_authenticated %}
+  <p>Hello, {{ user.username }}.</p>
+{% else %}
+  <p>Please log in.</p>
+{% endif %}
+
+<!-- Comment (not rendered in the output) -->
+{# TODO: add allergen info here #}
+```
+
+##### Template Engine Configuration
+
+- Template engine settings live in the `TEMPLATES` list inside `settings.py`.
+- Key settings:
+  - `APP_DIRS: True` -- tells Django to look for a `templates/` subdirectory inside each installed app.
+  - `DIRS` -- a list of additional absolute paths Django searches for templates.
+- Django's built-in engine can be replaced or extended; Jinja2 is a common alternative configured as a second entry in `TEMPLATES`.
+
+```python
+# settings.py
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],  # project-level template folder
+        "APP_DIRS": True,                  # also search <app>/templates/
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+    # Optional: add Jinja2 as a second engine
+    # {
+    #     "BACKEND": "django.template.backends.jinja2.Jinja2",
+    #     "DIRS": [BASE_DIR / "jinja2"],
+    # },
+]
+```
+
+Expected `templates/` layout when `APP_DIRS: True`:
+
+```text
+myapp/
+└── templates/
+    └── myapp/          <- namespace folder (prevents name collisions between apps)
+        └── menu_item.html
+```
+
+##### Template Inheritance
+
+- Template inheritance avoids duplicating shared HTML across pages, following the DRY (don't repeat yourself) principle.
+- A **base template** defines the site-wide structure (head, navigation, footer) and marks overridable regions with `{% block name %}{% endblock %}`.
+- **Child templates** extend the base with `{% extends "base.html" %}` and fill in only the blocks specific to that page.
+- All pages that extend the base template automatically inherit its layout; changing the base updates every page at once.
+- Best practice: keep all template files in a `templates/` folder inside the relevant app directory.
+
+Base template:
+
+```html
+<!-- templates/base.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Little Lemon{% endblock %}</title>
+</head>
+<body>
+  <nav><a href="/">Home</a> | <a href="/menu/">Menu</a></nav>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer><p>&copy; Little Lemon</p></footer>
+</body>
+</html>
+```
+
+Child template overriding the blocks:
+
+```html
+<!-- myapp/templates/myapp/menu_item.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ dish_name }} -- Little Lemon{% endblock %}
+
+{% block content %}
+  <h1>{{ dish_name }}</h1>
+  <p>Price: ${{ price }}</p>
+{% endblock %}
+```
+
+#### Template Examples
+
+##### HTML Response
+
+A Django view's `HttpResponse` uses `Content-Type: text/html` by default, so any HTML string passed to it is rendered by the browser.
+
+```python
+# views.py -- static HTML embedded in Python
+from django.http import HttpResponse
+
+
+def index(request):
+    return HttpResponse("<h1>Hello, world.</h1>")
+```
+
+When you need to inject variable data, you can use Python string formatting:
+
+```python
+# views.py -- dynamic HTML via string formatting
+from django.http import HttpResponse
+
+
+def index(request, name):
+    return HttpResponse("<h1>Hello, {}.</h1>".format(name))
+```
+
+Embedding HTML directly in Python becomes hard to maintain as pages grow: 
+- escaping is tedious, 
+- conditional logic clutters the view, 
+- and designers cannot edit a Python file.
+
+Templates solve all three problems.
+
+##### Rendering a Template
+
+A template is an HTML file with placeholders for variable data, written in the DTL (Django Template Language). Create `hello.html` inside a `templates/` folder:
+
+```html
+<!-- templates/hello.html -->
+<html>
+<head>
+  <title>My Django website</title>
+</head>
+<body>
+  <h1>Hello World</h1>
+</body>
+</html>
+```
+
+**Long form** -- use `django.template.loader` to load and render the template explicitly:
+
+```python
+from django.http import HttpResponse
+from django.template import loader
+
+
+def index(request):
+    template = loader.get_template("hello.html")
+    context = {}
+    return HttpResponse(template.render(context, request))
+```
+
+**Shortcut** -- `render()` from `django.shortcuts` combines all three steps into one call:
+
+```python
+from django.shortcuts import render
+
+
+def index(request):
+    return render(request, "hello.html", {})
+```
+
+##### Variable Tag
+
+The third argument of `render()` is the **context** -- a dict whose keys become variable names inside the template. Pass a `name` URL parameter through the context:
+
+```python
+# views.py
+from django.shortcuts import render
+
+
+def index(request, name):
+    context = {"name": name}
+    return render(request, "hello.html", context)
+```
+
+Inside the template, wrap the context key in double curly braces to output its value:
+
+```html
+<!-- templates/hello.html -->
+<html>
+<body>
+  <h1>Hello {{ name }}</h1>
+</body>
+</html>
+```
+
+##### If and For Tags
+
+Tags add control flow to a template. Use `{% if %}` for conditionals and `{% for %}` to iterate over a list -- useful for displaying database records.
+
+```html
+<!-- conditional -->
+{% if name %}
+  <h1>Hello {{ name }}</h1>
+{% else %}
+  <h1>Hello stranger</h1>
+{% endif %}
+
+<!-- loop -- render one <li> per item in a queryset or list -->
+<ul>
+  {% for item in menu_items %}
+    <li>{{ item.name }}</li>
+  {% endfor %}
+</ul>
+```
+
+##### Filters
+
+Filters transform a variable's value before output. They are applied with the `|` (pipe) operator: `{{ variable|filter }}`.
+
+```html
+<!-- upper / lower / title -- change letter case -->
+{{ name|upper }}    {# "john" -> "JOHN" #}
+{{ name|lower }}    {# "JOHN" -> "john" #}
+{{ name|title }}    {# "simple is better" -> "Simple Is Better" #}
+
+<!-- length -- number of items in a list or characters in a string -->
+{{ nums|length }}   {# [1,2,3,4] -> 4 #}
+
+<!-- wordcount -- number of words in a string -->
+{{ string|wordcount }}  {# "Simple is better than complex" -> 5 #}
+
+<!-- slice -- subset of a list, using Python slice notation as a string argument -->
+{{ nums|slice:"1:3" }}  {# [1,2,3,4,5,6,7,8] -> [2, 3] #}
+
+<!-- first / last -- first or last item in a list -->
+{{ nums|first }}    {# 1 #}
+{{ nums|last }}     {# 8 #}
+```
+
+The pipe syntax passes the slice range as a quoted string argument (`"1:3"`), not bracket notation.
+
+##### Built-in Filter Reference
+
+| Category | Filters |
+|---|---|
+| **Strings** | `upper`, `lower`, `title`, `capfirst`, `truncatewords:N`, `truncatechars:N`, `wordcount`, `slugify`, `striptags`, `linebreaks`, `safe` |
+| **Numbers** | `floatformat:N`, `filesizeformat`, `intcomma` (requires `humanize`) |
+| **Lists** | `length`, `first`, `last`, `slice:"1:3"`, `join:", "`, `dictsort:"key"`, `random` |
+| **Dates** | `date:"Y-m-d"`, `time:"H:i"`, `timesince`, `timeuntil` |
+| **Logic** | `default:"fallback"`, `default_if_none:"n/a"`, `yesno:"yes,no,maybe"` |
+| **URLs** | `urlencode`, `urlize` |
+
+Full reference: [Django built-in filters](https://docs.djangoproject.com/en/5.2/ref/templates/builtins/#filters)
+
+##### Custom Filters
+
+You can define your own filters inside a `templatetags/` package in any installed app.
+
+**1. Create the package:**
+
+```text
+myapp/
+└── templatetags/
+    ├── __init__.py
+    └── myapp_filters.py
+```
+
+**2. Register and write the filter functions:**
+
+```python
+# myapp/templatetags/myapp_filters.py
+from django import template
+
+register = template.Library()
+
+
+@register.filter(name="euros")
+def euros(value):
+    """Format a number as a euro price: 12.5 -> '€12.50'"""
+    return f"€{value:.2f}"
+
+
+@register.filter(name="clamp")
+def clamp(value, max_value):
+    """Cap a number at max_value: {{ score|clamp:100 }}"""
+    return min(value, max_value)
+```
+
+**3. Load the library and use it in the template:**
+
+```html
+{% load myapp_filters %}
+
+<p>{{ price|euros }}</p>           {# -> €12.50 #}
+<p>{{ user_score|clamp:100 }}</p>  {# -> never exceeds 100 #}
+```
+
+Rules for custom filters:
+- A filter that accepts an argument receives it as its second parameter (`value, arg`).
+- Mark output as safe with `mark_safe()` only when the string contains no user-supplied HTML -- otherwise it is an XSS (cross-site scripting) risk.
+- The `templatetags/` directory must live inside an app that is listed in `INSTALLED_APPS`.
 
 ### Working with Templates
 
