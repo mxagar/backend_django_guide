@@ -8520,6 +8520,152 @@ TEMPLATES = [
 
 #### Exercise: Creating Templates
 
+Folder: [`lab/11-django-templates/`](./lab/11-django-templates/)
+
+- `settings.py` -- set `DIRS` to `['templates']` so Django finds the project-level templates folder, and added `STATICFILES_DIRS = ['myapp/static']` so the `{% static %}` tag can resolve images stored under the app.
+- `views.py` -- implemented two view functions (`about` and `menu`); each builds the same `about_content` dict and passes it to `render()` under the `'content'` key.
+- `templates/about.html` -- created with a styled `<h1>` heading and a `<p>` tag using `{{ content.about }}` to render the dict value dynamically.
+- `templates/menu.html` -- created with `{% load static %}` at the top, a styled `<h1>` heading, and an `<img>` tag using `{% static 'img/dessert.jpg' %}` to serve the dessert image from the app's static folder.
+- URL routing was already wired in `myapp/urls.py` (`about/` → `views.about`, `menu/` → `views.menu`) and included in the project-level `urls.py`.
+
+**Static files explained:**
+
+Static files (CSS, JavaScript, images, fonts) are served as-is -- the server sends them unchanged to every browser request, with no Python code involved.
+
+| `settings.py` key | Purpose |
+|---|---|
+| `STATIC_URL` | URL prefix browsers use to request static files (e.g. `/static/`) |
+| `STATICFILES_DIRS` | Extra folders Django searches for static files beyond each app's own `static/` subfolder |
+| `STATIC_ROOT` | Destination for `collectstatic` in production; not used during development |
+
+Standard static file layout inside an app (namespace subfolder prevents name collisions between apps):
+
+```text
+myapp/
+└── static/
+    └── myapp/
+        ├── img/
+        │   └── dessert.jpg
+        ├── css/
+        │   └── style.css
+        └── js/
+            └── main.js
+```
+
+In this exercise the static folder is flat (`myapp/static/img/`) without the extra namespace level, which is fine for single-app projects. Reference static files in any template with `{% load static %}` and the `{% static %}` tag:
+
+```html
+{% load static %}
+<link rel="stylesheet" href="{% static 'myapp/css/style.css' %}">
+<img src="{% static 'myapp/img/dessert.jpg' %}">
+```
+
+During development (`DEBUG = True`) Django's built-in server serves static files automatically. In production, run `python manage.py collectstatic` to copy everything into `STATIC_ROOT`, then let nginx or a CDN (Content Delivery Network) serve that folder instead of Django.
+
+Run the server and visit:
+
+```bash
+cd lab/11-django-templates/myproject
+python manage.py runserver
+# http://127.0.0.1:8000/about/  ->  heading + restaurant description
+# http://127.0.0.1:8000/menu/   ->  heading + dessert image
+```
+
+`templates/menu.html`:
+
+```html
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <!-- Add heading code -->
+    <h1 style="color: #495E57"> Menu </h1>
+    <!-- Add paragraph code -->
+
+    <!-- Add image code -->
+    <img src="{% static 'img/dessert.jpg' %}">
+</body>
+
+</html>
+```
+
+`templates/about.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <!-- Add heading code -->
+    <!-- Add heading code -->
+    <h1 style="color: #495E57"> About </h1>
+    <!-- Add paragraph code -->
+    <p> {{content.about}} </p>
+    <!-- Add image code -->
+
+</body>
+
+</html>
+```
+
+Relevant code for `settings.py`:
+
+```python
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': ['templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+STATIC_URL = 'static/'
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
+STATICFILES_DIRS = [
+    'myapp/static',
+]
+```
+
+`views.py`:
+
+```python
+from django.shortcuts import render
+
+# Create your views here for menu.
+def about(request):
+    about_content = {'about': "Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist. The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12–15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day."} 
+    return render(request, "about.html", {'content': about_content})
+
+def menu(request):
+    about_content = {'about': "Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist. The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12–15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day."} 
+    return render(request, "menu.html", {'content': about_content})
+```
+
 ### Working with Templates
 
 ### Debugging and Testing
