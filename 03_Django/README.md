@@ -256,6 +256,8 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Filters](#filters)
         - [Built-in Filter Reference](#built-in-filter-reference)
         - [Custom Filters](#custom-filters)
+      - [Creating Templates](#creating-templates)
+      - [Exercise: Creating Templates](#exercise-creating-templates)
     - [Working with Templates](#working-with-templates)
     - [Debugging and Testing](#debugging-and-testing)
   - [5. Summary and Project](#5-summary-and-project)
@@ -8438,6 +8440,85 @@ Rules for custom filters:
 - A filter that accepts an argument receives it as its second parameter (`value, arg`).
 - Mark output as safe with `mark_safe()` only when the string contains no user-supplied HTML -- otherwise it is an XSS (cross-site scripting) risk.
 - The `templatetags/` directory must live inside an app that is listed in `INSTALLED_APPS`.
+
+#### Creating Templates
+
+- Templates combine static HTML with dynamic data from the view, promoting code reusability.
+- The view retrieves data (from a dict, model query, etc.) and passes it to the template via `render()`.
+- `render()` takes three arguments:
+  - `request` -- the incoming HTTP request object,
+  - `path` -- relative path to the HTML file inside the templates directory,
+  - `context` -- a dict whose keys become variable names inside the template.
+
+**Checklist to wire up a new template:**
+
+1. Define a view in `views.py` that returns `render()` with a context dict.
+2. Register the URL in `urls.py` at both the app and project levels.
+3. Add the `templates/` directory to `DIRS` in `settings.py` and confirm the app is in `INSTALLED_APPS`.
+4. Create the HTML file inside the `templates/` folder.
+5. Use `{{ key }}` in the HTML to output values from the context dict.
+
+**Example -- About page for Little Lemon:**
+
+```python
+# myapp/views.py
+from django.shortcuts import render
+
+
+def about(request):
+    about_content = {
+        "about": "Little Lemon is a family-owned Mediterranean restaurant.",
+    }
+    return render(request, "about.html", about_content)
+```
+
+```python
+# myapp/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("about/", views.about, name="about"),
+]
+```
+
+```python
+# myproject/settings.py  -- add the project-level templates folder to DIRS
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],  # project-level folder
+        "APP_DIRS": True,
+        ...
+    },
+]
+```
+
+```html
+<!-- templates/about.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>About</title>
+  <style>
+    body { background-color: #f5f5dc; }
+  </style>
+</head>
+<body>
+  <h2>About</h2>
+  <p>{{ about }}</p>  <!-- replaced at render time with the dict value -->
+</body>
+</html>
+```
+
+- Changing the value of `"about"` in the view's dict and saving immediately updates the rendered page on refresh -- no template edit needed.
+- Static content (headings, styling) lives in the HTML; dynamic content comes from the context dict.
+
+#### Exercise: Creating Templates
 
 ### Working with Templates
 
