@@ -270,6 +270,8 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [`for` Loop Extras](#for-loop-extras)
         - [Additional Tags](#additional-tags)
         - [Additional Filters](#additional-filters)
+      - [Mapping Model Objects to a Template](#mapping-model-objects-to-a-template)
+      - [Exercise: Creating Dynamic Templates](#exercise-creating-dynamic-templates)
     - [Debugging and Testing](#debugging-and-testing)
   - [5. Summary and Project](#5-summary-and-project)
   - [Extra: Authentication](#extra-authentication)
@@ -8886,6 +8888,108 @@ Nested loops use `forloop.parentloop` to access the outer counter:
 | `title` | Title-case each word | `{{ string\|title }}` |
 | `wordcount` | Number of words in a string | `{{ string\|wordcount }}` |
 
+#### Mapping Model Objects to a Template
+
+- Django makes it straightforward to fetch database records and display them dynamically in a template.
+- The workflow has four steps: import the model, query all records, pass them to the template via a context dict, and render.
+  - Use `Model.objects.all()` to retrieve a QuerySet of every row.
+  - Wrap it in a dict and pass that dict as the third argument to `render()`.
+- In the template, use Django Template Language (DTL) tags to iterate safely:
+  - `{% if menu %}` checks that the QuerySet is non-empty before looping.
+  - `{% for item in menu %}` iterates over each model instance.
+  - `{{ item.name }}` and `{{ item.price }}` access instance attributes.
+  - `{% else %}` provides a fallback message when the QuerySet is empty.
+  - Close with `{% endfor %}` and `{% endif %}`.
+- Wrap output in HTML tags (e.g., `<p>`) to control line breaks and formatting.
+- New database entries added via Django Admin appear automatically on page refresh -- no code change needed.
+
+```python
+# models.py
+from django.db import models
+
+class Menu(models.Model):
+    name = models.CharField(max_length=200)
+    price = models.IntegerField()
+
+    def __str__(self):
+        return self.name
+
+# views.py
+from django.shortcuts import render
+from .models import Menu
+
+def menu_card(request):
+    new_menu = Menu.objects.all()
+    new_menu_dict = {"menu": new_menu}
+    return render(request, "menu_card.html", new_menu_dict)
+
+# urls.py  (inside urlpatterns)
+# path("menu_card/", views.menu_card, name="menu_card"),
+```
+
+```html
+<!-- menu_card.html -->
+{% if menu %}
+  {% for item in menu %}
+    <p>{{ item.name }} -- {{ item.price }}</p>
+  {% endfor %}
+{% else %}
+  <p>No items available.</p>
+{% endif %}
+```
+
+#### Exercise: Creating Dynamic Templates
+
+Folder: [`lab/12-django-dynamic-templates/`](./lab/12-django-dynamic-templates/).
+
+- The goal is to display all `Menu` model rows dynamically on a `/menu/` page using a view, a context dict, and a DTL (Django Template Language) template.
+- **`myapp/models.py`** -- already provided; defines `Menu` with `name` (CharField) and `price` (IntegerField) and a `__str__` returning `name`.
+- **`myapp/views.py`** -- implement a `menu(request)` view:
+  - Import `Menu` from `.models`.
+  - Call `Menu.objects.all()` and store in `menu_items`.
+  - Wrap it in `items_dict = {"menu": menu_items}`.
+  - Return `render(request, "menu.html", items_dict)`.
+- **`templates/menu.html`** -- create in the project-root `templates/` directory (already registered in `settings.py` `DIRS`):
+  - Use `{% if menu %}` to guard against an empty QuerySet.
+  - Loop with `{% for item in menu %}` and render `{{ item.name }} : {{ item.price }}<br>`.
+  - Add `{% else %}` with a fallback message and close with `{% endif %}`.
+- **Migrations** -- run `makemigrations myapp` then `migrate` to create the `Menu` table in the SQLite database.
+- New entries added via Django Admin at `/admin/` appear on the page immediately after refresh.
+
+```python
+# myapp/views.py
+from django.shortcuts import render
+from .models import Menu
+
+def menu(request):
+    menu_items = Menu.objects.all()
+    items_dict = {"menu": menu_items}
+    return render(request, "menu.html", items_dict)
+```
+
+```html
+<!-- templates/menu.html -->
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    {% if menu %}
+        {% for item in menu %}
+            {{ item.name }} : {{ item.price }}<br>
+        {% endfor %}
+    {% else %}
+        No items to display
+    {% endif %}
+</body>
+</html>
+```
+
+```bash
+# Run once to set up the database table
+python manage.py makemigrations myapp
+python manage.py migrate
+# Then start the dev server and visit http://127.0.0.1:8080/menu/
+python manage.py runserver 8080
+```
 
 ### Debugging and Testing
 
