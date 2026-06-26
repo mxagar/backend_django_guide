@@ -264,8 +264,20 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Tags](#tags)
         - [Filters](#filters-1)
         - [Comments](#comments)
+      - [Template Language and Variable Interpolation](#template-language-and-variable-interpolation)
+        - [Template Engine Overview](#template-engine-overview)
+        - [Variable Interpolation via `render()`](#variable-interpolation-via-render)
+        - [`for` Loop Extras](#for-loop-extras)
+        - [Additional Tags](#additional-tags)
+        - [Additional Filters](#additional-filters)
     - [Debugging and Testing](#debugging-and-testing)
   - [5. Summary and Project](#5-summary-and-project)
+  - [Extra: Authentication](#extra-authentication)
+  - [Extra: Security](#extra-security)
+  - [Extra: Caching](#extra-caching)
+  - [Extra: Logging](#extra-logging)
+  - [Extra: Tasks](#extra-tasks)
+  - [Extra: Emails](#extra-emails)
 
 
 ## 1. Introduction to Django
@@ -8748,6 +8760,145 @@ def menu(request):
 {% endcomment %}
 ```
 
+#### Template Language and Variable Interpolation
+
+##### Template Engine Overview
+
+A web template is a static HTML file interspersed with placeholder blocks of DTL code. The template engine merges data from any source (e.g., a database query) with these placeholders and renders the result to the browser.
+
+![Diagram for the template engine that shows the data input and generated content to browser](./assets/template_engine.png)
+
+Django's default engine is DTL, but you can swap in another engine (e.g., Jinja2) by changing the `TEMPLATES` setting in `settings.py`.
+
+##### Variable Interpolation via `render()`
+
+The `render()` function passes context data to a template. It takes the HTTP request, the template path, and a context dictionary -- each key in the dict becomes a template variable.
+
+```python
+# URL: http://localhost:8000/myapp/Novak  (name captured as a path parameter)
+def index(request, name):
+    context = {'name': name}
+    return render(request, 'index.html', context)
+```
+
+```html
+<h2>Welcome {{ name }}</h2>  {# renders: Welcome Novak #}
+```
+
+Context values can also be dictionaries; access their keys with the same dot notation:
+
+```python
+def person_view(request):
+    person = {'name': 'Roger', 'profession': 'Teacher'}
+    return render(request, 'person.html', {'person': person})
+```
+
+```html
+Name: {{ person.name }}             {# -> Roger #}
+Profession: {{ person.profession }} {# -> Teacher #}
+```
+
+##### `for` Loop Extras
+
+**Iterating over a dictionary's key–value pairs:**
+
+```html
+{% for key, value in data.items %}
+    {{ key }}: {{ value }}
+{% endfor %}
+```
+
+**`forloop` loop variables** -- available inside every `{% for %}` block:
+
+| Variable | Description |
+|---|---|
+| `forloop.counter` | Current iteration, 1-indexed |
+| `forloop.revcounter` | Remaining iterations from the end, 1-indexed |
+| `forloop.first` | `True` on the first iteration |
+| `forloop.last` | `True` on the last iteration |
+| `forloop.parentloop` | Reference to the enclosing loop in nested loops |
+
+```html
+<ul>
+    {% for lang in langs %}
+    <li>{{ forloop.counter }}: {{ lang }}</li>
+    {% endfor %}
+</ul>
+{# output: 1: Python  2: Java  3: PHP … #}
+```
+
+Nested loops use `forloop.parentloop` to access the outer counter:
+
+```html
+{% for key, values in dct.items %}
+    <p>{{ forloop.parentloop.counter }}: {{ key }}</p>
+    <ul>
+        {% for value in values %}
+        <li>{{ value }}</li>
+        {% endfor %}
+    </ul>
+{% endfor %}
+```
+
+##### Additional Tags
+
+**`{% comment "Optional note" %}`** -- The `{% comment %}` tag accepts an optional descriptive string in the opening tag (useful for noting why a block is disabled):
+
+```html
+{% comment "Disabled during A/B test" %}
+    <p>Old hero section</p>
+{% endcomment %}
+```
+
+**`{% csrf_token %}`** -- Inserts a hidden CSRF (Cross-Site Request Forgery) protection token into forms. Django rejects POST requests that are missing this token.
+
+```html
+<form method="post">
+    {% csrf_token %}
+    ...
+</form>
+```
+
+**`{% include %}`** -- Renders another template in place, passing it the current context. The template name can be a string literal or a variable.
+
+```html
+{% include "nav.html" %}
+```
+
+**`{% with %}`** -- Defines a scoped local variable available only between `{% with %}` and `{% endwith %}`.
+
+```html
+{% with rate=5 %}
+    Interest = {{ amt }} * {{ rate }}
+{% endwith %}
+```
+
+##### Additional Filters
+
+| Filter | What it does | Example |
+|---|---|---|
+| `default` | Returns a fallback when the variable is falsy | `{{ value\|default:"nothing" }}` |
+| `join` | Joins a list with a separator (like `str.join()`) | `{{ words\|join:" _ " }}` |
+| `length` | Length of a string or list; `0` for undefined | `{{ name\|length }}` |
+| `first` | First item in a list | `{{ list\|first }}` |
+| `last` | Last item in a list | `{{ list\|last }}` |
+| `lower` | Convert to all lowercase | `{{ name\|lower }}` |
+| `title` | Title-case each word | `{{ string\|title }}` |
+| `wordcount` | Number of words in a string | `{{ string\|wordcount }}` |
+
+
 ### Debugging and Testing
 
 ## 5. Summary and Project
+
+## Extra: Authentication
+
+## Extra: Security
+
+## Extra: Caching
+
+## Extra: Logging
+
+## Extra: Tasks
+
+## Extra: Emails
