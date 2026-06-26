@@ -272,6 +272,15 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [Additional Filters](#additional-filters)
       - [Mapping Model Objects to a Template](#mapping-model-objects-to-a-template)
       - [Exercise: Creating Dynamic Templates](#exercise-creating-dynamic-templates)
+      - [Template Inheritance](#template-inheritance-1)
+      - [More on Template Inheritance](#more-on-template-inheritance)
+        - [Page Layout and the `{% block %}` Tag](#page-layout-and-the--block--tag)
+        - [Building `base.html`](#building-basehtml)
+        - [Adding Views and URL Patterns](#adding-views-and-url-patterns)
+        - [Writing Child Templates](#writing-child-templates)
+        - [Serving Static Files](#serving-static-files)
+      - [Working with Template Inheritance](#working-with-template-inheritance)
+      - [Exercise: Working with Templates](#exercise-working-with-templates)
     - [Debugging and Testing](#debugging-and-testing)
   - [5. Summary and Project](#5-summary-and-project)
   - [Extra: Authentication](#extra-authentication)
@@ -8990,6 +8999,281 @@ python manage.py migrate
 # Then start the dev server and visit http://127.0.0.1:8080/menu/
 python manage.py runserver 8080
 ```
+
+#### Template Inheritance
+
+- DRY (Don't Repeat Yourself) is a core Django principle: every piece of data or logic should live in exactly one place.
+- Template inheritance solves repeated markup (headers, footers) by extracting common elements into a single base template rather than copying them across every page.
+- A page is broken into **blocks** -- named regions such as the header and footer -- that child templates can reference or override.
+- Django provides two DTL tags for reuse: `{% include %}` and `{% extends %}`.
+- **`{% include %}`** -- embeds a sub-template into the current page:
+  - References a template by string literal or variable, e.g. `{% include "header.html" %}`.
+  - Each include is an independent rendering process with no shared state between templates.
+  - Variables/objects from the view's context dict are available inside the included template; extra attributes can be passed directly on the tag.
+- **`{% extends %}`** -- creates a parent–child relationship between templates:
+  - The child declares `{% extends "base.html" %}` (string literal) or `{% extends parent_var %}` (variable that resolves to a string).
+  - The child can override named `{% block %}` regions defined in the parent; anything outside a block in the child is ignored.
+  - Unlike `{% include %}`, which simply inserts HTML, `{% extends %}` allows the child to *replace* parent content, not just append it.
+- Use `{% include %}` for self-contained, stateless partials (nav bars, footers); use `{% extends %}` when pages share a full layout skeleton and differ only in certain regions.
+
+```html
+<!-- base.html -- parent template -->
+<!DOCTYPE html>
+<html>
+<body>
+    {% include "header.html" %}   {# stateless partial -- no shared state #}
+
+    {% block content %}
+    {% endblock %}               {# child templates override this region #}
+
+    {% include "footer.html" %}
+</body>
+</html>
+
+<!-- about.html -- child template -->
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ page.name }}</h1>
+    <p>About us content here.</p>
+{% endblock %}
+```
+
+#### More on Template Inheritance
+
+Template inheritance in Django Template Language (DTL) mirrors OOP (object-oriented programming) inheritance: a child template inherits the full layout of a parent and can override only specific regions. This keeps headers, footers, and navigation bars consistent across all pages without duplicating markup.
+
+##### Page Layout and the `{% block %}` Tag
+
+Suppose you are building a three-page web app (home, register, login). Every page shares a header, a sidebar, and a footer -- only the main content area changes per page.
+
+![Display of the place of contents block on a page](./assets/web_app_page.png)
+
+Template inheritance is implemented with the `{% block %}` and `{% endblock %}` tags. A block is a named region that child templates can override:
+
+```html
+{% block name %}
+  ...
+{% endblock %}
+```
+
+To design the layout:
+
+1. Identify elements shared across all pages (header, sidebar, footer) -- these become plain HTML in `base.html`.
+2. Identify elements that vary per page (main content) -- wrap these in `{% block %}` tags.
+3. Leave variable blocks empty (or with default content) in `base.html`.
+
+##### Building `base.html`
+
+Place the following sections in `templates/base.html`. This file is never rendered directly -- it is only inherited.
+
+**Header** -- company title and a horizontal rule:
+
+```html
+<!--header-->
+<div style="height:10%;">
+    <h2 align="center">Django Web Application</h2>
+    <hr>
+</div>
+```
+
+**Sidebar** -- navigation links (use dummy `#` hrefs initially; replace after URL patterns are defined):
+
+```html
+<!--sidebar-->
+<div style="width:20%; float:left; border-right-style:groove">
+    <ul>
+        <b>
+            <li><a href="#">home</a></li>
+            <li><a href="#">register</a></li>
+            <li><a href="#">login</a></li>
+        </b>
+    </ul>
+</div>
+```
+
+**Contents block** -- empty block that each child template fills in:
+
+```html
+<!--contents-->
+<div style="margin-left:21%;">
+    <p>
+        {% block contents %}
+        {% endblock %}
+    </p>
+</div>
+```
+
+**Footer** -- also wrapped in a `{% block %}` so the login page can extend it later:
+
+```html
+<!--footer-->
+<hr>
+{% block footer %}
+<div>
+    <h4 align="right">All rights reserved</h4>
+</div>
+{% endblock %}
+```
+
+##### Adding Views and URL Patterns
+
+Add a view function for each page in `views.py`:
+
+```python
+def home(request):
+    return render(request, "home.html", {})
+
+def register(request):
+    return render(request, "register.html", {})
+
+def login(request):
+    return render(request, "login.html", {})
+```
+
+Register the URL patterns in `urls.py`:
+
+```python
+urlpatterns = [
+    # ... existing patterns ...
+    path('home/', views.home, name='home'),
+    path('register/', views.register, name='register'),
+    path('login/', views.login, name='login'),
+]
+```
+
+Then update the sidebar links in `base.html` to use the real URLs:
+
+```html
+<!--sidebar-->
+<div style="width:20%; float:left; border-right-style:groove">
+    <ul>
+        <b>
+            <li><a href="/myapp/home/">home</a></li>
+            <li><a href="/myapp/register/">register</a></li>
+            <li><a href="/myapp/login/">login</a></li>
+        </b>
+    </ul>
+</div>
+```
+
+##### Writing Child Templates
+
+Each child template opens with `{% extends "base.html" %}` and overrides only the blocks it needs. Any content in a child template that is not inside a `{% block %}` tag is silently ignored.
+
+**`home.html`:**
+
+```html
+{% extends "base.html" %}
+
+{% block contents %}
+<h2 align="center">This is Home page</h2>
+{% endblock %}
+```
+
+Visit `/myapp/home/` -- the page inherits the full layout with only the content block replaced:
+
+![Django web application homepage view](./assets/web_app_page_2.png)
+
+**`register.html`:**
+
+```html
+{% extends "base.html" %}
+
+{% block contents %}
+<h2 align="center">Registration Form appears here</h2>
+{% endblock %}
+```
+
+![Register page view](./assets/web_app_page_3.png)
+
+**`login.html`** -- overrides both `contents` and `footer`. It uses `{{ block.super }}` to render the parent's footer content first, then appends extra text. `{{ block.super }}` works like Python's `super()`: it injects the parent block's output at that position.
+
+```html
+{% extends "base.html" %}
+
+{% block contents %}
+<h2 align="center">Login Form appears here</h2>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<h4 align="right">Designed By: Alexa Designs Ltd</h4>
+{% endblock %}
+```
+
+The `templates/` folder now contains four files -- `base.html` plus the three child templates:
+
+![Display of child templates as home, register and login in templates folder](./assets/web_app_page_4.png)
+
+`/myapp/login/` renders with the original "All rights reserved" footer followed by the extra credit line:
+
+![Location of login form display between header and footer](./assets/web_app_page_5.png)
+
+##### Serving Static Files
+
+Web apps also serve static assets (images, JavaScript, CSS). Django includes `django.contrib.staticfiles` in `INSTALLED_APPS` by default.
+
+- `settings.py` sets `STATIC_URL = 'static/'`.
+- Place all static assets under `myapp/static/myapp/`.
+- In any template, load the `{% static %}` tag and reference assets by their path relative to `STATIC_URL`:
+
+```html
+{% load static %}
+<img src="{% static 'my_app/example.jpg' %}">
+```
+
+#### Working with Template Inheritance
+
+- `{% extends %}` creates a parent–child relationship: the child replaces named `{% block %}` regions of the parent and inherits everything else.
+- `{% include %}` embeds a sub-template at that position without any inheritance; each include is an independent render with no shared state.
+- The demo builds the Little Lemon website with three pages (Home, Menu, About) that share a common layout and header.
+- **Project setup steps:**
+  - Add three view functions (`home`, `about`, `menu`) to `views.py` and map them in both the project-level and app-level `urls.py`.
+  - Register the app in `INSTALLED_APPS` and add the `templates/` path to `DIRS` in `settings.py`.
+  - Create a `templates/` folder at the project root and a `templates/partials/` subfolder for reusable fragments.
+- **File structure to create:**
+  - `templates/base.html` — the shared layout skeleton.
+  - `templates/index.html`, `templates/about.html`, `templates/menu.html` — the three child pages.
+  - `templates/partials/_header.html` — the header/nav fragment included via `{% include %}`.
+- **`base.html`** — define the full HTML shell with a `{% block content %}` placeholder and any shared styles:
+  - A background color set on `<body>` in `base.html` automatically applies to every child page, proving inheritance.
+  - Add `{% include "partials/_header.html" %}` above the block so the header appears on every page.
+- **Child templates** — only two lines needed to inherit the full layout and inject page-specific content:
+  - `{% extends "base.html" %}` must be the very first line.
+  - Page content goes inside `{% block content %}…{% endblock %}`.
+- Adding `{% include "partials/_header.html" %}` to `base.html` once is enough; the header propagates to all child pages without touching each page file individually.
+
+```html
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html>
+<head><title>Little Lemon</title></head>
+<body style="background-color: #f0f0f0;">
+    {% include "partials/_header.html" %}
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+</body>
+</html>
+
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<p>Welcome to Little Lemon.</p>
+<p>We serve the finest Mediterranean cuisine.</p>
+{% endblock %}
+```
+
+```bash
+python manage.py runserver 8080
+# Visit http://127.0.0.1:8080/home/ — background color from base.html is inherited
+# Visit http://127.0.0.1:8080/about/ — same layout, different block content
+```
+
+#### Exercise: Working with Templates
 
 ### Debugging and Testing
 
