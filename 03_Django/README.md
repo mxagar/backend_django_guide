@@ -282,6 +282,10 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Working with Template Inheritance](#working-with-template-inheritance)
       - [Exercise: Working with Templates](#exercise-working-with-templates)
     - [Debugging and Testing](#debugging-and-testing)
+      - [Debugging Django Applications](#debugging-django-applications)
+      - [Testing in Django](#testing-in-django)
+      - [Sub-Classing Generic Views](#sub-classing-generic-views)
+      - [Additional Resources](#additional-resources-7)
   - [5. Summary and Project](#5-summary-and-project)
   - [Extra: Authentication](#extra-authentication)
   - [Extra: Security](#extra-security)
@@ -9233,13 +9237,13 @@ Web apps also serve static assets (images, JavaScript, CSS). Django includes `dj
   - Register the app in `INSTALLED_APPS` and add the `templates/` path to `DIRS` in `settings.py`.
   - Create a `templates/` folder at the project root and a `templates/partials/` subfolder for reusable fragments.
 - **File structure to create:**
-  - `templates/base.html` — the shared layout skeleton.
-  - `templates/index.html`, `templates/about.html`, `templates/menu.html` — the three child pages.
-  - `templates/partials/_header.html` — the header/nav fragment included via `{% include %}`.
-- **`base.html`** — define the full HTML shell with a `{% block content %}` placeholder and any shared styles:
+  - `templates/base.html` -- the shared layout skeleton.
+  - `templates/index.html`, `templates/about.html`, `templates/menu.html` -- the three child pages.
+  - `templates/partials/_header.html` -- the header/nav fragment included via `{% include %}`.
+- **`base.html`** -- define the full HTML shell with a `{% block content %}` placeholder and any shared styles:
   - A background color set on `<body>` in `base.html` automatically applies to every child page, proving inheritance.
   - Add `{% include "partials/_header.html" %}` above the block so the header appears on every page.
-- **Child templates** — only two lines needed to inherit the full layout and inject page-specific content:
+- **Child templates** -- only two lines needed to inherit the full layout and inject page-specific content:
   - `{% extends "base.html" %}` must be the very first line.
   - Page content goes inside `{% block content %}…{% endblock %}`.
 - Adding `{% include "partials/_header.html" %}` to `base.html` once is enough; the header propagates to all child pages without touching each page file individually.
@@ -9269,8 +9273,8 @@ Web apps also serve static assets (images, JavaScript, CSS). Django includes `dj
 
 ```bash
 python manage.py runserver 8080
-# Visit http://127.0.0.1:8080/home/ — background color from base.html is inherited
-# Visit http://127.0.0.1:8080/about/ — same layout, different block content
+# Visit http://127.0.0.1:8080/home/ -- background color from base.html is inherited
+# Visit http://127.0.0.1:8080/about/ -- same layout, different block content
 ```
 
 #### Exercise: Working with Templates
@@ -9373,6 +9377,309 @@ def book(request):
 ```
 
 ### Debugging and Testing
+
+#### Debugging Django Applications
+
+- Debugging means identifying, isolating, and fixing errors; web projects are harder to debug than standalone files because of interlinked files and dependencies.
+- Common Django mistakes include: missing a view, incorrect template names, missing import statements, inaccessible model data, and missing commas in function arguments.
+- Django's built-in debugger is enabled by `DEBUG = True` in `settings.py` and displays as a yellow error page in the browser.
+  - It must be set to `DEBUG = False` in production because it exposes internal file paths, database details, and project configuration to end users.
+- Two categories of errors by where they surface:
+  - **Console log errors** -- Python-level errors (e.g., `NameError: name 'x' is not defined`) appear in the terminal after the server reloads; the page will fail to load.
+  - **Silent errors** -- missing imports or incorrect template context may cause the page to render partially with no console error; always verify imports and function arguments.
+- **Django yellow page errors** are framework-level and more specific to Django internals than raw Python errors:
+  - Missing CSRF token -> `403 Forbidden: CSRF verification failed`.
+  - Wrong template name in `render()` -> `TemplateDoesNotExist` with the searched paths listed.
+  - The yellow page includes the exception location, a traceback stack with the offending line highlighted, HTTP request META headers, and current settings values.
+  - A "copy and paste view" switch provides a cleaner, shareable traceback text.
+- No single rule covers all debugging scenarios; systematic practice gradually reduces the frequency of errors.
+
+#### Testing in Django
+
+- Testing focuses on quality, reliability, and performance; debugging focuses on removing errors and bugs — both are distinct parts of the software development lifecycle (SDLC).
+- Unit testing (UT) isolates the smallest testable unit (a function, class, or method) and produces a pass, fail, or error result.
+- Django integrates Python's built-in `unittest` module using a class-based approach via `django.test.TestCase`.
+  - Each test class inherits from `TestCase`.
+  - `setUpTestData()` is a `@classmethod` that creates shared fixture data once for the entire class, improving performance over per-test `setUp()`.
+  - Individual test methods start with `test_` and use `assert*` helpers such as `assertIsInstance()`.
+- Test output in the terminal: a dot (`.`) per passing test, `F` for failure, `E` for error; an `AssertionError` message is printed for failures.
+- Test file naming conventions:
+  - Small projects: a single `tests.py` inside the app directory.
+  - Large projects: multiple files such as `test_models.py` and `test_views.py` inside the app directory.
+- `manage.py test` command variants for scoping test runs:
+  - All tests: `python manage.py test`
+  - All tests in an app: `python manage.py test reservations`
+  - Specific test case class: `python manage.py test reservations.tests.ReservationTestCase`
+  - Specific test method: `python manage.py test reservations.tests.ReservationTestCase.test_seat_count`
+
+```python
+# models.py
+from django.db import models
+
+class Reservation(models.Model):
+    first_name = models.CharField(max_length=200)
+    last_name = models.CharField(max_length=200)
+    booking_time = models.DateTimeField(auto_now=True)  # auto-set to current time on save
+
+# tests.py
+import datetime
+from django.test import TestCase
+from .models import Reservation
+
+class ReservationModelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reservation = Reservation.objects.create(
+            first_name="John",
+            last_name="Smith",
+        )
+
+    def test_fields(self):
+        self.assertIsInstance(self.reservation.first_name, str)
+        self.assertIsInstance(self.reservation.last_name, str)
+
+    def test_timestamps(self):
+        self.assertIsInstance(self.reservation.booking_time, datetime.datetime)
+```
+
+#### Sub-Classing Generic Views
+
+Django supports two styles of views: function-based views (FBVs) and class-based views (CBVs). CBVs extend `django.views.View`, define `get()` and `post()` methods, and are wired to URLs via `as_view()`.
+
+```python
+# views.py
+from django.views import View
+from django.http import HttpResponse
+
+class NewView(View):
+    def get(self, request):
+        return HttpResponse(‘response’)
+```
+
+```python
+# urls.py
+from myapp.views import NewView
+
+urlpatterns = [
+    path(‘about/’, NewView.as_view()),
+]
+```
+
+##### Function-Based vs Class-Based Views
+
+A function-based view for rendering a template looks like this:
+
+```python
+# views.py — function-based
+from django.http import HttpResponse
+from django import template
+
+def index(request):
+    t = template.loader.get_template(‘myapp/index.html’)
+    return HttpResponse(t.render({}, request))
+```
+
+```python
+# myapp/urls.py
+path(‘/’, views.index, name=’index’)
+```
+
+```python
+# myproject/urls.py
+urlpatterns = [
+    path(‘myapp/’, include(‘myapp.urls’)),
+]
+```
+
+The equivalent using `TemplateView` is much shorter — just set `template_name`:
+
+```python
+# views.py — class-based
+from django.views.generic.base import TemplateView
+
+class IndexView(TemplateView):
+    template_name = ‘index.html’
+```
+
+```python
+# urls.py
+path(‘/’, IndexView.as_view(), name=’index’)
+```
+
+**Advantages and disadvantages of each style:**
+
+| | Function-Based Views | Class-Based Views |
+|---|---|---|
+| **Pros** | Simple, explicit flow, easy to read, decorators work directly, good for one-off logic | Code reuse (DRY (Don’t Repeat Yourself)), per-method dispatch, extensible, built-in generic views |
+| **Cons** | Hard to extend/reuse, HTTP method branching via `if` | Harder to read, implicit flow, decorators need `method_decorator` or override |
+
+##### Generic Views for CRUD Operations
+
+Django’s generic CBVs handle common patterns automatically. The most frequently used are:
+
+- `TemplateView` — renders a template
+- `CreateView` — form to create a new model instance
+- `ListView` — renders a list of model objects
+- `DetailView` — renders a single model object
+- `UpdateView` — form to update an existing model instance
+- `DeleteView` — confirmation form to delete a model instance
+- `LoginView` — built-in authentication login
+
+**Requirements for any generic view:**
+
+- Set `model` to the model class the view operates on.
+- Each generic view looks for a template named `<modelname>_<suffix>.html` by default (e.g., `employee_list.html` for `ListView`).
+- Map the view to a URL using `as_view()`.
+
+The examples below use this `Employee` model:
+
+```python
+# models.py
+from django.db import models
+
+class Employee(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    contact = models.CharField(max_length=15)
+
+    class Meta:
+        db_table = "Employee"
+```
+
+##### CreateView
+
+`CreateView` auto-generates a model form and saves the submitted data. The default template name is `employee_form.html`.
+
+```python
+# views.py
+from django.views.generic.edit import CreateView
+from django.urls import reverse_lazy
+
+class EmployeeCreate(CreateView):
+    model = Employee
+    fields = ‘__all__’
+    success_url = reverse_lazy(‘employee-list’)  # redirect after successful save
+```
+
+```python
+# urls.py
+path(‘create/’, EmployeeCreate.as_view(), name=’EmployeeCreate’),
+```
+
+```html
+<!-- templates/employee_form.html -->
+<form method="post">
+    {% csrf_token %}
+    <table>{{ form.as_table }}</table>
+    <input type="submit" value="Save">
+</form>
+```
+
+When the client visits `/create/`, the form is displayed. On submission, the employee is saved in the `Employee` table and the user is redirected to `success_url`.
+
+##### ListView
+
+`ListView` fetches all model objects and passes them to the template as `object_list`. The default template name is `employee_list.html`.
+
+```python
+# views.py
+from django.views.generic.list import ListView
+
+class EmployeeList(ListView):
+    model = Employee
+```
+
+```html
+<!-- templates/employee_list.html -->
+<ul>
+    {% for object in object_list %}
+    <li>Name: {{ object.name }}</li>
+    <li>Email: {{ object.email }}</li>
+    <li>Contact: {{ object.contact }}</li>
+    <br/>
+    {% endfor %}
+</ul>
+```
+
+Visiting `http://localhost:8000/employees/list` lists all rows in the `Employee` table.
+
+##### DetailView
+
+`DetailView` fetches a single object by primary key (passed in the URL) and passes it to the template as `object`. The default template name is `employee_detail.html`.
+
+```python
+# urls.py
+path(‘show/<int:pk>/’, EmployeeDetail.as_view(), name=’EmployeeDetail’),
+```
+
+```html
+<!-- templates/employee_detail.html -->
+<h1>Name: {{ object.name }}</h1>
+<p>Email: {{ object.email }}</p>
+<p>Contact: {{ object.contact }}</p>
+```
+
+Visiting `/employees/show/1/` displays the `Employee` with `pk=1`.
+
+##### UpdateView
+
+`UpdateView` pre-fills a model form with an existing instance’s data and saves changes on submission. The default template name is `employee_update_form.html`.
+
+```python
+# views.py
+from django.views.generic.edit import UpdateView
+
+class EmployeeUpdate(UpdateView):
+    model = Employee
+    fields = ‘__all__’
+    success_url = reverse_lazy(‘employee-list’)
+```
+
+```python
+# urls.py
+path(‘update/<int:pk>/’, EmployeeUpdate.as_view(), name=’EmployeeUpdate’),
+```
+
+```html
+<!-- templates/employee_update_form.html -->
+<form method="post">
+    {% csrf_token %}
+    <table>{{ form.as_table }}</table>
+    <input type="submit" value="Save">
+</form>
+```
+
+##### DeleteView
+
+`DeleteView` displays a confirmation page before deleting the model instance. The default template name is `employee_confirm_delete.html`.
+
+```python
+# views.py
+from django.views.generic.edit import DeleteView
+
+class EmployeeDelete(DeleteView):
+    model = Employee
+    success_url = reverse_lazy(‘employee-list’)
+```
+
+```python
+# urls.py
+path(‘delete/<int:pk>/’, EmployeeDelete.as_view(), name=’EmployeeDelete’),
+```
+
+```html
+<!-- templates/employee_confirm_delete.html -->
+<form method="post">
+    {% csrf_token %}
+    <p>Are you sure you want to delete "{{ object }}"?</p>
+    <input type="submit" value="Confirm">
+</form>
+```
+
+Generic views require significantly less boilerplate than FBVs for standard CRUD operations, but FBVs remain preferable for highly customized or one-off logic.
+
+#### Additional Resources
+
 
 ## 5. Summary and Project
 
