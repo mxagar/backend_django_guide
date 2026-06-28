@@ -285,6 +285,13 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Debugging Django Applications](#debugging-django-applications)
       - [Testing in Django](#testing-in-django)
       - [Sub-Classing Generic Views](#sub-classing-generic-views)
+        - [Function-Based vs Class-Based Views](#function-based-vs-class-based-views)
+        - [Generic Views for CRUD Operations](#generic-views-for-crud-operations)
+        - [CreateView](#createview)
+        - [ListView](#listview)
+        - [DetailView](#detailview)
+        - [UpdateView](#updateview)
+        - [DeleteView](#deleteview)
       - [Additional Resources](#additional-resources-7)
   - [5. Summary and Project](#5-summary-and-project)
   - [Extra: Authentication](#extra-authentication)
@@ -8690,11 +8697,11 @@ from django.shortcuts import render
 
 # Create your views here for menu.
 def about(request):
-    about_content = {'about': "Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist. The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12–15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day."} 
+    about_content = {'about': "Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist. The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12--15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day."} 
     return render(request, "about.html", {'content': about_content})
 
 def menu(request):
-    about_content = {'about': "Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist. The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12–15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day."} 
+    about_content = {'about': "Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist. The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12--15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day."} 
     return render(request, "menu.html", {'content': about_content})
 ```
 
@@ -8815,7 +8822,7 @@ Profession: {{ person.profession }} {# -> Teacher #}
 
 ##### `for` Loop Extras
 
-**Iterating over a dictionary's key–value pairs:**
+**Iterating over a dictionary's key--value pairs:**
 
 ```html
 {% for key, value in data.items %}
@@ -9014,7 +9021,7 @@ python manage.py runserver 8080
   - References a template by string literal or variable, e.g. `{% include "header.html" %}`.
   - Each include is an independent rendering process with no shared state between templates.
   - Variables/objects from the view's context dict are available inside the included template; extra attributes can be passed directly on the tag.
-- **`{% extends %}`** -- creates a parent–child relationship between templates:
+- **`{% extends %}`** -- creates a parent--child relationship between templates:
   - The child declares `{% extends "base.html" %}` (string literal) or `{% extends parent_var %}` (variable that resolves to a string).
   - The child can override named `{% block %}` regions defined in the parent; anything outside a block in the child is ignored.
   - Unlike `{% include %}`, which simply inserts HTML, `{% extends %}` allows the child to *replace* parent content, not just append it.
@@ -9229,7 +9236,7 @@ Web apps also serve static assets (images, JavaScript, CSS). Django includes `dj
 
 #### Working with Template Inheritance
 
-- `{% extends %}` creates a parent–child relationship: the child replaces named `{% block %}` regions of the parent and inherits everything else.
+- `{% extends %}` creates a parent--child relationship: the child replaces named `{% block %}` regions of the parent and inherits everything else.
 - `{% include %}` embeds a sub-template at that position without any inheritance; each include is an independent render with no shared state.
 - The demo builds the Little Lemon website with three pages (Home, Menu, About) that share a common layout and header.
 - **Project setup steps:**
@@ -9396,7 +9403,7 @@ def book(request):
 
 #### Testing in Django
 
-- Testing focuses on quality, reliability, and performance; debugging focuses on removing errors and bugs — both are distinct parts of the software development lifecycle (SDLC).
+- Testing focuses on quality, reliability, and performance; debugging focuses on removing errors and bugs -- both are distinct parts of the software development lifecycle (SDLC).
 - Unit testing (UT) isolates the smallest testable unit (a function, class, or method) and produces a pass, fail, or error result.
 - Django integrates Python's built-in `unittest` module using a class-based approach via `django.test.TestCase`.
   - Each test class inherits from `TestCase`.
@@ -9453,7 +9460,7 @@ from django.http import HttpResponse
 
 class NewView(View):
     def get(self, request):
-        return HttpResponse(‘response’)
+        return HttpResponse('response')
 ```
 
 ```python
@@ -9461,7 +9468,7 @@ class NewView(View):
 from myapp.views import NewView
 
 urlpatterns = [
-    path(‘about/’, NewView.as_view()),
+    path('about/', NewView.as_view()),
 ]
 ```
 
@@ -9470,60 +9477,60 @@ urlpatterns = [
 A function-based view for rendering a template looks like this:
 
 ```python
-# views.py — function-based
+# views.py -- function-based
 from django.http import HttpResponse
 from django import template
 
 def index(request):
-    t = template.loader.get_template(‘myapp/index.html’)
+    t = template.loader.get_template('myapp/index.html')
     return HttpResponse(t.render({}, request))
 ```
 
 ```python
 # myapp/urls.py
-path(‘/’, views.index, name=’index’)
+path('/', views.index, name='index')
 ```
 
 ```python
 # myproject/urls.py
 urlpatterns = [
-    path(‘myapp/’, include(‘myapp.urls’)),
+    path('myapp/', include('myapp.urls')),
 ]
 ```
 
-The equivalent using `TemplateView` is much shorter — just set `template_name`:
+The equivalent using `TemplateView` is much shorter -- just set `template_name`:
 
 ```python
-# views.py — class-based
+# views.py -- class-based
 from django.views.generic.base import TemplateView
 
 class IndexView(TemplateView):
-    template_name = ‘index.html’
+    template_name = 'index.html'
 ```
 
 ```python
 # urls.py
-path(‘/’, IndexView.as_view(), name=’index’)
+path('/', IndexView.as_view(), name='index')
 ```
 
 **Advantages and disadvantages of each style:**
 
 | | Function-Based Views | Class-Based Views |
 |---|---|---|
-| **Pros** | Simple, explicit flow, easy to read, decorators work directly, good for one-off logic | Code reuse (DRY (Don’t Repeat Yourself)), per-method dispatch, extensible, built-in generic views |
+| **Pros** | Simple, explicit flow, easy to read, decorators work directly, good for one-off logic | Code reuse (DRY (Don't Repeat Yourself)), per-method dispatch, extensible, built-in generic views |
 | **Cons** | Hard to extend/reuse, HTTP method branching via `if` | Harder to read, implicit flow, decorators need `method_decorator` or override |
 
 ##### Generic Views for CRUD Operations
 
-Django’s generic CBVs handle common patterns automatically. The most frequently used are:
+Django's generic CBVs handle common patterns automatically. The most frequently used are:
 
-- `TemplateView` — renders a template
-- `CreateView` — form to create a new model instance
-- `ListView` — renders a list of model objects
-- `DetailView` — renders a single model object
-- `UpdateView` — form to update an existing model instance
-- `DeleteView` — confirmation form to delete a model instance
-- `LoginView` — built-in authentication login
+- `TemplateView` -- renders a template
+- `CreateView` -- form to create a new model instance
+- `ListView` -- renders a list of model objects
+- `DetailView` -- renders a single model object
+- `UpdateView` -- form to update an existing model instance
+- `DeleteView` -- confirmation form to delete a model instance
+- `LoginView` -- built-in authentication login
 
 **Requirements for any generic view:**
 
@@ -9557,13 +9564,13 @@ from django.urls import reverse_lazy
 
 class EmployeeCreate(CreateView):
     model = Employee
-    fields = ‘__all__’
-    success_url = reverse_lazy(‘employee-list’)  # redirect after successful save
+    fields = '__all__'
+    success_url = reverse_lazy('employee-list')  # redirect after successful save
 ```
 
 ```python
 # urls.py
-path(‘create/’, EmployeeCreate.as_view(), name=’EmployeeCreate’),
+path('create/', EmployeeCreate.as_view(), name='EmployeeCreate'),
 ```
 
 ```html
@@ -9609,7 +9616,7 @@ Visiting `http://localhost:8000/employees/list` lists all rows in the `Employee`
 
 ```python
 # urls.py
-path(‘show/<int:pk>/’, EmployeeDetail.as_view(), name=’EmployeeDetail’),
+path('show/<int:pk>/', EmployeeDetail.as_view(), name='EmployeeDetail'),
 ```
 
 ```html
@@ -9623,7 +9630,7 @@ Visiting `/employees/show/1/` displays the `Employee` with `pk=1`.
 
 ##### UpdateView
 
-`UpdateView` pre-fills a model form with an existing instance’s data and saves changes on submission. The default template name is `employee_update_form.html`.
+`UpdateView` pre-fills a model form with an existing instance's data and saves changes on submission. The default template name is `employee_update_form.html`.
 
 ```python
 # views.py
@@ -9631,13 +9638,13 @@ from django.views.generic.edit import UpdateView
 
 class EmployeeUpdate(UpdateView):
     model = Employee
-    fields = ‘__all__’
-    success_url = reverse_lazy(‘employee-list’)
+    fields = '__all__'
+    success_url = reverse_lazy('employee-list')
 ```
 
 ```python
 # urls.py
-path(‘update/<int:pk>/’, EmployeeUpdate.as_view(), name=’EmployeeUpdate’),
+path('update/<int:pk>/', EmployeeUpdate.as_view(), name='EmployeeUpdate'),
 ```
 
 ```html
@@ -9659,12 +9666,12 @@ from django.views.generic.edit import DeleteView
 
 class EmployeeDelete(DeleteView):
     model = Employee
-    success_url = reverse_lazy(‘employee-list’)
+    success_url = reverse_lazy('employee-list')
 ```
 
 ```python
 # urls.py
-path(‘delete/<int:pk>/’, EmployeeDelete.as_view(), name=’EmployeeDelete’),
+path('delete/<int:pk>/', EmployeeDelete.as_view(), name='EmployeeDelete'),
 ```
 
 ```html
@@ -9679,6 +9686,13 @@ path(‘delete/<int:pk>/’, EmployeeDelete.as_view(), name=’EmployeeDelete’
 Generic views require significantly less boilerplate than FBVs for standard CRUD operations, but FBVs remain preferable for highly customized or one-off logic.
 
 #### Additional Resources
+
+- [Testing in Django official](https://docs.djangoproject.com/en/4.1/topics/testing/)
+- [Testing overview -- Django official](https://docs.djangoproject.com/en/4.1/topics/testing/overview/)
+- [Django Advanced Testing topics](https://docs.djangoproject.com/en/4.1/topics/testing/advanced/#advanced-testing-topics)
+- [Django META header](https://docs.djangoproject.com/en/4.0/ref/request-response/#django.http.HttpRequest.META)
+- [Add unit testing to your Django project](https://docs.djangoproject.com/en/4.1/internals/contributing/writing-code/unit-tests/)
+- [Adding Django apps -- Extended information](https://docs.djangoproject.com/en/4.1/ref/applications/)
 
 
 ## 5. Summary and Project
