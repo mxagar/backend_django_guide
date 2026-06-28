@@ -294,6 +294,11 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [DeleteView](#deleteview)
       - [Additional Resources](#additional-resources-7)
   - [5. Summary and Project](#5-summary-and-project)
+    - [Project Goals](#project-goals)
+      - [Purpose of the Assessments](#purpose-of-the-assessments)
+      - [Graded Quiz](#graded-quiz)
+      - [Little Lemon Django Project](#little-lemon-django-project)
+    - [Project](#project)
   - [Extra: Authentication](#extra-authentication)
   - [Extra: Security](#extra-security)
   - [Extra: Caching](#extra-caching)
@@ -9696,6 +9701,37 @@ Generic views require significantly less boilerplate than FBVs for standard CRUD
 
 
 ## 5. Summary and Project
+
+### Project Goals
+
+#### Purpose of the Assessments
+
+The primary purpose of the assessments is to check your knowledge and understanding of the key learning objectives of the course. They help you identify which topics you have mastered and which require further focus. The graded assessments are designed to confirm that you can apply what you have learned.
+
+#### Graded Quiz
+
+The quiz covers only the topics from the course — no surprises. Review the feedback on your answers and revisit any topics that need more attention.
+
+#### Little Lemon Django Project
+
+All course exercises, knowledge checks, and in-video questions build toward this final project, so nothing in it will be outside the scope of what you have already learned.
+
+**Scenario:** Little Lemon is a neighborhood bistro serving simple food and classic cocktails in a casual environment, with a locally sourced menu and daily specials. The restaurant is transitioning from a static one-page website to a database-driven web application built with Django.
+
+**Current state:** The Home, About, and Book pages are already completed.
+
+**What you need to build — the Menu feature:**
+
+- Store menu information in a database so it can be updated as the menu changes seasonally.
+- Allow managers to add or update menu items by editing the name, description, price, and photo.
+- Display each menu item on a dedicated page that loads when a user clicks on it from the Menu page.
+
+### Project
+
+Folder: [`lab/14-django-project/`](./lab/14-django-project/).
+
+
+
 
 ## Extra: Authentication
 
