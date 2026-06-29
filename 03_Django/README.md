@@ -373,6 +373,20 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Header Injection Prevention](#header-injection-prevention)
     - [Custom Backend](#custom-backend)
   - [Extra: Tasks](#extra-tasks)
+    - [Architecture](#architecture)
+    - [Defining Tasks](#defining-tasks)
+    - [Task Decorator Parameters](#task-decorator-parameters)
+    - [Backends \& `TASKS` Setting](#backends--tasks-setting)
+    - [Enqueueing Tasks](#enqueueing-tasks)
+    - [Transaction Safety](#transaction-safety)
+    - [Task Results](#task-results)
+    - [Workers](#workers)
+    - [Serialization Constraints](#serialization-constraints)
+    - [Django Tasks vs Celery](#django-tasks-vs-celery)
+    - [Redis Backend (`django-tasks-rq`)](#redis-backend-django-tasks-rq)
+      - [Running Redis -- Same Machine vs Separate Machine](#running-redis----same-machine-vs-separate-machine)
+      - [Option A -- Redis directly on the machine](#option-a----redis-directly-on-the-machine)
+      - [Option B -- Docker Compose (recommended for dev and single-server prod)](#option-b----docker-compose-recommended-for-dev-and-single-server-prod)
 
 
 ## 1. Introduction to Django
@@ -11587,7 +11601,7 @@ from django.core.mail import send_mail
 sent = send_mail(
     subject="Welcome to MyApp",
     message="Plain-text fallback body.",
-    from_email="noreply@myapp.com",   # None → DEFAULT_FROM_EMAIL
+    from_email="noreply@myapp.com",   # None -> DEFAULT_FROM_EMAIL
     recipient_list=["user@example.com"],
     fail_silently=False,              # raise on error (default False)
     html_message="<h1>Welcome!</h1>", # triggers multipart/alternative
@@ -11822,6 +11836,397 @@ EMAIL_BACKEND = "myapp.backends.MailgunBackend"
 
 ## Extra: Tasks
 
-- [Real Python -- Django Tasks: Exploring the Built-in Tasks Framework](https://realpython.com/django-tasks/)
-- [Django Tasks](https://docs.djangoproject.com/en/6.0/topics/tasks/)
+- [Django Tasks (dev docs -- arrives in Django 6.0)](https://docs.djangoproject.com/en/dev/topics/tasks/)
+
+> **Note:** Django's built-in task framework is scheduled for **Django 6.0** (not yet in 5.2). Use the `ImmediateBackend` for development today; wire a third-party backend for production.
+
+Django's task framework lets you move work outside the HTTP request-response cycle -- sending emails, resizing images, generating reports -- without pulling in a full message-broker stack. The API is deliberately minimal: Django owns task *definition*, *validation*, and *queuing*; actual execution is delegated to a backend (and a worker process).
+
+### Architecture
+
+Three components form the pipeline:
+
+```
+View / signal
+  └─► task.enqueue(...)      # stores task metadata in the queue store
+        └─► Queue Store       # durable storage (DB, Redis, etc. -- backend-specific)
+              └─► Worker(s)   # external process: claims tasks and runs them
+```
+
+- **Tasks** -- plain Python functions decorated with `@task`; arguments and return values must be JSON-serializable.
+- **Backends** -- pluggable classes responsible for storing and retrieving task state; Django ships two dev-only backends, production needs a third-party one.
+- **Workers** -- long-running processes (`manage.py run_workers`) that poll the queue store and execute tasks.
+
+### Defining Tasks
+
+- Define tasks in a `tasks.py` file per app (convention, not enforced); import `task` from `django.tasks`.
+- The decorated function becomes a `Task` object with `.enqueue()`, `.aenqueue()`, `.get_result()`, and `.using()` methods.
+
+```python
+# myapp/tasks.py
+from django.core.mail import send_mail
+from django.tasks import task
+
+@task
+def send_welcome_email(user_email: str, username: str) -> None:
+    send_mail(
+        subject="Welcome!",
+        message=f"Hi {username}, welcome to MyApp.",
+        from_email=None,            # -> DEFAULT_FROM_EMAIL
+        recipient_list=[user_email],
+    )
+
+@task
+def generate_report(report_id: int) -> dict:
+    report = Report.objects.get(pk=report_id)
+    data = build_report_data(report)   # heavy computation
+    report.result = data
+    report.save()
+    return data
+```
+
+### Task Decorator Parameters
+
+- `priority` (int, default `0`) -- higher number = higher priority; backend must support it.
+- `queue_name` (str, default `"default"`) -- route tasks to different queues mapped in `TASKS`.
+- `takes_context` (bool) -- injects a `TaskContext` as the first argument with `.attempt` (current retry count) and `.task_result` (the live `TaskResult` instance).
+
+```python
+@task(priority=5, queue_name="emails")
+def urgent_email(to: str, body: str) -> None:
+    ...
+
+@task(takes_context=True)
+def resilient_task(context, item_id: int) -> None:
+    logger.info(
+        "Attempt %d for task %s",
+        context.attempt,
+        context.task_result.id,
+    )
+    process(item_id)
+```
+
+### Backends & `TASKS` Setting
+
+```python
+# settings.py
+TASKS = {
+    "default": {
+        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+    },
+    "emails": {                          # named queue
+        "BACKEND": "path.to.ThirdPartyBackend",
+        "OPTIONS": {"url": "redis://localhost:6379/1"},
+    },
+}
+```
+
+| Backend | Class | When to use |
+|---|---|---|
+| `ImmediateBackend` | `django.tasks.backends.immediate.ImmediateBackend` | Development -- runs the task inline, synchronously |
+| `DummyBackend` | `django.tasks.backends.dummy.DummyBackend` | Testing -- stores but never executes tasks |
+| Third-party | e.g. `django_tasks_redis.RedisBackend` | Production -- durable queue + real worker processes |
+
+- `ImmediateBackend` executes tasks synchronously in the calling process -- no worker needed during development, but results are not retrievable via `get_result()`.
+- `DummyBackend` is useful in tests to assert tasks were enqueued without side effects; inspect `default_task_backend.results`.
+
+```python
+# tests.py
+from django.tasks import default_task_backend
+from django.test import TestCase, override_settings
+
+@override_settings(TASKS={"default": {"BACKEND": "django.tasks.backends.dummy.DummyBackend"}})
+class MyTaskTest(TestCase):
+    def test_task_enqueued(self):
+        send_welcome_email.enqueue("u@example.com", "Alice")
+        self.assertEqual(len(default_task_backend.results), 1)
+        default_task_backend.clear()
+```
+
+### Enqueueing Tasks
+
+- Call `.enqueue()` (sync) or `.aenqueue()` (async) with the same arguments as the underlying function; both return a `TaskResult`.
+- Use `.using(**overrides)` to create a one-off modified task (different priority or queue) without altering the original definition.
+
+```python
+# Enqueue with defaults
+result = send_welcome_email.enqueue("user@example.com", "Alice")
+
+# Override priority for this call only
+result = generate_report.using(priority=10).enqueue(report_id=42)
+
+# Async enqueue inside an async view
+result = await send_welcome_email.aenqueue("user@example.com", "Alice")
+
+# Store the result ID for later retrieval
+request.session["report_task_id"] = str(result.id)
+```
+
+### Transaction Safety
+
+- Enqueue tasks **after** the surrounding transaction commits; otherwise the worker may run before the data it needs is visible in the database.
+
+```python
+from functools import partial
+from django.db import transaction
+from myapp.tasks import send_welcome_email
+
+def register_user(email, username):
+    with transaction.atomic():
+        user = User.objects.create_user(username=username, email=email)
+        # enqueue only after commit -- user row is visible to the worker
+        transaction.on_commit(
+            partial(send_welcome_email.enqueue, email, username)
+        )
+```
+
+### Task Results
+
+- `task.enqueue()` returns a `TaskResult` immediately; poll `.status` and call `.refresh()` (or `await .arefresh()`) to get fresh state from the backend.
+- Access `.return_value` only when `status == SUCCESSFUL`; accessing it earlier raises `ValueError`.
+
+```python
+result = generate_report.enqueue(report_id=42)
+print(result.id)        # UUID
+print(result.status)    # QUEUED | RUNNING | SUCCESSFUL | FAILED
+
+# Poll until done (in a real app, check asynchronously)
+result.refresh()
+if result.status == "SUCCESSFUL":
+    print(result.return_value)   # whatever the task returned
+elif result.status == "FAILED":
+    err = result.errors[0]
+    print(err.exception_class)   # e.g. <class 'ValueError'>
+    print(err.traceback)         # full traceback string
+```
+
+```python
+# Retrieve a stored result by ID (e.g. from session)
+from django.tasks import default_task_backend
+
+result = default_task_backend.get_result(task_id)
+result = await default_task_backend.aget_result(task_id)
+```
+
+### Workers
+
+- Start one or more worker processes with the built-in management command; workers poll the backend and execute queued tasks.
+
+```bash
+# Start workers (uses TASKS["default"] backend)
+python manage.py run_workers
+
+# Run workers for a named queue
+python manage.py run_workers --queue emails
+```
+
+- In production run the worker under a process supervisor (systemd, supervisord, Docker) so it restarts on failure.
+
+```ini
+# /etc/systemd/system/myapp-worker.service
+[Unit]
+Description=MyApp Task Worker
+After=network.target
+
+[Service]
+User=myapp
+WorkingDirectory=/srv/myapp
+ExecStart=/srv/myapp/venv/bin/python manage.py run_workers
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Serialization Constraints
+
+- All task arguments **and** return values must be JSON-serializable; this is a hard constraint imposed by the backend protocol.
+
+```python
+# WRONG -- datetime is not JSON-serializable
+process.enqueue(datetime.now())   # TypeError
+
+# RIGHT -- pass primitive types only
+process.enqueue(datetime.now().isoformat())
+
+# WRONG -- tuples silently become lists after JSON round-trip
+@task
+def process_ids(ids):
+    return {id: id * 2 for id in ids}   # fails if ids was a tuple
+
+# RIGHT -- use lists; convert inside the task if needed
+process_ids.enqueue([1, 2, 3])
+
+# WRONG -- model instances are not serializable
+send_welcome_email.enqueue(user)       # TypeError
+
+# RIGHT -- pass the primary key, re-fetch inside the task
+send_welcome_email.enqueue(user.email, user.username)
+```
+
+### Django Tasks vs Celery
+
+| | Django Tasks (6.0+) | Celery |
+|---|---|---|
+| **Extra infrastructure** | None (ImmediateBackend) / backend-specific | Redis or RabbitMQ broker required |
+| **Configuration** | `TASKS` dict in `settings.py` | `celery.py` + `CELERY_*` settings |
+| **Task definition** | `@task` | `@shared_task` / `@app.task` |
+| **Enqueueing** | `task.enqueue()` | `task.delay()` / `task.apply_async()` |
+| **Post-transaction** | `transaction.on_commit(partial(...))` | `task.delay_on_commit()` (v5.4+) |
+| **Periodic tasks** | Not built-in | `django-celery-beat` |
+| **Retries** | Via `takes_context` + manual re-enqueue | `autoretry_for`, `retry_backoff` built-in |
+| **Result backend** | Backend-specific | `django-celery-results` |
+| **Maturity** | New (Django 6.0) | Very mature, huge ecosystem |
+| **Complexity** | Low | Medium–High |
+
+**When to choose Django Tasks:** you want zero extra infrastructure for development, a clean Django-native API, and you don't need periodic tasks or complex retry policies out of the box.
+
+**When to choose Celery:** you need periodic/scheduled tasks, advanced retry backoff, fan-out/chord/chain primitives, or a proven production ecosystem today (Django 5.x and earlier).
+
+### Redis Backend (`django-tasks-rq`)
+
+- `django-tasks-rq` wraps **Redis Queue (RQ)** -- a mature Python job queue library -- and exposes it as a `django.tasks`-compatible backend; swapping to it from `ImmediateBackend` is a single settings change.
+
+```bash
+pip install django-tasks-rq
+```
+
+```python
+# settings.py
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks_rq.RQBackend",
+        "OPTIONS": {
+            "URL": env("REDIS_URL", default="redis://localhost:6379/0"),
+        },
+    },
+    # Optional: a second high-priority queue on the same Redis instance
+    "urgent": {
+        "BACKEND": "django_tasks_rq.RQBackend",
+        "OPTIONS": {
+            "URL": env("REDIS_URL", default="redis://localhost:6379/0"),
+            "QUEUE": "urgent",
+        },
+    },
+}
+```
+
+```python
+# tasks.py -- unchanged from before; backend is transparent
+from django.tasks import task
+
+@task(queue_name="urgent")
+def send_urgent_alert(message: str) -> None:
+    ...
+
+@task
+def generate_report(report_id: int) -> dict:
+    ...
+```
+
+```bash
+# Start the worker (reads TASKS["default"] by default)
+python manage.py run_workers
+
+# Worker for a named queue
+python manage.py run_workers --queue urgent
+```
+
+#### Running Redis -- Same Machine vs Separate Machine
+
+**Same machine** is fine for:
+- Development and local testing -- Redis listens on `localhost:6379`, zero network overhead.
+- Small-to-medium production deployments where the Django app, worker, and Redis all share one server; Redis is lightweight (typically < 50 MB RAM for most workloads).
+
+**Separate machine** (or managed service) is better when:
+- You scale Django/workers horizontally -- multiple app servers need to reach the same Redis instance.
+- You want Redis memory to be isolated from your app's memory so neither starves the other.
+- You use a managed service (AWS ElastiCache, Redis Cloud, Upstash) and want Redis backed up and monitored independently.
+
+#### Option A -- Redis directly on the machine
+
+```bash
+# Ubuntu/Debian
+sudo apt install redis-server
+sudo systemctl enable --now redis-server
+
+# macOS
+brew install redis
+brew services start redis
+
+# Verify
+redis-cli ping   # → PONG
+```
+
+```python
+# settings.py -- local install
+REDIS_URL = "redis://localhost:6379/0"
+```
+
+#### Option B -- Docker Compose (recommended for dev and single-server prod)
+
+Add a `redis` service alongside your Django app and worker; all three share a Docker network so `redis://redis:6379` resolves correctly inside containers.
+
+```yaml
+# docker-compose.yml
+services:
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: myapp
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine          # minimal footprint
+    restart: unless-stopped
+    ports:
+      - "6379:6379"                # expose to host for redis-cli debugging
+    volumes:
+      - redis_data:/data           # persist queue across restarts
+    command: redis-server --appendonly yes   # AOF persistence
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgres://myapp:secret@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
+
+  worker:
+    build: .
+    command: python manage.py run_workers
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgres://myapp:secret@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+```bash
+docker compose up          # starts db + redis + web + worker together
+docker compose up -d       # detached
+docker compose logs -f worker   # tail worker output
+```
+
+- Use `redis://redis:6379/0` inside Docker (service name resolves via Docker DNS).
+- Use `redis://localhost:6379/0` when running Django/worker outside Docker (e.g. `python manage.py runserver` on the host with only Redis in Docker).
+- The `--appendonly yes` flag enables AOF persistence so queued tasks survive a Redis restart; without it, Redis is purely in-memory and tasks are lost on restart.
 
