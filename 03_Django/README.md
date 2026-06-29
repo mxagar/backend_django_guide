@@ -9944,14 +9944,28 @@ The menu item names and the image filenames must match, since the `menu_item.htm
 
 ## Extra: Authentication
 
+- [Authentication Overview](https://docs.djangoproject.com/en/6.0/topics/auth/)
+- [Using the Authentication Systems](https://docs.djangoproject.com/en/6.0/topics/auth/default/)
+- [Password Management](https://docs.djangoproject.com/en/6.0/topics/auth/passwords/)
+
 ## Extra: Security
+
+- [Django Security Overview](https://docs.djangoproject.com/en/6.0/topics/security/)
 
 ## Extra: Caching
 
+- [Django Caching](https://docs.djangoproject.com/en/6.0/topics/cache/)
+
 ## Extra: Logging
+
+- [Django Logging](https://docs.djangoproject.com/en/6.0/topics/logging/)
 
 ## Extra: Tasks
 
-[Real Python -- Django Tasks: Exploring the Built-in Tasks Framework](https://realpython.com/django-tasks/)
+- [Real Python -- Django Tasks: Exploring the Built-in Tasks Framework](https://realpython.com/django-tasks/)
+- [Django Tasks](https://docs.djangoproject.com/en/6.0/topics/tasks/)
+
 
 ## Extra: Emails
+
+- [Sending Emails](https://docs.djangoproject.com/en/6.0/topics/email/)
