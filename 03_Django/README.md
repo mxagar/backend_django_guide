@@ -360,6 +360,18 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Context Variables with `LoggerAdapter`](#context-variables-with-loggeradapter)
     - [Security Considerations](#security-considerations)
   - [Extra: Emails](#extra-emails)
+    - [Key Settings](#key-settings)
+    - [`send_mail()` -- Quick One-Shot](#send_mail----quick-one-shot)
+    - [`send_mass_mail()` -- Efficient Batch Sending](#send_mass_mail----efficient-batch-sending)
+    - [`EmailMessage` -- Full Control](#emailmessage----full-control)
+    - [`EmailMultiAlternatives` -- HTML + Plain Text](#emailmultialternatives----html--plain-text)
+    - [Template-Based Emails](#template-based-emails)
+    - [Shared Connections](#shared-connections)
+    - [Admin \& Manager Shortcuts](#admin--manager-shortcuts)
+    - [Email Backends](#email-backends)
+    - [Testing Emails](#testing-emails)
+    - [Header Injection Prevention](#header-injection-prevention)
+    - [Custom Backend](#custom-backend)
   - [Extra: Tasks](#extra-tasks)
 
 
@@ -11541,7 +11553,272 @@ logger.debug("POST data: %s", request.POST)
 
 ## Extra: Emails
 
-- [Sending Emails](https://docs.djangoproject.com/en/6.0/topics/email/)
+- [Django Email](https://docs.djangoproject.com/en/5.2/topics/email/)
+
+Django wraps Python's `smtplib` in a clean API centred on `EmailMessage` and a swappable **backend** system. All email functions live in `django.core.mail`; settings are under `EMAIL_*`.
+
+### Key Settings
+
+```python
+# settings.py
+EMAIL_BACKEND  = "django.core.mail.backends.smtp.EmailBackend"  # default
+EMAIL_HOST     = "smtp.sendgrid.net"
+EMAIL_PORT     = 587
+EMAIL_USE_TLS  = True          # STARTTLS on port 587
+EMAIL_USE_SSL  = False         # TLS-wrap on port 465 (mutually exclusive with USE_TLS)
+EMAIL_HOST_USER     = "apikey"
+EMAIL_HOST_PASSWORD = env("SENDGRID_API_KEY")
+EMAIL_TIMEOUT  = 10            # seconds; None uses socket default
+
+DEFAULT_FROM_EMAIL   = "noreply@myapp.com"   # used when from_email=None
+SERVER_EMAIL         = "errors@myapp.com"    # used by mail_admins/mail_managers
+EMAIL_SUBJECT_PREFIX = "[MyApp] "            # prepended by mail_admins/mail_managers
+ADMINS   = [("Alice", "alice@myapp.com")]
+MANAGERS = [("Bob",   "bob@myapp.com")]
+```
+
+### `send_mail()` -- Quick One-Shot
+
+- `send_mail()` opens a fresh connection per call, sends one message, then closes -- fine for low-volume transactional mail; use `send_mass_mail()` or a shared connection for batches.
+
+```python
+from django.core.mail import send_mail
+
+sent = send_mail(
+    subject="Welcome to MyApp",
+    message="Plain-text fallback body.",
+    from_email="noreply@myapp.com",   # None → DEFAULT_FROM_EMAIL
+    recipient_list=["user@example.com"],
+    fail_silently=False,              # raise on error (default False)
+    html_message="<h1>Welcome!</h1>", # triggers multipart/alternative
+)
+# send_mail returns number of messages actually sent (0 or 1)
+```
+
+### `send_mass_mail()` -- Efficient Batch Sending
+
+- `send_mass_mail()` reuses a **single SMTP connection** for all messages in the tuple, making it substantially faster than calling `send_mail()` in a loop.
+
+```python
+from django.core.mail import send_mass_mail
+
+messages = [
+    ("Invoice #101", "See attached.", "billing@myapp.com", ["alice@example.com"]),
+    ("Invoice #102", "See attached.", "billing@myapp.com", ["bob@example.com"]),
+]
+send_mass_mail(messages, fail_silently=False)
+```
+
+### `EmailMessage` -- Full Control
+
+- `EmailMessage` exposes every SMTP header and supports attachments, CC/BCC, Reply-To, and custom headers; it is the foundation that `send_mail()` wraps internally.
+
+```python
+from django.core.mail import EmailMessage
+
+email = EmailMessage(
+    subject="Quarterly report",
+    body="Please find the report attached.",
+    from_email="reports@myapp.com",
+    to=["ceo@example.com"],
+    cc=["cfo@example.com"],
+    bcc=["audit@myapp.com"],
+    reply_to=["no-reply@myapp.com"],
+    headers={"X-Priority": "1", "List-Unsubscribe": "<mailto:unsub@myapp.com>"},
+)
+
+# Attach from memory (filename, bytes, mimetype)
+email.attach("report.pdf", pdf_bytes, "application/pdf")
+
+# Attach from disk (mimetype auto-detected)
+email.attach_file("/srv/reports/q3.pdf")
+
+email.send()
+```
+
+### `EmailMultiAlternatives` -- HTML + Plain Text
+
+- RFC 2822 best practice requires a plain-text fallback alongside HTML; `EmailMultiAlternatives` makes this easy with `attach_alternative()`.
+
+```python
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+
+ctx = {"user": user, "activation_url": url}
+text = render_to_string("emails/activation.txt", ctx)
+html = render_to_string("emails/activation.html", ctx)
+
+msg = EmailMultiAlternatives(
+    subject="Activate your account",
+    body=text,
+    from_email="noreply@myapp.com",
+    to=[user.email],
+)
+msg.attach_alternative(html, "text/html")
+msg.send()
+```
+
+- In Django 5.2+ you can inspect attached alternatives via `msg.alternatives` (a list of `EmailAlternative` named tuples with `.content` and `.mimetype`) and verify content with `msg.body_contains("some text")`.
+
+### Template-Based Emails
+
+- Keeping email content in templates separates design from logic and supports i18n.
+
+```
+myapp/
+  templates/
+    emails/
+      welcome.subject.txt    # single-line subject
+      welcome.body.txt       # plain-text body
+      welcome.body.html      # HTML body
+```
+
+```python
+# myapp/emails.py
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+
+def send_welcome_email(user):
+    ctx = {"user": user, "site_name": "MyApp"}
+    subject = render_to_string("emails/welcome.subject.txt", ctx).strip()
+    text    = render_to_string("emails/welcome.body.txt",    ctx)
+    html    = render_to_string("emails/welcome.body.html",   ctx)
+
+    msg = EmailMultiAlternatives(subject, text, to=[user.email])
+    msg.attach_alternative(html, "text/html")
+    msg.send()
+```
+
+### Shared Connections
+
+- Open one SMTP connection explicitly and reuse it across multiple messages to avoid per-message TCP/TLS handshake overhead.
+
+```python
+from django.core import mail
+
+emails = build_batch()   # list of EmailMessage objects
+
+# Context manager: opens on __enter__, closes on __exit__
+with mail.get_connection() as conn:
+    conn.send_messages(emails)   # all sent over a single connection
+```
+
+### Admin & Manager Shortcuts
+
+- `mail_admins()` and `mail_managers()` are convenience wrappers that read from `ADMINS` / `MANAGERS`, prefix the subject with `EMAIL_SUBJECT_PREFIX`, and use `SERVER_EMAIL` as the From address.
+
+```python
+from django.core.mail import mail_admins, mail_managers
+
+mail_admins(
+    "Database disk usage at 90%",
+    "Please free up space immediately.",
+    fail_silently=True,
+)
+
+mail_managers("New milestone: 10,000 users", "Congratulations team!")
+```
+
+### Email Backends
+
+Django's backend system lets you swap transport without touching application code.
+
+| Backend | Setting suffix | Use |
+|---|---|---|
+| SMTP (default) | `smtp.EmailBackend` | Production |
+| Console | `console.EmailBackend` | Dev -- prints to stdout |
+| File | `filebased.EmailBackend` | Dev -- writes `.eml` files to `EMAIL_FILE_PATH` |
+| In-memory | `locmem.EmailBackend` | Tests -- stores in `mail.outbox` |
+| Dummy | `dummy.EmailBackend` | CI -- discards all mail silently |
+
+All backend classes share the prefix `django.core.mail.backends.`.
+
+```python
+# Development: print emails to the terminal
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# Development: save emails as files for inspection
+EMAIL_BACKEND  = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = BASE_DIR / "sent_emails"
+```
+
+### Testing Emails
+
+- The test runner automatically switches to the `locmem` backend; all sent messages accumulate in `django.core.mail.outbox` (a plain list, reset between tests).
+
+```python
+# myapp/tests.py
+from django.core import mail
+from django.test import TestCase
+
+class WelcomeEmailTest(TestCase):
+    def test_welcome_sent(self):
+        self.client.post("/register/", {"email": "u@example.com", ...})
+
+        self.assertEqual(len(mail.outbox), 1)
+        msg = mail.outbox[0]
+        self.assertEqual(msg.subject, "[MyApp] Welcome to MyApp")
+        self.assertIn("u@example.com", msg.to)
+        self.assertTrue(msg.body_contains("Welcome"))   # Django 5.2+
+```
+
+### Header Injection Prevention
+
+- Django automatically raises `BadHeaderError` if any newline (`\n`, `\r`) appears in `subject`, `from_email`, or recipient addresses -- always catch it when those values come from user input.
+
+```python
+from django.core.mail import BadHeaderError, send_mail
+from django.http import HttpResponse, HttpResponseRedirect
+
+def contact(request):
+    subject = request.POST.get("subject", "")
+    message = request.POST.get("message", "")
+    try:
+        send_mail(subject, message, "contact@myapp.com", ["support@myapp.com"])
+    except BadHeaderError:
+        return HttpResponse("Invalid header found.", status=400)
+    return HttpResponseRedirect("/thanks/")
+```
+
+### Custom Backend
+
+- Subclass `BaseEmailBackend` to integrate third-party providers (Mailgun, SES, Postmark) or route to a message queue; implement `open()`, `close()`, and `send_messages()`.
+
+```python
+# myapp/backends.py
+from django.core.mail.backends.base import BaseEmailBackend
+import requests
+
+class MailgunBackend(BaseEmailBackend):
+    def open(self):
+        self._session = requests.Session()
+        return True
+
+    def close(self):
+        self._session.close()
+
+    def send_messages(self, email_messages):
+        num_sent = 0
+        for msg in email_messages:
+            resp = self._session.post(
+                "https://api.mailgun.net/v3/mg.myapp.com/messages",
+                auth=("api", MAILGUN_API_KEY),
+                data={
+                    "from": msg.from_email,
+                    "to": msg.recipients(),
+                    "subject": msg.subject,
+                    "text": msg.body,
+                },
+            )
+            if resp.ok:
+                num_sent += 1
+        return num_sent
+```
+
+```python
+# settings.py
+EMAIL_BACKEND = "myapp.backends.MailgunBackend"
+```
 
 ## Extra: Tasks
 
