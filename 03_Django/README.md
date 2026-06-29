@@ -349,8 +349,18 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Cache Control and Vary Headers](#cache-control-and-vary-headers)
     - [Cache Invalidation](#cache-invalidation)
   - [Extra: Logging](#extra-logging)
-  - [Extra: Tasks](#extra-tasks)
+    - [The Four Components](#the-four-components)
+    - [Log Levels](#log-levels)
+    - [Configuring `LOGGING` in `settings.py`](#configuring-logging-in-settingspy)
+    - [Django's Built-in Loggers](#djangos-built-in-loggers)
+    - [Handlers](#handlers)
+    - [Filters](#filters-2)
+    - [Formatters](#formatters)
+    - [Logging in Your Own Code](#logging-in-your-own-code)
+    - [Context Variables with `LoggerAdapter`](#context-variables-with-loggeradapter)
+    - [Security Considerations](#security-considerations)
   - [Extra: Emails](#extra-emails)
+  - [Extra: Tasks](#extra-tasks)
 
 
 ## 1. Introduction to Django
@@ -11201,14 +11211,340 @@ def bust_all():
 
 ## Extra: Logging
 
-- [Django Logging](https://docs.djangoproject.com/en/6.0/topics/logging/)
+- [Django Logging](https://docs.djangoproject.com/en/5.2/topics/logging/)
+- [Django Logging Reference](https://docs.djangoproject.com/en/5.2/ref/logging/)
+
+Django integrates with Python's built-in `logging` module and adds its own built-in loggers, handlers, and filters on top. All logging is configured via the `LOGGING` dictionary in `settings.py` using Python's **dictConfig** format.
+
+### The Four Components
+
+Python's logging framework has four building blocks -- loggers, handlers, filters, and formatters -- that form a pipeline from message emission to final output.
+
+- **Loggers** are named entry points (e.g. `"myapp.views"`) where you post messages; each has a minimum level, and a message is only processed if its level >= the logger's level.
+- **Handlers** consume records from a logger and send them somewhere (console, file, email, etc.); they also have their own level, so a handler can further restrict what it processes.
+- **Filters** sit on loggers or handlers and provide fine-grained control -- they can reject records or even mutate them before output.
+- **Formatters** turn a `LogRecord` into a string using a format pattern; Django ships `ServerFormatter` for the dev server.
+
+```
+view code
+  └─► logger.error("msg")          # posted to logger "myapp.views"
+        └─► passes level check?
+              └─► each Handler
+                    └─► passes filter(s)?
+                          └─► Formatter -> final output
+```
+
+### Log Levels
+
+- Django uses the standard Python levels in ascending severity order:
+
+| Level | Numeric | Typical use |
+|---|---|---|
+| `DEBUG` | 10 | SQL queries, variable dumps |
+| `INFO` | 20 | Request served, task started |
+| `WARNING` | 30 | Recoverable issues |
+| `ERROR` | 40 | Exceptions, failed requests |
+| `CRITICAL` | 50 | System-level failures |
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+logger.debug("SQL: %s", sql)          # only if level ≤ DEBUG
+logger.info("User %s logged in", user)
+logger.warning("Rate limit close: %d", count)
+logger.error("Payment failed", exc_info=True)   # attaches traceback
+logger.critical("DB connection pool exhausted")
+```
+
+- Use `exc_info=True` (or pass the exception) to attach a traceback automatically; avoid formatting strings eagerly -- pass args as positional params so formatting is skipped when the level is suppressed.
+
+### Configuring `LOGGING` in `settings.py`
+
+- `LOGGING` uses Python's `dictConfig` schema; Django **merges** it with its own defaults, so set `disable_existing_loggers: False` to preserve built-in loggers.
+- `version: 1` is the only value currently accepted by Python's `dictConfig`.
+
+```python
+# settings.py
+import os
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,          # preserve Django's defaults
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {message}",
+            "style": "{",                        # use str.format() style
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "filters": {
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "filters": ["require_debug_true"],   # only in dev
+            "formatter": "simple",
+        },
+        "file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "logs" / "django.log",
+            "maxBytes": 1024 * 1024 * 5,        # 5 MB
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+        "mail_admins": {
+            "level": "ERROR",
+            "class": "django.utils.log.AdminEmailHandler",
+            "filters": ["require_debug_false"],  # only in production
+        },
+    },
+    "root": {                                    # catch-all for all loggers
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,                  # don't bubble to root
+        },
+        "myapp": {
+            "handlers": ["console", "file", "mail_admins"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+```
+
+### Django's Built-in Loggers
+
+Django posts messages to a hierarchy of named loggers; you can attach handlers or adjust levels for any of them.
+
+| Logger | Default level | Emits |
+|---|---|---|
+| `django` | INFO | Parent of all; Django doesn't post here directly |
+| `django.request` | WARNING/ERROR | 4xx -> WARNING, 5xx -> ERROR; extras: `status_code`, `request` |
+| `django.server` | INFO | dev-server access log; 4xx -> WARNING, 5xx -> ERROR |
+| `django.template` | DEBUG | Missing template variables |
+| `django.db.backends` | DEBUG | Every SQL statement (only when `DEBUG=True`); extras: `sql`, `duration`, `params`, `alias` |
+| `django.security.*` | WARNING | `SuspiciousOperation`, bad host headers, CSRF failures |
+| `django.security.DisallowedHost` | WARNING | Host header not in `ALLOWED_HOSTS` |
+| `django.security.csrf` | WARNING | CSRF token failures |
+| `django.contrib.auth` | ERROR | Failed password-reset email delivery |
+
+```python
+# Silence the noisy DisallowedHost warnings in production
+LOGGING = {
+    ...
+    "handlers": {"null": {"class": "logging.NullHandler"}},
+    "loggers": {
+        "django.security.DisallowedHost": {
+            "handlers": ["null"],
+            "propagate": False,
+        },
+    },
+}
+```
+
+```python
+# See every SQL query in development
+LOGGING = {
+    ...
+    "loggers": {
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+```
+
+### Handlers
+
+- **`logging.StreamHandler`** -- writes to `sys.stderr` (or any stream); ideal for console/Docker output.
+- **`logging.FileHandler`** -- appends to a single file; use `RotatingFileHandler` or `TimedRotatingFileHandler` from `logging.handlers` for production.
+- **`django.utils.log.AdminEmailHandler`** -- emails `settings.ADMINS` on ERROR; accepts `include_html=True` to attach the full debug page (be careful -- it includes local variable values and settings).
+- **`logging.NullHandler`** -- silently discards records; useful to suppress chatty third-party loggers.
+
+```python
+# RotatingFileHandler -- rotate at 5 MB, keep 3 archives
+"file": {
+    "class": "logging.handlers.RotatingFileHandler",
+    "filename": "/var/log/myapp/django.log",
+    "maxBytes": 5 * 1024 * 1024,
+    "backupCount": 3,
+    "formatter": "verbose",
+},
+
+# AdminEmailHandler with explicit email backend
+"mail_admins": {
+    "level": "ERROR",
+    "class": "django.utils.log.AdminEmailHandler",
+    "include_html": False,           # set True only if recipients are trusted
+    "email_backend": "django.core.mail.backends.smtp.EmailBackend",
+    "filters": ["require_debug_false"],
+},
+```
+
+### Filters
+
+- **`RequireDebugTrue`** -- passes records only when `DEBUG=True`; gates the console handler to dev.
+- **`RequireDebugFalse`** -- passes records only when `DEBUG=False`; gates `AdminEmailHandler` to production.
+- **`CallbackFilter`** -- wraps an arbitrary callable; return `True` to pass the record, `False` to suppress it.
+
+```python
+# myapp/logging_filters.py
+from django.http import UnreadablePostError
+
+def skip_unreadable_post(record):
+    if record.exc_info:
+        exc_type, exc_value = record.exc_info[:2]
+        if isinstance(exc_value, UnreadablePostError):
+            return False
+    return True
+```
+
+```python
+# settings.py
+"filters": {
+    "skip_unreadable_posts": {
+        "()": "django.utils.log.CallbackFilter",
+        "callback": "myapp.logging_filters.skip_unreadable_post",
+    },
+},
+"handlers": {
+    "mail_admins": {
+        "level": "ERROR",
+        "class": "django.utils.log.AdminEmailHandler",
+        "filters": ["require_debug_false", "skip_unreadable_posts"],
+    },
+},
+```
+
+### Formatters
+
+- Formatters control the string layout of each log record; use `"style": "{"` for `str.format()` syntax or `"style": "%"` (default) for `%-formatting`.
+- Standard `LogRecord` attributes include `levelname`, `asctime`, `module`, `process`, `thread`, `message`, `pathname`, `lineno`.
+
+```python
+"formatters": {
+    "verbose": {
+        "format": "{levelname} {asctime} {module}:{lineno} [{process}] {message}",
+        "style": "{",
+        "datefmt": "%Y-%m-%d %H:%M:%S",
+    },
+},
+```
+
+- For structured/JSON logging in production (easier to ingest into ELK, Datadog, Loki, etc.) use `python-json-logger`:
+
+```bash
+pip install python-json-logger
+```
+
+```python
+"formatters": {
+    "json": {
+        "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+        "format": "%(levelname)s %(asctime)s %(module)s %(message)s",
+    },
+},
+```
+
+### Logging in Your Own Code
+
+- Obtain a logger per module with `logging.getLogger(__name__)`; the dotted module path becomes the logger's name, which slots naturally into the logger hierarchy.
+- Never build the log message string yourself -- pass it as a format string with positional args so the work is skipped when the level is suppressed.
+
+```python
+# myapp/views.py
+import logging
+
+logger = logging.getLogger(__name__)   # "myapp.views"
+
+def checkout(request):
+    logger.info("Checkout started for user %s", request.user.pk)
+    try:
+        result = process_payment(request)
+    except PaymentError as e:
+        logger.error(
+            "Payment failed for user %s: %s",
+            request.user.pk, e,
+            exc_info=True,             # attach full traceback
+            extra={"order_id": request.POST.get("order_id")},
+        )
+        return render(request, "checkout_error.html", status=500)
+    logger.info("Payment succeeded, order=%s", result.order_id)
+    return redirect("order_confirmation", pk=result.order_id)
+```
+
+- Use `extra={}` to attach custom fields to the `LogRecord`; handlers/formatters can then include them in output (useful for request IDs, tenant IDs, etc.).
+
+### Context Variables with `LoggerAdapter`
+
+- `logging.LoggerAdapter` wraps a logger and auto-injects contextual data (request ID, user, tenant) into every record without threading it through every call site.
+
+```python
+# myapp/middleware.py
+import logging, uuid
+
+class RequestIDMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.id = str(uuid.uuid4())
+        request.log = logging.LoggerAdapter(
+            logging.getLogger("myapp.requests"),
+            {"request_id": request.id},
+        )
+        return self.get_response(request)
+```
+
+```python
+# myapp/views.py
+def my_view(request):
+    request.log.info("Processing started")   # automatically includes request_id
+```
+
+### Security Considerations
+
+- Log files may contain passwords, tokens, session keys, and PII -- treat them as sensitive data with restricted filesystem permissions (`chmod 640`).
+- `AdminEmailHandler` with `include_html=True` sends the full debug page (local variables, all settings) to admins; only enable if the email transport is encrypted and recipients are trusted.
+- Never log raw `request.POST` or `request.body`; extract and redact fields explicitly before logging.
+- Prefer a third-party error tracker (Sentry, Rollbar) over `AdminEmailHandler` for production -- they provide redaction, deduplication, and rate limiting out of the box.
+
+```python
+# Safe -- log only what you need
+logger.info(
+    "Password reset requested",
+    extra={"email_domain": email.split("@")[1]},   # NOT the full email
+)
+
+# Unsafe -- leaks credentials and PII
+logger.debug("POST data: %s", request.POST)
+```
+
+## Extra: Emails
+
+- [Sending Emails](https://docs.djangoproject.com/en/6.0/topics/email/)
 
 ## Extra: Tasks
 
 - [Real Python -- Django Tasks: Exploring the Built-in Tasks Framework](https://realpython.com/django-tasks/)
 - [Django Tasks](https://docs.djangoproject.com/en/6.0/topics/tasks/)
 
-
-## Extra: Emails
-
-- [Sending Emails](https://docs.djangoproject.com/en/6.0/topics/email/)
