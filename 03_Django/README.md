@@ -325,6 +325,7 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Password Management](#password-management)
     - [Authentication in Templates](#authentication-in-templates)
     - [Authentication Backends](#authentication-backends)
+    - [Password Strength Measurement](#password-strength-measurement)
   - [Extra: Security](#extra-security)
   - [Extra: Caching](#extra-caching)
   - [Extra: Logging](#extra-logging)
@@ -10436,6 +10437,78 @@ class EmailBackend:
 AUTHENTICATION_BACKENDS = [
     "myapp.backends.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",  # fallback to username
+]
+```
+
+### Password Strength Measurement
+
+- Django's built-in `AUTH_PASSWORD_VALIDATORS` are **pass/fail only** -- each validator either raises a `ValidationError` or accepts the password; none returns a score or strength level.
+- The four built-in validators and what they check:
+
+| Validator | What it checks |
+|---|---|
+| `UserAttributeSimilarityValidator` | Password is not too similar to username, email, or name |
+| `MinimumLengthValidator` | Password meets a minimum character count (default: 8) |
+| `CommonPasswordValidator` | Password is not in the list of ~20,000 common passwords |
+| `NumericPasswordValidator` | Password is not entirely numeric |
+
+- For an actual strength score, use **zxcvbn** -- it estimates crack time and returns a 0–4 score without enforcing a hard reject.
+
+```bash
+pip install zxcvbn
+```
+
+```python
+from zxcvbn import zxcvbn
+
+result = zxcvbn("correcthorsebatterystaple", user_inputs=["john", "example.com"])
+print(result["score"])          # 3  (0 = very weak, 4 = very strong)
+print(result["crack_times_display"]["offline_slow_hashing_1e4_per_second"])
+# "centuries"
+print(result["feedback"]["suggestions"])
+# ["Add another word or two. Uncommon words are better."]
+```
+
+- The typical pattern is to combine both: run `zxcvbn.js` on the client for a live strength bar (advisory UX, no server round-trip), and keep `AUTH_PASSWORD_VALIDATORS` on the server for the hard reject on form submission.
+
+```html
+<!-- signup.html -- live strength bar with zxcvbn.js -->
+<input type="password" id="id_password1" name="password1">
+<div id="strength-bar"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
+<script>
+  const labels = ["Very weak", "Weak", "Fair", "Strong", "Very strong"];
+  document.getElementById("id_password1").addEventListener("input", function () {
+    const result = zxcvbn(this.value);
+    document.getElementById("strength-bar").textContent = labels[result.score];
+  });
+</script>
+```
+
+```python
+# Optional: enforce a minimum zxcvbn score server-side with a custom validator
+from django.core.exceptions import ValidationError
+from zxcvbn import zxcvbn
+
+class ZxcvbnValidator:
+    MIN_SCORE = 2
+
+    def validate(self, password, user=None):
+        user_inputs = [user.username, user.email] if user else []
+        if zxcvbn(password, user_inputs=user_inputs)["score"] < self.MIN_SCORE:
+            raise ValidationError("This password is too weak.")
+
+    def get_help_text(self):
+        return "Your password must have a strength score of at least 2 out of 4."
+```
+
+```python
+# settings.py -- plug the custom validator in alongside the built-ins
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "myapp.validators.ZxcvbnValidator"},
 ]
 ```
 
