@@ -17,4 +17,50 @@ From these specializations, I have selected the following topics/courses:
 
 This module deals with the fourth topic/course: **APIs**.
 
-TBD.
+Table of Contents:
+
+- [Intoduction to Web-App Back-End Development](#intoduction-to-web-app-back-end-development)
+  - [1. REST APIs](#1-rest-apis)
+    - [Note on Lab Usage](#note-on-lab-usage)
+    - [Introduction to APIs](#introduction-to-apis)
+  - [2. Django REST Framework](#2-django-rest-framework)
+  - [3. Advanced API Development](#3-advanced-api-development)
+  - [4. Final Project](#4-final-project)
+
+## 1. REST APIs
+
+### Note on Lab Usage
+
+In the coursera lab environment, we need to run the following commands to set up the environment and start the Django server:
+
+```bash
+# Go to project directory
+cd /home/coder/project/YOUR_DJANGO_PROJECT
+
+# Setup environment
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+
+pipenv shell
+pipenv install 
+
+# Migrate the database
+python3 manage.py makemigrations # To compile the migrations
+python3 manage.py migrate  # To migrate the changes in Database
+
+# Start the server
+python3 manage.py runserver 8080 # To run the server
+```
+
+### Introduction to APIs
+
+
+
+## 2. Django REST Framework
+
+## 3. Advanced API Development
+
+## 4. Final Project
+
+
