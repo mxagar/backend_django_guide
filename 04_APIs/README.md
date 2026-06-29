@@ -23,8 +23,14 @@ Table of Contents:
   - [1. REST APIs](#1-rest-apis)
     - [Note on Lab Usage](#note-on-lab-usage)
     - [Introduction to APIs](#introduction-to-apis)
+    - [Principles of API Development](#principles-of-api-development)
+    - [Writing Your First API](#writing-your-first-api)
   - [2. Django REST Framework](#2-django-rest-framework)
+    - [Introduction to Django REST Framework (DRF)](#introduction-to-django-rest-framework-drf)
+    - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
+    - [Filtering, Ordering, Searching](#filtering-ordering-searching)
+    - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
   - [4. Final Project](#4-final-project)
 
 ## 1. REST APIs
@@ -55,11 +61,21 @@ python3 manage.py runserver 8080 # To run the server
 
 ### Introduction to APIs
 
+### Principles of API Development
 
+### Writing Your First API
 
 ## 2. Django REST Framework
 
+### Introduction to Django REST Framework (DRF)
+
+### Django REST Framework Essentials
+
 ## 3. Advanced API Development
+
+### Filtering, Ordering, Searching
+
+### Securing an API in Django REST Framework
 
 ## 4. Final Project
 
