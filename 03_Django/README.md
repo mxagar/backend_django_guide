@@ -300,7 +300,6 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Little Lemon Django Project](#little-lemon-django-project)
     - [Project](#project)
       - [Solution](#solution)
-        - [Shell commands](#shell-commands)
         - [`restaurant/models.py`](#restaurantmodelspy)
         - [`restaurant/admin.py`](#restaurantadminpy)
         - [`restaurant/views.py`](#restaurantviewspy)
@@ -309,6 +308,7 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [`restaurant/templates/menu_item.html`](#restauranttemplatesmenu_itemhtml)
         - [`restaurant/templates/partials/_footer.html`](#restauranttemplatespartials_footerhtml)
         - [`restaurant/templates/base.html` — footer include](#restauranttemplatesbasehtml--footer-include)
+        - [Shell Commands and Adding Menu Items](#shell-commands-and-adding-menu-items)
   - [Extra: Authentication](#extra-authentication)
   - [Extra: Security](#extra-security)
   - [Extra: Caching](#extra-caching)
@@ -9744,24 +9744,6 @@ Folder: [`lab/14-django-project/`](./lab/14-django-project/).
 
 #### Solution
 
-##### Shell commands
-
-```bash
-# Run inside the littlelemon/ directory (where manage.py lives)
-
-# Apply model migrations
-python manage.py makemigrations
-python manage.py migrate
-
-# Create a Django admin superuser
-python manage.py createsuperuser
-# Username: bistroadmin | Email: admin@littlelemon.com | Password: lemon@786!
-
-# Start the development server
-python manage.py runserver 8080
-# Open http://127.0.0.1:8080/
-```
-
 ##### `restaurant/models.py`
 
 ```python
@@ -9929,6 +9911,36 @@ urlpatterns = [
     {% include 'partials/_footer.html' %}
 ```
 
+#####  Shell Commands and Adding Menu Items
+
+```bash
+# Run inside the littlelemon/ directory (where manage.py lives)
+
+# Apply model migrations
+python manage.py makemigrations
+python manage.py migrate
+
+# Create a Django admin superuser
+python manage.py createsuperuser
+# Username: bistroadmin | Email: admin@littlelemon.com | Password: lemon@786!
+
+# Start the development server
+python manage.py runserver 8080
+# Open http://127.0.0.1:8080/
+```
+
+To add menu items, open `http://127.0.0.1:8080/admin/`, log in with the superuser credentials, and add menu items with names, prices, and descriptions. The menu item images should be in `restaurant/static/img/menu_items/` with filenames matching the menu item names.
+
+- Greek salad (`menu_items/Greek salad.jpg`)
+- Bruschetta (`menu_items/Bruschetta.jpg`)
+- Lemon dessert (`menu_items/Lemon dessert.jpg`)
+- Grilled fish (`menu_items/Grilled fish.jpg`)
+
+The menu item names and the image filenames must match, since the `menu_item.html` template uses the menu item name to construct the image path:
+
+```html
+<img src="/restaurant/static/img/menu_items/{{ menu_item.name }}.jpg" alt="{{ menu_item.name }}" />
+```
 
 
 
