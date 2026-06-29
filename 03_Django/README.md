@@ -9942,8 +9942,6 @@ The menu item names and the image filenames must match, since the `menu_item.htm
 <img src="/restaurant/static/img/menu_items/{{ menu_item.name }}.jpg" alt="{{ menu_item.name }}" />
 ```
 
-
-
 ## Extra: Authentication
 
 ## Extra: Security
