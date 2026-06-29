@@ -339,6 +339,15 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [File Upload Security](#file-upload-security)
     - [`check --deploy`](#check---deploy)
   - [Extra: Caching](#extra-caching)
+    - [Cache Backends](#cache-backends)
+    - [Multiple Caches](#multiple-caches)
+    - [Per-Site Caching (Middleware)](#per-site-caching-middleware)
+    - [Per-View Caching (`@cache_page`)](#per-view-caching-cache_page)
+    - [Template Fragment Caching](#template-fragment-caching)
+    - [Low-Level Cache API](#low-level-cache-api)
+    - [Cache Versioning](#cache-versioning)
+    - [Cache Control and Vary Headers](#cache-control-and-vary-headers)
+    - [Cache Invalidation](#cache-invalidation)
   - [Extra: Logging](#extra-logging)
   - [Extra: Tasks](#extra-tasks)
   - [Extra: Emails](#extra-emails)
@@ -10681,7 +10690,7 @@ def internal_dashboard(request):
 
 ```python
 # settings.py -- production HTTPS hardening
-SECURE_SSL_REDIRECT = True              # 301-redirect all HTTP → HTTPS
+SECURE_SSL_REDIRECT = True              # 301-redirect all HTTP -> HTTPS
 SECURE_PROXY_SSL_HEADER = (             # trust this header from the reverse proxy
     "HTTP_X_FORWARDED_PROTO", "https"   # misconfiguring this is a CSRF attack surface
 )
@@ -10705,7 +10714,7 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"           # COOP header
 ```python
 # MIDDLEWARE -- SecurityMiddleware must be first
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",   # ← first
+    "django.middleware.security.SecurityMiddleware",   # <- first
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -10836,7 +10845,359 @@ All `security.W*` warnings must be resolved before deploying to production.
 
 ## Extra: Caching
 
-- [Django Caching](https://docs.djangoproject.com/en/6.0/topics/cache/)
+References:
+- [Django Cache Framework](https://docs.djangoproject.com/en/5.2/topics/cache/)
+
+- Django's cache framework stores the output of expensive computations so subsequent requests can be served from fast storage instead of recomputing.
+- Caching operates at three granularities:
+  - the entire site (middleware),
+  - a single view (`@cache_page`),
+  - or a fragment of a template (`{% cache %}`)
+- The low-level API also allows caching arbitrary Python objects.
+- Every cache backend shares the same API -- swapping backends is a one-line change in `settings.py`.
+
+### Cache Backends
+
+- The `CACHES` setting maps named aliases to backend configurations; `"default"` is the alias used implicitly by all helpers.
+- Common arguments for every backend: `TIMEOUT` (seconds until expiry, default `300`; `None` = never expire), `KEY_PREFIX` (string prepended to every key), `VERSION` (integer included in the key), `OPTIONS` (backend-specific dict).
+
+```python
+# settings.py -- pick one backend for "default"
+
+# 1. Local-memory (default, per-process, not shared between workers)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",   # distinguishes multiple locmem caches
+    }
+}
+
+# 2. Redis (recommended for production; requires `pip install redis`)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379",
+        # With auth: "redis://user:password@127.0.0.1:6379"
+        # With DB index: "redis://127.0.0.1:6379/1"
+    }
+}
+
+# 3. Memcached (requires `pip install pymemcache`)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.memcached.PyMemcacheCache",
+        "LOCATION": "127.0.0.1:11211",
+        # Multiple servers (distributed): "LOCATION": ["10.0.0.1:11211", "10.0.0.2:11211"]
+    }
+}
+
+# 4. Database (no extra dependencies; slowest but durable)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "my_cache_table",
+    }
+}
+# Then create the table:
+# python manage.py createcachetable
+
+# 5. Filesystem
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": "/var/tmp/django_cache",
+    }
+}
+
+# 6. Dummy (no-op; useful in development to disable caching without code changes)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    }
+}
+```
+
+```python
+# Full example with all common arguments
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379",
+        "TIMEOUT": 300,           # default expiry in seconds
+        "KEY_PREFIX": "mysite",   # prepended to every key -> "mysite:1:mykey"
+        "VERSION": 1,             # included in composed key
+        "OPTIONS": {
+            "MAX_ENTRIES": 1000,  # for locmem/filesystem/db backends
+        },
+    }
+}
+```
+
+### Multiple Caches
+
+- Define multiple named caches and use each for a different purpose (e.g., one Redis for general data, one for sessions, one local-memory for per-worker hot data).
+
+```python
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/0",
+    },
+    "sessions": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+    },
+    "local": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "local-hot",
+    },
+}
+
+SESSION_CACHE_ALIAS = "sessions"  # point session backend at the sessions cache
+```
+
+```python
+from django.core.cache import caches
+
+caches["default"].set("key", "value")
+caches["local"].set("key", "value")
+```
+
+### Per-Site Caching (Middleware)
+
+- Wrapping the entire middleware stack with `UpdateCacheMiddleware` + `FetchFromCacheMiddleware` caches every cacheable GET/HEAD response automatically.
+- `UpdateCacheMiddleware` must be **first** and `FetchFromCacheMiddleware` must be **last** because Django processes request middleware top-to-bottom and response middleware bottom-to-top.
+
+```python
+# settings.py
+MIDDLEWARE = [
+    "django.middleware.cache.UpdateCacheMiddleware",    # <- first
+    "django.middleware.security.SecurityMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.middleware.cache.FetchFromCacheMiddleware",  # <- last
+]
+
+CACHE_MIDDLEWARE_ALIAS = "default"   # which cache to use
+CACHE_MIDDLEWARE_SECONDS = 600       # cache duration (10 minutes)
+CACHE_MIDDLEWARE_KEY_PREFIX = "mysite"
+```
+
+### Per-View Caching (`@cache_page`)
+
+- `@cache_page` caches the full rendered response of a view for a given number of seconds, keyed by the request URL (including query string).
+- It can be applied in the view file or directly in `urls.py` -- the URL pattern approach is cleaner for third-party views you cannot modify.
+
+```python
+from django.views.decorators.cache import cache_page
+
+@cache_page(60 * 15)   # 15 minutes
+def article_list(request):
+    ...
+
+# Target a specific cache and add a key prefix
+@cache_page(60 * 15, cache="local", key_prefix="v2")
+def article_list(request):
+    ...
+```
+
+```python
+# urls.py -- apply cache_page without touching the view
+from django.views.decorators.cache import cache_page
+from . import views
+
+urlpatterns = [
+    path("articles/", cache_page(60 * 15)(views.article_list), name="article-list"),
+]
+```
+
+```python
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils.decorators import method_decorator
+from django.views import View
+
+# Class-based view -- wrap dispatch to cache all HTTP methods
+@method_decorator(cache_page(60 * 15), name="dispatch")
+class ArticleListView(View):
+    ...
+```
+
+### Template Fragment Caching
+
+- The `{% cache %}` tag caches a block of template output, avoiding re-rendering expensive sections on every request.
+- Additional arguments after the fragment name create per-argument cache keys -- use them to cache per-user, per-language, or per-object fragments.
+
+```django
+{% load cache %}
+
+{# Cache the sidebar for 5 minutes, shared by all users #}
+{% cache 300 sidebar %}
+    <aside>... expensive query ...</aside>
+{% endcache %}
+
+{# Per-user fragment -- one cache entry per username #}
+{% cache 300 user-sidebar request.user.username %}
+    <aside>Welcome, {{ request.user }}</aside>
+{% endcache %}
+
+{# Use a specific named cache backend #}
+{% cache 300 sidebar using="local" %}
+    ...
+{% endcache %}
+```
+
+```python
+# Invalidate a template fragment from Python
+from django.core.cache import cache
+from django.core.cache.utils import make_template_fragment_key
+
+# Must match the tag: {% cache 300 user-sidebar username %}
+key = make_template_fragment_key("user-sidebar", [username])
+cache.delete(key)
+```
+
+### Low-Level Cache API
+
+- Import `cache` (the default cache) or `caches["alias"]` for a named cache.
+- All methods have async equivalents prefixed with `a` -- `aset`, `aget`, `adelete`, etc.
+
+```python
+from django.core.cache import cache   # shortcut for caches["default"]
+
+# --- Basic get / set / delete ---
+cache.set("key", {"user": 1, "data": [1, 2, 3]}, timeout=60)
+value = cache.get("key")                    # returns the dict, or None
+value = cache.get("key", default="miss")    # return "miss" if absent
+
+cache.delete("key")                         # returns True if key existed
+cache.delete_many(["key1", "key2"])
+cache.clear()                               # !! wipes the entire cache namespace
+
+# --- Add (only if absent) ---
+cache.add("counter", 0)          # True  -- key was absent, value set
+cache.add("counter", 99)         # False -- key already exists, value unchanged
+
+# --- Atomic get-or-set ---
+# Second arg can be a value or a zero-arg callable (evaluated lazily only on miss)
+hits = cache.get_or_set("homepage_hits", 0, timeout=3600)
+user = cache.get_or_set("user:42", lambda: User.objects.get(pk=42), timeout=300)
+
+# --- Bulk operations (fewer round-trips) ---
+cache.set_many({"a": 1, "b": 2, "c": 3}, timeout=60)
+result = cache.get_many(["a", "b", "c", "missing"])
+# -> {"a": 1, "b": 2, "c": 3}  (absent keys not included)
+
+# --- Atomic counters ---
+cache.set("views", 0)
+cache.incr("views")          # -> 1
+cache.incr("views", 10)      # -> 11
+cache.decr("views", 5)       # -> 6
+# incr/decr raise ValueError if the key does not exist
+
+# --- Refresh expiry without changing value ---
+cache.touch("views", timeout=600)   # reset TTL to 10 minutes; returns True/False
+```
+
+```python
+# Async views
+async def my_view(request):
+    data = await cache.aget("expensive")
+    if data is None:
+        data = await compute_expensive()
+        await cache.aset("expensive", data, timeout=300)
+    return JsonResponse(data)
+```
+
+### Cache Versioning
+
+- Versioning adds an integer to the composed cache key, allowing atomic "invalidate everything" by bumping the version rather than iterating over keys.
+- The composed key format is `"<KEY_PREFIX>:<VERSION>:<key>"`.
+
+```python
+cache.set("article", data, version=2)
+
+cache.get("article")            # uses DEFAULT VERSION (1) -> None
+cache.get("article", version=2) # -> data
+
+# Bump the version for a key (new version = old + 1)
+cache.incr_version("article")   # key is now accessible at version=3
+cache.decr_version("article")   # back to version=2
+```
+
+### Cache Control and Vary Headers
+
+- `Cache-Control` and `Vary` headers tell **downstream caches** (CDNs, browser caches, proxies) what they may and may not cache.
+- Django's `@cache_page` sets these headers automatically; use `@cache_control` and `@vary_on_headers` to fine-tune them for views not wrapped by `@cache_page`.
+
+```python
+from django.views.decorators.cache import cache_control, never_cache
+from django.views.decorators.vary import vary_on_headers, vary_on_cookie
+
+# Tell proxies this response is public and cacheable for 1 hour
+@cache_control(public=True, max_age=3600)
+def public_article(request):
+    ...
+
+# Tell proxies never to cache (e.g. account pages)
+@cache_control(private=True, no_store=True)
+def account_settings(request):
+    ...
+
+# Convenience: sets Cache-Control: max-age=0, no-cache, no-store, must-revalidate, private
+@never_cache
+def checkout(request):
+    ...
+
+# Tell downstream caches to keep separate copies per User-Agent
+@vary_on_headers("User-Agent")
+def mobile_aware_view(request):
+    ...
+
+# Shortcut for Vary: Cookie (common for session-dependent pages)
+@vary_on_cookie
+def personalised_homepage(request):
+    ...
+```
+
+### Cache Invalidation
+
+- The hardest part of caching is knowing when to evict stale data; Django offers no automatic ORM-level invalidation -- you wire it up explicitly.
+- Signal-based invalidation is the cleanest pattern: listen for `post_save` / `post_delete` and delete the relevant keys.
+
+```python
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.core.cache import cache
+from .models import Article
+
+@receiver(post_save, sender=Article)
+@receiver(post_delete, sender=Article)
+def invalidate_article_cache(sender, instance, **kwargs):
+    cache.delete(f"article:{instance.pk}")
+    cache.delete("article_list")           # also bust the list view
+
+# Manual invalidation in a view or service
+def publish_article(article):
+    article.published = True
+    article.save()
+    cache.delete(f"article:{article.pk}")
+    cache.delete_many([f"tag:{t.pk}" for t in article.tags.all()])
+```
+
+```python
+# Version-based invalidation -- bump the version to instantly "forget" all related keys
+# without needing to enumerate them
+CACHE_VERSION = cache.get("global_version", 1)
+
+def get_article(pk):
+    key = f"article:{pk}"
+    return cache.get(key, version=CACHE_VERSION)
+
+def bust_all():
+    cache.incr("global_version")   # all old keys become unreachable
+```
 
 ## Extra: Logging
 
