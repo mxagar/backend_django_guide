@@ -307,9 +307,24 @@ This module deals with the third topic/course: **Django Web Framework**.
         - [`restaurant/templates/menu.html`](#restauranttemplatesmenuhtml)
         - [`restaurant/templates/menu_item.html`](#restauranttemplatesmenu_itemhtml)
         - [`restaurant/templates/partials/_footer.html`](#restauranttemplatespartials_footerhtml)
-        - [`restaurant/templates/base.html` — footer include](#restauranttemplatesbasehtml--footer-include)
+        - [`restaurant/templates/base.html` -- footer include](#restauranttemplatesbasehtml----footer-include)
         - [Shell Commands and Adding Menu Items](#shell-commands-and-adding-menu-items)
-  - [Extra: Authentication](#extra-authentication)
+  - [Extra: Authentication and Authorization](#extra-authentication-and-authorization)
+    - [Setup](#setup-1)
+    - [The User Model](#the-user-model)
+    - [Authentication: `authenticate()`, `login()`, `logout()`](#authentication-authenticate-login-logout)
+    - [Restricting Access to Views](#restricting-access-to-views)
+      - [Class-Based Views](#class-based-views-2)
+      - [Custom Test with `@user_passes_test`](#custom-test-with-user_passes_test)
+    - [Permissions](#permissions-1)
+      - [`@permission_required` Decorator](#permission_required-decorator)
+      - [Custom Permissions](#custom-permissions)
+    - [Groups](#groups)
+    - [Built-in Auth Views and URLs](#built-in-auth-views-and-urls)
+    - [Built-in Auth Forms](#built-in-auth-forms)
+    - [Password Management](#password-management)
+    - [Authentication in Templates](#authentication-in-templates)
+    - [Authentication Backends](#authentication-backends)
   - [Extra: Security](#extra-security)
   - [Extra: Caching](#extra-caching)
   - [Extra: Logging](#extra-logging)
@@ -9720,7 +9735,7 @@ The primary purpose of the assessments is to check your knowledge and understand
 
 #### Graded Quiz
 
-The quiz covers only the topics from the course — no surprises. Review the feedback on your answers and revisit any topics that need more attention.
+The quiz covers only the topics from the course -- no surprises. Review the feedback on your answers and revisit any topics that need more attention.
 
 #### Little Lemon Django Project
 
@@ -9730,7 +9745,7 @@ All course exercises, knowledge checks, and in-video questions build toward this
 
 **Current state:** The Home, About, and Book pages are already completed.
 
-**What you need to build — the Menu feature:**
+**What you need to build -- the Menu feature:**
 
 - Store menu information in a database so it can be updated as the menu changes seasonally.
 - Allow managers to add or update menu items by editing the name, description, price, and photo.
@@ -9904,7 +9919,7 @@ urlpatterns = [
 </footer>
 ```
 
-##### `restaurant/templates/base.html` — footer include
+##### `restaurant/templates/base.html` -- footer include
 
 ```html
     <!--Footer content-->
@@ -9942,11 +9957,487 @@ The menu item names and the image filenames must match, since the `menu_item.htm
 <img src="/restaurant/static/img/menu_items/{{ menu_item.name }}.jpg" alt="{{ menu_item.name }}" />
 ```
 
-## Extra: Authentication
+## Extra: Authentication and Authorization
 
-- [Authentication Overview](https://docs.djangoproject.com/en/6.0/topics/auth/)
-- [Using the Authentication Systems](https://docs.djangoproject.com/en/6.0/topics/auth/default/)
-- [Password Management](https://docs.djangoproject.com/en/6.0/topics/auth/passwords/)
+References:
+- [Authentication Overview](https://docs.djangoproject.com/en/5.2/topics/auth/)
+- [Using the Authentication System](https://docs.djangoproject.com/en/5.2/topics/auth/default/)
+- [Password Management](https://docs.djangoproject.com/en/5.2/topics/auth/passwords/)
+
+- Django's authentication system handles both **authentication** (verifying identity) and **authorization** (determining what an authenticated user may do).
+- It ships as `django.contrib.auth` and is enabled by default; it provides users, passwords, permissions, groups, and a pluggable backend system.
+- The system deliberately does *not* include login throttling, OAuth, or object-level permissions -- those come from third-party packages (e.g., `django-allauth`, `django-guardian`).
+
+### Setup
+
+- `django.contrib.auth` and `django.contrib.contenttypes` must be in `INSTALLED_APPS`.
+- `SessionMiddleware` and `AuthenticationMiddleware` must be in `MIDDLEWARE`.
+- Both are present by default in any project created with `django-admin startproject`.
+
+```python
+# settings.py -- defaults, shown for reference
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",           # auth models, backends, signals
+    "django.contrib.contenttypes",   # required by the permission system
+    ...
+]
+
+MIDDLEWARE = [
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",  # sets request.user
+    ...
+]
+```
+
+```bash
+python manage.py migrate   # creates auth_user, auth_permission, auth_group tables
+```
+
+### The User Model
+
+- `django.contrib.auth.models.User` is the built-in user model; it covers the vast majority of standard use cases.
+- Key fields: 
+  - `username`,
+  - `password` (always stored hashed), 
+  - `email`, 
+  - `first_name`, 
+  - `last_name`, 
+  - `is_active`, 
+  - `is_staff`, 
+  - `is_superuser`, 
+  - `date_joined`, 
+  - `last_login`.
+- Key methods: 
+  - `is_authenticated` (always `True` for real users),
+  - `has_perm(perm)`,
+  - `has_perms(perm_list)`,
+  - `has_module_perms(app_label)`,
+  - `set_password(raw)`,
+  - `check_password(raw)`.
+
+```python
+from django.contrib.auth.models import User
+
+# Create a regular user -- use create_user(), never User.objects.create()
+# create_user() hashes the password automatically.
+user = User.objects.create_user("john", "john@example.com", "s3cr3t!")
+user.first_name = "John"
+user.save()
+
+# Create a superuser (has all permissions without explicit assignment)
+User.objects.create_superuser("admin", "admin@example.com", "adminpass")
+```
+
+```bash
+# Equivalent shell commands
+python manage.py createsuperuser
+python manage.py changepassword john
+```
+
+```python
+# Changing a password programmatically
+user = User.objects.get(username="john")
+user.set_password("newpassword")   # hashes and sets; never assign user.password directly
+user.save()
+
+# Verifying a password (e.g., in a custom flow)
+user.check_password("newpassword")  # True
+```
+
+### Authentication: `authenticate()`, `login()`, `logout()`
+
+- `authenticate()` checks credentials against all configured `AUTHENTICATION_BACKENDS` and returns a `User` or `None`.
+- `login()` persists the authenticated user in the session; `logout()` wipes the session entirely.
+- Never call `login()` without first calling `authenticate()` -- `authenticate()` sets an internal `backend` attribute that `login()` requires.
+
+```python
+from django.contrib.auth import authenticate, login, logout
+from django.shortcuts import render, redirect
+
+def login_view(request):
+    if request.method == "POST":
+        username = request.POST["username"]
+        password = request.POST["password"]
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)          # writes user.id into the session
+            return redirect("home")
+        # credentials invalid -- fall through to re-render form with error
+    return render(request, "registration/login.html")
+
+def logout_view(request):
+    logout(request)    # clears session data; safe to call even if not logged in
+    return redirect("home")
+```
+
+### Restricting Access to Views
+
+- `request.user` is always populated: it is a `User` instance for authenticated users or an `AnonymousUser` otherwise.
+- Use `request.user.is_authenticated` for inline checks; use the `@login_required` decorator for the common redirect pattern.
+
+```python
+# Inline check
+def dashboard(request):
+    if not request.user.is_authenticated:
+        return redirect("/login/?next=/dashboard/")
+    ...
+```
+
+```python
+from django.contrib.auth.decorators import login_required
+
+# Redirects unauthenticated users to settings.LOGIN_URL ("/accounts/login/" by default)
+# and appends ?next=<current_path> so the user is returned after login.
+@login_required
+def dashboard(request):
+    ...
+
+# Custom login URL or redirect field
+@login_required(login_url="/my-login/", redirect_field_name="return_to")
+def secret(request):
+    ...
+```
+
+```python
+# settings.py -- override defaults
+LOGIN_URL = "/accounts/login/"          # default
+LOGIN_REDIRECT_URL = "/dashboard/"      # where to go after login if no ?next=
+LOGOUT_REDIRECT_URL = "/"              # where to go after logout
+```
+
+#### Class-Based Views
+
+- `LoginRequiredMixin` provides the same behaviour as `@login_required` for CBVs; it must be listed *first* in the MRO.
+
+```python
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views import View
+
+class DashboardView(LoginRequiredMixin, View):
+    login_url = "/login/"
+    redirect_field_name = "next"
+
+    def get(self, request):
+        ...
+```
+
+#### Custom Test with `@user_passes_test`
+
+- `@user_passes_test` redirects if a callable returns `False` for the request user; useful for arbitrary conditions beyond authentication.
+
+```python
+from django.contrib.auth.decorators import user_passes_test
+
+def is_editor(user):
+    return user.groups.filter(name="Editors").exists()
+
+@user_passes_test(is_editor, login_url="/no-access/")
+def editor_dashboard(request):
+    ...
+```
+
+### Permissions
+
+- Django automatically creates four permissions per model on every `migrate`: `add_<model>`, `change_<model>`, `delete_<model>`, `view_<model>`.
+- Permissions are checked with `user.has_perm("app_label.codename")`; this returns `False` for inactive users.
+- **Permission caching:** permissions are fetched from the DB once and cached on the user object for the lifetime of the request. If you grant a permission and then check in the same request, re-fetch the user.
+
+```python
+from django.contrib.auth.models import User
+
+user = User.objects.get(pk=1)
+
+# Model-level permission check
+user.has_perm("myapp.change_article")   # True/False
+user.has_perm("myapp.add_article")
+
+# Multiple at once (all must be held)
+user.has_perms(["myapp.add_article", "myapp.change_article"])
+
+# App-level check (user has *any* permission in the app)
+user.has_module_perms("myapp")
+```
+
+#### `@permission_required` Decorator
+
+```python
+from django.contrib.auth.decorators import login_required, permission_required
+
+# Single permission
+@permission_required("myapp.change_article")
+def edit_article(request, pk):
+    ...
+
+# Multiple permissions (user must hold all of them)
+@permission_required(["myapp.view_article", "myapp.change_article"])
+def edit_article(request, pk):
+    ...
+
+# Raise 403 instead of redirecting to login (use after @login_required
+# to avoid a redirect loop for authenticated-but-unauthorised users)
+@login_required
+@permission_required("myapp.change_article", raise_exception=True)
+def edit_article(request, pk):
+    ...
+```
+
+```python
+from django.contrib.auth.mixins import PermissionRequiredMixin
+
+class ArticleEditView(PermissionRequiredMixin, View):
+    permission_required = "myapp.change_article"
+    raise_exception = True          # 403 instead of login redirect
+
+    # For multiple permissions:
+    # permission_required = ["myapp.view_article", "myapp.change_article"]
+```
+
+#### Custom Permissions
+
+- Declare extra permissions in the model's `Meta.permissions`; they are created during `migrate`.
+
+```python
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+
+    class Meta:
+        permissions = [
+            ("can_publish", "Can publish articles"),
+            ("can_archive", "Can archive articles"),
+        ]
+```
+
+```python
+# Assign custom permission programmatically
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from myapp.models import Article
+
+ct = ContentType.objects.get_for_model(Article)
+perm = Permission.objects.get(codename="can_publish", content_type=ct)
+user.user_permissions.add(perm)
+```
+
+### Groups
+
+- A `Group` is a named collection of permissions; every user in the group inherits the group's permissions.
+- Groups are the idiomatic way to manage role-based access control in Django.
+
+```python
+from django.contrib.auth.models import Group, Permission
+
+# Create group and attach permissions
+editors = Group.objects.create(name="Editors")
+publish_perm = Permission.objects.get(codename="can_publish")
+editors.permissions.add(publish_perm)
+
+# Assign user to group
+user.groups.add(editors)
+
+# Effective permission is union of direct + group permissions
+user.has_perm("myapp.can_publish")   # True (via group)
+```
+
+### Built-in Auth Views and URLs
+
+- Django provides a complete set of ready-made auth views; include them with a single `path()` call.
+- Override only the templates -- place them in `templates/registration/`.
+
+```python
+# project urls.py
+from django.urls import path, include
+
+urlpatterns = [
+    path("accounts/", include("django.contrib.auth.urls")),
+]
+```
+
+Registered URL names:
+
+| URL | Name |
+|---|---|
+| `accounts/login/` | `login` |
+| `accounts/logout/` | `logout` |
+| `accounts/password_change/` | `password_change` |
+| `accounts/password_change/done/` | `password_change_done` |
+| `accounts/password_reset/` | `password_reset` |
+| `accounts/password_reset/done/` | `password_reset_done` |
+| `accounts/reset/<uidb64>/<token>/` | `password_reset_confirm` |
+| `accounts/reset/done/` | `password_reset_complete` |
+
+```python
+# Override individual views with custom templates or behaviour
+from django.contrib.auth import views as auth_views
+
+urlpatterns = [
+    path(
+        "login/",
+        auth_views.LoginView.as_view(template_name="myapp/login.html"),
+        name="login",
+    ),
+    path(
+        "password-change/",
+        auth_views.PasswordChangeView.as_view(
+            template_name="myapp/password_change.html",
+            success_url="/dashboard/",
+        ),
+        name="password_change",
+    ),
+]
+```
+
+Minimal `registration/login.html` template:
+
+```html
+{% extends "base.html" %}
+{% block content %}
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Log in</button>
+  <input type="hidden" name="next" value="{{ next }}">
+</form>
+<a href="{% url 'password_reset' %}">Forgot password?</a>
+{% endblock %}
+```
+
+### Built-in Auth Forms
+
+- Django's auth forms handle validation, password hashing, and error messages -- use them directly in custom views.
+
+```python
+from django.contrib.auth.forms import (
+    UserCreationForm,       # new user signup
+    AuthenticationForm,     # login (wraps authenticate())
+    PasswordChangeForm,     # change password (requires old password)
+    SetPasswordForm,        # set password without old (used in reset flow)
+    PasswordResetForm,      # sends reset email
+)
+```
+
+```python
+# Custom signup view using UserCreationForm
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+
+def signup(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+            return redirect("dashboard")
+    else:
+        form = UserCreationForm()
+    return render(request, "registration/signup.html", {"form": form})
+```
+
+```python
+# Extend UserCreationForm to add extra fields (e.g. email)
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+
+class SignupForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ("username", "email", "password1", "password2")
+```
+
+### Password Management
+
+- Passwords are stored using PBKDF2-SHA256 by default; the algorithm is configurable via `PASSWORD_HASHERS`.
+- `set_password()` hashes and stores; `check_password()` verifies a plain-text string against the stored hash.
+- After a password change, the current session's auth hash is invalidated -- call `update_session_auth_hash()` to keep the user logged in.
+
+```python
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+
+@login_required
+def change_password(request):
+    if request.method == "POST":
+        form = PasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            # Without this call, the user is logged out immediately
+            # because the session's password hash no longer matches.
+            update_session_auth_hash(request, form.user)
+            return redirect("password_change_done")
+    else:
+        form = PasswordChangeForm(user=request.user)
+    return render(request, "registration/password_change_form.html", {"form": form})
+```
+
+```python
+# settings.py -- password validation rules (shown to the user on signup/change)
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+```
+
+### Authentication in Templates
+
+- `request.user` is available in all templates when `django.template.context_processors.request` and `django.contrib.auth.context_processors.auth` are enabled (both are on by default).
+- `perms` is a template proxy that checks permissions lazily without extra DB queries.
+
+```html
+{% if user.is_authenticated %}
+    <p>Hello, {{ user.username }} -- <a href="{% url 'logout' %}">Log out</a></p>
+{% else %}
+    <a href="{% url 'login' %}">Log in</a>
+{% endif %}
+
+{% if perms.myapp.can_publish %}
+    <a href="{% url 'publish' %}">Publish</a>
+{% endif %}
+
+{% if perms.myapp %}
+    <!-- user has at least one permission in myapp -->
+{% endif %}
+```
+
+### Authentication Backends
+
+- `AUTHENTICATION_BACKENDS` is an ordered list of dotted paths; `authenticate()` tries each in turn.
+- The default backend (`ModelBackend`) queries `auth_user` by username and verifies the password hash.
+- Custom backends enable alternative login strategies (e.g., email login, LDAP, token-based) without touching views.
+
+```python
+# myapp/backends.py -- allow login by email instead of username
+from django.contrib.auth.models import User
+
+class EmailBackend:
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        try:
+            user = User.objects.get(email=username)
+        except User.DoesNotExist:
+            return None
+        if user.check_password(password) and self.user_can_authenticate(user):
+            return user
+        return None
+
+    def get_user(self, user_id):
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+    def user_can_authenticate(self, user):
+        return user.is_active
+```
+
+```python
+# settings.py
+AUTHENTICATION_BACKENDS = [
+    "myapp.backends.EmailBackend",
+    "django.contrib.auth.backends.ModelBackend",  # fallback to username
+]
+```
 
 ## Extra: Security
 
