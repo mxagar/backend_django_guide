@@ -299,6 +299,16 @@ This module deals with the third topic/course: **Django Web Framework**.
       - [Graded Quiz](#graded-quiz)
       - [Little Lemon Django Project](#little-lemon-django-project)
     - [Project](#project)
+      - [Solution](#solution)
+        - [Shell commands](#shell-commands)
+        - [`restaurant/models.py`](#restaurantmodelspy)
+        - [`restaurant/admin.py`](#restaurantadminpy)
+        - [`restaurant/views.py`](#restaurantviewspy)
+        - [`restaurant/urls.py`](#restauranturlspy)
+        - [`restaurant/templates/menu.html`](#restauranttemplatesmenuhtml)
+        - [`restaurant/templates/menu_item.html`](#restauranttemplatesmenu_itemhtml)
+        - [`restaurant/templates/partials/_footer.html`](#restauranttemplatespartials_footerhtml)
+        - [`restaurant/templates/base.html` — footer include](#restauranttemplatesbasehtml--footer-include)
   - [Extra: Authentication](#extra-authentication)
   - [Extra: Security](#extra-security)
   - [Extra: Caching](#extra-caching)
@@ -9729,6 +9739,195 @@ All course exercises, knowledge checks, and in-video questions build toward this
 ### Project
 
 Folder: [`lab/14-django-project/`](./lab/14-django-project/).
+
+**Summary:** Built the Menu and Menu Item pages for the Little Lemon restaurant Django project. Created the `Menu` model with `name`, `price`, and `menu_item_description` fields; registered both models in Django admin; added `menu()` and `display_menu_item()` view functions that query the database and pass context to templates; wired URL patterns for `/menu/` and `/menu_item/<pk>/`; created `menu.html` listing all items as clickable links with prices, and `menu_item.html` displaying the full detail (name, description, price, image) of a single item; implemented the `_footer.html` partial with the logo and copyright notice; and included the footer in `base.html` via a DTL `{% include %}` tag.
+
+#### Solution
+
+##### Shell commands
+
+```bash
+# Run inside the littlelemon/ directory (where manage.py lives)
+
+# Apply model migrations
+python manage.py makemigrations
+python manage.py migrate
+
+# Create a Django admin superuser
+python manage.py createsuperuser
+# Username: bistroadmin | Email: admin@littlelemon.com | Password: lemon@786!
+
+# Start the development server
+python manage.py runserver 8080
+# Open http://127.0.0.1:8080/
+```
+
+##### `restaurant/models.py`
+
+```python
+from django.db import models
+
+
+class Booking(models.Model):
+    first_name = models.CharField(max_length=200)
+    last_name = models.CharField(max_length=200)
+    guest_number = models.IntegerField()
+    comment = models.CharField(max_length=1000)
+
+    def __str__(self):
+        return self.first_name + ' ' + self.last_name
+
+
+class Menu(models.Model):
+    name = models.CharField(max_length=200)
+    price = models.IntegerField(null=False)
+    menu_item_description = models.TextField(max_length=1000, default='')
+
+    def __str__(self):
+        return self.name
+```
+
+##### `restaurant/admin.py`
+
+```python
+from django.contrib import admin
+from .models import Menu
+from .models import Booking
+
+admin.site.register(Menu)
+admin.site.register(Booking)
+```
+
+##### `restaurant/views.py`
+
+```python
+from django.shortcuts import render
+from .forms import BookingForm
+from .models import Menu
+
+
+def home(request):
+    return render(request, 'index.html')
+
+def about(request):
+    return render(request, 'about.html')
+
+def book(request):
+    form = BookingForm()
+    if request.method == 'POST':
+        form = BookingForm(request.POST)
+        if form.is_valid():
+            form.save()
+    context = {'form': form}
+    return render(request, 'book.html', context)
+
+def menu(request):
+    menu_data = Menu.objects.all()
+    main_data = {"menu": menu_data}
+    return render(request, 'menu.html', {"menu": main_data})
+
+def display_menu_item(request, pk=None):
+    if pk:
+        menu_item = Menu.objects.get(pk=pk)
+    else:
+        menu_item = ""
+    return render(request, 'menu_item.html', {"menu_item": menu_item})
+```
+
+##### `restaurant/urls.py`
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.home, name="home"),
+    path('about/', views.about, name="about"),
+    path('book/', views.book, name="book"),
+    path('menu/', views.menu, name="menu"),
+    path('menu_item/<int:pk>/', views.display_menu_item, name="menu_item"),
+]
+```
+
+##### `restaurant/templates/menu.html`
+
+```html
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<h1>Menu</h1>
+<!--Begin col-->
+<div class="column">
+    {% for item in menu.menu %}
+    <p>
+        <a href="{% url 'menu_item' pk=item.pk %}">
+            {{ item.name }}
+        </a>
+        <span class="menu-price">
+            ${{ item.price }}.00
+        </span>
+    </p>
+    {% endfor %}
+</div>
+<!--End col-->
+{% endblock %}
+```
+
+##### `restaurant/templates/menu_item.html`
+
+```html
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<section>
+   <article>
+      <h1>Menu item</h1>
+      <span>
+         <a href="{% url 'home' %}">Home</a> /
+         <a href="{% url 'menu' %}">Menu</a> /
+         {{ menu_item.name }}
+      </span>
+      <!--Begin row-->
+      <div class="row">
+         <!--Begin col-->
+         <div class="column">
+            <h2>{{ menu_item.name }}</h2>
+            <p>{{ menu_item.menu_item_description }}</p>
+            <p>Price: ${{ menu_item.price }}.00</p>
+         </div>
+         <!--End col-->
+         <!--Begin col-->
+         <div class="column">
+            <img src="/restaurant/static/img/menu_items/{{ menu_item.name }}.jpg" alt="{{ menu_item.name }}" />
+         </div>
+         <!--End col-->
+      </div>
+      <!--End row-->
+   </article>
+</section>
+{% endblock %}
+```
+
+##### `restaurant/templates/partials/_footer.html`
+
+```html
+{% load static %}
+<footer>
+  <article>
+    <img src="{% static 'img/logo_footer.png' %}" />
+  </article>
+  <article>
+    <p>Copyright Little Lemon</p>
+  </article>
+</footer>
+```
+
+##### `restaurant/templates/base.html` — footer include
+
+```html
+    <!--Footer content-->
+    {% include 'partials/_footer.html' %}
+```
 
 
 
