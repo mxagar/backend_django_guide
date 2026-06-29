@@ -327,6 +327,17 @@ This module deals with the third topic/course: **Django Web Framework**.
     - [Authentication Backends](#authentication-backends)
     - [Password Strength Measurement](#password-strength-measurement)
   - [Extra: Security](#extra-security)
+    - [OWASP Top 10 and Django Coverage](#owasp-top-10-and-django-coverage)
+    - [Cross-Site Scripting (XSS)](#cross-site-scripting-xss)
+    - [Cross-Site Request Forgery (CSRF)](#cross-site-request-forgery-csrf)
+    - [SQL Injection](#sql-injection)
+    - [Clickjacking (`X-Frame-Options`)](#clickjacking-x-frame-options)
+    - [HTTPS and `SecurityMiddleware`](#https-and-securitymiddleware)
+    - [Host Header Validation](#host-header-validation)
+    - [Session Security](#session-security)
+    - [Secret Key](#secret-key)
+    - [File Upload Security](#file-upload-security)
+    - [`check --deploy`](#check---deploy)
   - [Extra: Caching](#extra-caching)
   - [Extra: Logging](#extra-logging)
   - [Extra: Tasks](#extra-tasks)
@@ -10514,7 +10525,314 @@ AUTH_PASSWORD_VALIDATORS = [
 
 ## Extra: Security
 
-- [Django Security Overview](https://docs.djangoproject.com/en/6.0/topics/security/)
+References:
+- [Django Security Overview](https://docs.djangoproject.com/en/5.2/topics/security/)
+- [Security Middleware](https://docs.djangoproject.com/en/5.2/ref/middleware/#security-middleware)
+- [CSRF Protection](https://docs.djangoproject.com/en/5.2/ref/csrf/)
+- [Clickjacking Protection](https://docs.djangoproject.com/en/5.2/ref/clickjacking/)
+
+- Django addresses many of the [OWASP Top 10 vulnerabilities](https://owasp.org/Top10/2025/) by default; some require explicit configuration in production.
+- The built-in `SecurityMiddleware` (`django.middleware.security.SecurityMiddleware`) should be the **first** entry in `MIDDLEWARE` so SSL redirects fire before any other processing.
+
+### OWASP Top 10 and Django Coverage
+
+- The [OWASP Top 10](https://owasp.org/Top10/) (2021 edition) is the industry-standard ranking of the most critical web application security risks.
+- Django addresses several entries natively; others are architectural concerns or require third-party packages.
+
+| # | Vulnerability | Django coverage |
+|---|---|---|
+| A01 | **Broken Access Control** -- users acting outside intended permissions | Partial -- permission system, `@login_required`, `@permission_required`; object-level access is your responsibility |
+| A02 | **Cryptographic Failures** -- sensitive data exposed via weak/missing encryption | Partial -- passwords hashed with PBKDF2 by default; TLS/HTTPS config is yours |
+| A03 | **Injection** -- SQL, NoSQL, command, LDAP injection via untrusted input | Strong -- ORM parameterizes all queries; risk only with `raw()` / `cursor.execute()` |
+| A04 | **Insecure Design** -- flawed architecture and threat modelling | None -- framework-agnostic design concern |
+| A05 | **Security Misconfiguration** -- default credentials, verbose errors, open storage | Partial -- `check --deploy` catches many issues; `DEBUG`, `ALLOWED_HOSTS`, `SECURE_*` are yours |
+| A06 | **Vulnerable and Outdated Components** -- libraries with known CVEs | None -- use `pip audit` or Dependabot externally |
+| A07 | **Identification and Authentication Failures** -- weak sessions, credential stuffing | Partial -- session management and password hashing are solid; throttling and MFA require third-party packages |
+| A08 | **Software and Data Integrity Failures** -- unsigned updates, insecure deserialization | Partial -- `SECRET_KEY` signs sessions/tokens; pickle deserialization in cache backends is a risk |
+| A09 | **Security Logging and Monitoring Failures** -- no audit trail for breaches | None -- Django logging is general-purpose; security-specific audit logging is your responsibility |
+| A10 | **Server-Side Request Forgery (SSRF)** -- server fetches attacker-controlled URLs | None -- any code that fetches a user-supplied URL needs manual validation |
+
+- Gaps not covered by Django natively: insecure design (A04), outdated dependencies (A06), SSRF (A10), audit logging (A09), and MFA / brute-force throttling (A07).
+- Useful third-party packages for the gaps: `django-axes` (login throttling), `django-allauth` (MFA/OAuth), `pip-audit` (CVE scanning), `django-auditlog` (audit trail).
+
+### Cross-Site Scripting (XSS)
+
+- Django templates **auto-escape** `<`, `>`, `"`, `'`, and `&` in every `{{ variable }}` expression -- this is on by default and covers the common case.
+- Escaping is **not** applied when using `{% autoescape off %}`, the `|safe` filter, or `mark_safe()` in Python; use these only for trusted, developer-controlled content.
+
+```python
+from django.utils.html import mark_safe, escape, format_html
+
+# SAFE -- format_html escapes all arguments and returns a SafeString
+def render_link(url, label):
+    return format_html('<a href="{}">{}</a>', url, label)
+
+# UNSAFE -- never interpolate user data directly into a SafeString
+def bad(label):
+    return mark_safe(f"<b>{label}</b>")   # XSS if label is user-supplied
+
+# Manual escaping when you must build HTML in Python without format_html
+safe_label = escape(user_label)
+```
+
+```django
+{# Template: variable is escaped automatically #}
+{{ user_comment }}
+
+{# Only use |safe for values you fully control #}
+{{ trusted_html_from_admin|safe }}
+
+{# Block-level escape control #}
+{% autoescape off %}
+    {{ definitely_safe_content }}
+{% endautoescape %}
+```
+
+### Cross-Site Request Forgery (CSRF)
+
+- `CsrfViewMiddleware` embeds a per-session secret token in every form and validates it on every state-changing request (POST, PUT, PATCH, DELETE).
+- The token is stored in a cookie; the middleware compares it against the `csrfmiddlewaretoken` field in POST data or the `X-CSRFToken` header.
+
+```django
+{# Every HTML form must include the token tag #}
+<form method="post">
+  {% csrf_token %}
+  ...
+</form>
+```
+
+```python
+import requests
+
+# AJAX -- pass the token in a custom header
+# Fetch the cookie value in JS: document.cookie, then:
+# headers: { "X-CSRFToken": csrftoken }
+
+# Exempt a view from CSRF (use sparingly -- only for public APIs with their own auth)
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def webhook(request):
+    ...
+```
+
+```python
+# settings.py -- harden CSRF cookies in production
+CSRF_COOKIE_SECURE = True       # send cookie only over HTTPS
+CSRF_COOKIE_HTTPONLY = False    # JS must be able to read it to include in AJAX headers
+CSRF_TRUSTED_ORIGINS = [        # required when behind a proxy or using non-standard ports
+    "https://example.com",
+]
+```
+
+### SQL Injection
+
+- Django's ORM uses **parameterized queries** for all `QuerySet` operations -- user-supplied values are never interpolated into SQL strings.
+- Risk surfaces -- all accept raw SQL where injection is possible:
+  - `QuerySet.raw()`
+  - `connection.execute()`
+  - `QuerySet.extra()`
+  - `RawSQL()`
+
+```python
+# SAFE -- ORM parameterizes automatically
+Article.objects.filter(title=user_input)
+
+# SAFE -- raw() with parameter list; %s placeholders are never formatted as strings
+Article.objects.raw("SELECT * FROM article WHERE title = %s", [user_input])
+
+# UNSAFE -- string formatting bypasses parameterization
+Article.objects.raw(f"SELECT * FROM article WHERE title = '{user_input}'")
+
+# SAFE -- executing raw SQL via the connection cursor
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute("SELECT * FROM article WHERE title = %s", [user_input])
+    rows = cursor.fetchall()
+```
+
+### Clickjacking (`X-Frame-Options`)
+
+- `XFrameOptionsMiddleware` adds the `X-Frame-Options: DENY` header to every response, preventing the page from being embedded in a `<frame>` or `<iframe>` on another site.
+- Override per-view when embedding is intentional (e.g., a widget meant to be iframed).
+
+```python
+# settings.py -- DENY (default) or SAMEORIGIN
+X_FRAME_OPTIONS = "DENY"        # no framing allowed at all
+# X_FRAME_OPTIONS = "SAMEORIGIN"  # allow framing by same origin only
+```
+
+```python
+from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
+
+@xframe_options_exempt           # allow all framing (e.g. an embeddable widget)
+def embeddable_widget(request):
+    ...
+
+@xframe_options_sameorigin       # override the global DENY for this view only
+def internal_dashboard(request):
+    ...
+```
+
+### HTTPS and `SecurityMiddleware`
+
+- All `SECURE_*` settings are read by `SecurityMiddleware`; they are **all off by default** and must be enabled for production.
+- Enable `SECURE_SSL_REDIRECT` at the Django level only if your reverse proxy does not handle it -- doing it at the proxy is more efficient.
+
+```python
+# settings.py -- production HTTPS hardening
+SECURE_SSL_REDIRECT = True              # 301-redirect all HTTP → HTTPS
+SECURE_PROXY_SSL_HEADER = (             # trust this header from the reverse proxy
+    "HTTP_X_FORWARDED_PROTO", "https"   # misconfiguring this is a CSRF attack surface
+)
+
+# HTTP Strict Transport Security -- tells browsers to refuse plain HTTP for N seconds
+SECURE_HSTS_SECONDS = 31_536_000        # 1 year; start with 3600 while testing
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True   # apply to all subdomains
+SECURE_HSTS_PRELOAD = True              # opt into browser HSTS preload lists
+
+# Cookie transport security
+SESSION_COOKIE_SECURE = True            # session cookie only over HTTPS
+CSRF_COOKIE_SECURE = True               # CSRF cookie only over HTTPS
+SESSION_COOKIE_HTTPONLY = True          # JS cannot read session cookie (default True)
+
+# Security response headers
+SECURE_CONTENT_TYPE_NOSNIFF = True      # X-Content-Type-Options: nosniff
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"  # Referrer-Policy header
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"           # COOP header
+```
+
+```python
+# MIDDLEWARE -- SecurityMiddleware must be first
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",   # ← first
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+```
+
+### Host Header Validation
+
+- Django validates the `Host` header against `ALLOWED_HOSTS` in every call to `request.get_host()`; requests with unrecognised hosts raise `SuspiciousOperation` (HTTP 400).
+- Bypassing `get_host()` by accessing `request.META["HTTP_HOST"]` directly skips validation -- never do this.
+
+```python
+# settings.py
+ALLOWED_HOSTS = [
+    "example.com",
+    "www.example.com",
+    ".example.com",   # leading dot matches all subdomains
+]
+# DEBUG = True implicitly adds "localhost", "127.0.0.1" -- never use DEBUG=True in production
+
+# If the reverse proxy forwards the original Host via X-Forwarded-Host:
+USE_X_FORWARDED_HOST = True   # then also add that host to ALLOWED_HOSTS
+```
+
+### Session Security
+
+- Sessions are stored server-side by default (database backend); only the session key is sent to the browser in a cookie -- no sensitive data is exposed.
+- Critical settings prevent session cookies from leaking over plain HTTP or being read by JavaScript.
+
+```python
+# settings.py
+SESSION_COOKIE_SECURE = True      # HTTPS only
+SESSION_COOKIE_HTTPONLY = True    # inaccessible to JavaScript (default True)
+SESSION_COOKIE_SAMESITE = "Lax"   # "Strict" / "Lax" / "None"; mitigates CSRF further
+SESSION_COOKIE_AGE = 1209600      # seconds (default 2 weeks); reduce for sensitive apps
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # session deleted when browser closes
+
+# Prevent session fixation: regenerate session key after login
+# Django does this automatically in contrib.auth.login()
+```
+
+```python
+# Manually cycle the session key (e.g. after privilege escalation)
+request.session.cycle_key()
+```
+
+### Secret Key
+
+- `SECRET_KEY` is used to sign cookies, sessions, CSRF tokens, and password-reset links -- if it leaks, all of these can be forged.
+- Rotate the key without immediately invalidating existing sessions by listing old keys in `SECRET_KEY_FALLBACKS`.
+
+```python
+# settings.py
+SECRET_KEY = "production-value-from-env-never-hard-coded"
+
+# Key rotation: move old key to fallbacks, set new key above
+SECRET_KEY_FALLBACKS = [
+    "previous-secret-key",
+]
+```
+
+```bash
+# Generate a new key on the command line
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+```python
+# Load from environment in production (never commit the value to version control)
+import os
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+```
+
+### File Upload Security
+
+- Uploaded files are untrusted data and must be treated accordingly; the main risks are denial-of-service (large files), code execution (serving executables), and content-type spoofing.
+- Serve uploads from a **separate domain** (not a subdomain of the main site) to prevent an uploaded HTML file from running scripts in the same origin as the application.
+
+```python
+# settings.py
+MEDIA_ROOT = BASE_DIR / "mediafiles"
+MEDIA_URL = "https://media.example-cdn.com/"   # separate domain, not /media/ on same host
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5_242_880   # 5 MB limit for in-memory file data
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5_242_880   # 5 MB limit before spooling to disk
+```
+
+```python
+# Validate file type in a form (whitelist extensions; never trust Content-Type alone)
+import os
+from django import forms
+
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+class UploadForm(forms.Form):
+    file = forms.FileField()
+
+    def clean_file(self):
+        f = self.cleaned_data["file"]
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise forms.ValidationError("Unsupported file type.")
+        return f
+```
+
+### `check --deploy`
+
+- Django's system check framework includes a deployment checklist that reports every security misconfiguration.
+- Run it against the production settings before every release.
+
+```bash
+python manage.py check --deploy --settings=myproject.settings.production
+```
+
+Example output for a misconfigured project:
+
+```
+WARNINGS:
+?: (security.W004) You have not set a value for SECURE_HSTS_SECONDS.
+?: (security.W008) Your SECRET_KEY has less than 50 characters.
+?: (security.W012) SESSION_COOKIE_SECURE is not set to True.
+?: (security.W016) CSRF_COOKIE_SECURE is not set to True.
+```
+
+All `security.W*` warnings must be resolved before deploying to production.
 
 ## Extra: Caching
 
