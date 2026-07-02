@@ -907,26 +907,17 @@ API responses can carry sensitive data (e.g. a customer's delivery address), so 
 
 #### Authentication vs. Authorization
 
-APIs need to be secured because they give third-party clients access to backend data -- without proper security, anyone could tamper with the data or access sensitive information. Even once a client is allowed to access the data, you still need to control who is permitted to do what: that is what authentication and authorization handle. Although the two terms sound similar, they are not the same; this reading covers the difference between them and how to use each to protect API endpoints.
+- APIs expose backend data to third-party clients, so without proper security anyone could tamper with the data or read sensitive information.
+- Authentication and authorization both control access, but they are not the same thing.
 
 ##### Authentication
 
-Authentication is the process of verifying the credentials of a user.
-
-- Logging into a website with a username and password is a typical example of authentication.
-- When the username and password match, the website recognizes the user and sets cookies in the user's browser.
-- On subsequent page visits, the browser sends those cookies in the HTTP request headers; the website recognizes them, together with server-side session data, and does not ask for credentials again until the user logs out.
-
-Token-based authentication follows a similar two-step pattern in an API architecture:
-
-1. The client identifies itself with a username and password.
-2. The API server issues a bearer token, which the client then includes with every subsequent API call; the server verifies the token and decides whether to allow the requested action -- that decision step is authorization, covered below.
-
-If the credentials are not valid, the client receives a `401 Unauthorized` HTTP status code.
-
-This is like a first day at a new office: you submit your papers and documents once, receive an employee card, and from then on only the employee card is needed to get inside. Authentication works the same way.
-
-The two steps of the API authentication process are shown below.
+- Authentication verifies a user's credentials, e.g. logging in with a username and password.
+- On a match, the site sets cookies in the browser; later requests send those cookies in the HTTP headers, and the server recognizes them plus server-side session data, so no re-login is needed until logout.
+- Token-based API authentication:
+  1. Client sends username and password.
+  2. Server returns a bearer token; the client includes it on every later call, and the server verifies it before deciding whether to allow the action -- that decision is authorization.
+- Invalid credentials return `401 Unauthorized`.
 
 **Authentication process: getting an access token**
 
@@ -938,58 +929,50 @@ The two steps of the API authentication process are shown below.
 
 ##### Authorization
 
-However, even with an employee card, not all rooms or spaces in the office are accessible -- some areas are restricted to a specific group of people who have been given that privilege. Authorization works the same way: authentication lets you in, authorization lets you act, checking after authentication whether the user has the proper privileges to perform a given task.
-
-- On the server side, this is typically implemented by assigning the user to one or more groups.
-- After verifying the token, the server code checks whether the user belongs to the group required for that action.
-- If not, the client receives a `403 Forbidden` HTTP status code.
+- Authorization checks, after authentication, whether the user has the privileges to perform a given task.
+- Server-side, this is done by assigning the user to one or more groups; after token verification, the server checks group membership for the requested action.
+- Missing the required group returns `403 Forbidden`.
+- This layer ensures only privileged users can access or modify data, preventing data corruption and breaches.
 
 **API authorization**
 
 ![Diagram of API authorization](./assets/authentication-and-authorization-3.png)
 
-This extra authorization layer ensures that only users with the proper privileges can access and modify data. An authorization system is an important part of any API project, since it prevents data corruption and data breaches.
-
 ##### Implementing Authorization
 
-Privileges are the individual tasks an API user can perform, and they are the building blocks of an authorization layer.
-
-- As an API developer, first identify the privileges required by the project. For a bookshop, these might include:
-  - Browse the books
-  - Add new books
-  - Edit books
-  - Delete books
-  - Place orders
-- Not every user has every privilege -- for example, regular customers cannot add or edit books even once authenticated; only managers can.
-- After identifying the privileges, distribute them across multiple roles.
-- The authorization check itself happens in the backend code of each API endpoint that requires a role check: the developer verifies whether the user belongs to the appropriate group or role, then allows or denies the action accordingly.
+- Privileges are the individual tasks a user can perform -- the building blocks of authorization.
+- Identify the needed privileges first; for a bookshop: browse books, add books, edit books, delete books, place orders.
+- Not every user gets every privilege -- e.g. customers can't add/edit books, but managers can.
+- Distribute privileges across roles, then check role/group membership in each endpoint's backend code to allow or deny the action.
 
 ##### User Groups in Django
 
-The Django admin panel has built-in support for a user group system.
-
-- Logging into the admin panel shows two distinct sections: **Users** and **Groups**.
+- The Django admin panel has built-in support for user groups, split into **Users** and **Groups** sections.
 
 ![Django admin panel with two sections for users and groups](./assets/authentication-and-authorization-4.png)
 
-- From there, you can create groups/roles such as `Manager`, `Editor`, `Customer`, or `Admin`, and assign privileges to each group.
-- Clicking **Add** next to Groups opens a screen for creating a new group; Django automatically lists the privileges available based on the project's models. For example, a bookshop project shows the following available privileges:
+- Create roles (`Manager`, `Editor`, `Customer`, `Admin`, etc.) via **Groups -> Add**; Django lists available privileges based on the project's models, e.g. for a bookshop:
 
 ![Django admin panel with bookshop privileges listed](./assets/authentication-and-authorization-5.png)
 
-- On this screen you can create an `Editor` role and assign it privileges:
+- Example: an `Editor` role with its privileges.
 
 ![Django admin panel with Editor role and privileges](./assets/authentication-and-authorization-6.png)
 
-- Or create a `Customer` role with a different set of privileges:
+- Example: a `Customer` role with different privileges.
 
 ![Django admin panel with Customer role and privileges](./assets/authentication-and-authorization-7.png)
 
-- The admin panel lets you manage groups throughout the project's lifetime, adding or removing privileges as the project grows:
+- Groups can be edited anytime as the project grows.
 
 ![Django admin panel with two user roles](./assets/authentication-and-authorization-8.png)
 
-- Creating groups with privileges is not enough by itself: after creating the groups and assigning users to them, the function- or class-based views still need code that checks whether the authenticated user belongs to the required group(s) and acts on that check -- covered later in the course.
+- Defining groups isn't enough by itself -- views still need code that checks group membership and acts on it, covered later in the course.
+
+##### Conclusion
+
+- Authentication and authorization differ in both function and setup.
+- The groups, roles, and privileges covered here lay the groundwork for the security layer implementation covered later.
 
 ### Writing Your First API
 
