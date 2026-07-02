@@ -49,6 +49,14 @@ Table of Contents:
         - [Create a POST Request with Form Data](#create-a-post-request-with-form-data)
         - [Create a POST Request with JSON Data](#create-a-post-request-with-json-data)
     - [Principles of API Development](#principles-of-api-development)
+      - [REST Best Practices](#rest-best-practices)
+      - [Security and Authentication in REST APIs](#security-and-authentication-in-rest-apis)
+      - [Access Control](#access-control)
+      - [Authentication vs. Authorization](#authentication-vs-authorization)
+        - [Authentication](#authentication)
+        - [Authorization](#authorization)
+        - [Implementing Authorization](#implementing-authorization)
+        - [User Groups in Django](#user-groups-in-django)
     - [Writing Your First API](#writing-your-first-api)
   - [2. Django REST Framework](#2-django-rest-framework)
     - [Introduction to Django REST Framework (DRF)](#introduction-to-django-rest-framework-drf)
@@ -802,6 +810,187 @@ $.json.published.year
 
 ### Principles of API Development
 
+#### REST Best Practices
+
+A REST API is easy to create, but planning the architecture up front is what makes it robust, reliable, and able to perform well under load. The following best practices help with that.
+
+- **KISS (keep it simple, stupid)** -- a single API endpoint should do one specific job and do it well, not perform too many tasks at once.
+  - Bad design example: one endpoint that both finds the current item of the day, clears its status, and randomly picks a new item -- this overloads the endpoint with responsibilities, and a random pick might not reflect the actually most popular item.
+  - Better design: split the work into two focused calls, each updating a single menu item's status (see code example below). This removes any chance of accidentally picking the wrong item and keeps each endpoint simple and focused.
+- **Filtering, ordering, and pagination** -- always let clients narrow and reshape large result sets rather than returning everything at once.
+  - Filtering: accept query-string parameters so a client can request a subset, e.g. only appetizers or only mains, instead of the full collection.
+  - Ordering: let clients rearrange results in ascending or descending order.
+  - Pagination: deliver results in smaller chunks instead of thousands of records at once; the client controls the page number and page size (e.g. requesting 4 items from page 10 of 16 total pages).
+- **Versioning** -- breaking changes to an API's response can break client applications, so use versioning to stay safe.
+  - Decide per change whether it needs a new version or can be handled as a modification to the existing representation.
+  - As a rule of thumb, support only two versions of any given resource at a time, since maintaining many versions in parallel is complex, error-prone, and costly.
+- **Caching** -- an API should be cacheable to reduce load on the database, so always implement caching and send the relevant HTTP headers in responses to minimize repeated client calls.
+  - Cache a resource's result the first time it is requested, then serve the cached result on subsequent calls instead of hitting the database again.
+  - Only refresh the cache when the underlying data changes (a menu item is modified or added); until then, repeated requests are served from cache, saving computing power.
+- **Rate limiting and monitoring** -- protect the API and keep it healthy over time.
+  - Rate limiting caps how many times a client can call the API within a period (per minute, hour, day, or even per 30 days) to prevent abuse.
+  - Monitor latency to ensure clients get good response times.
+  - Monitor status codes, especially the `4xx` and `5xx` ranges, to catch problems early.
+  - Monitor network bandwidth to detect abuse of the API.
+
+```http
+# KISS: two focused PATCH calls instead of one endpoint that does everything
+
+# 1. Manager clears the previous "item of the day" (item 16)
+PATCH /menu-items/16
+Content-Type: application/json
+
+{ "status": "Off" }
+
+# 2. Manager manually sets the new "item of the day" (item 21)
+PATCH /menu-items/21
+Content-Type: application/json
+
+{ "status": "On" }
+
+# Pagination: request page 10 of 16, 4 items per page
+GET /menu-items?page=10&perpage=4
+```
+
+#### Security and Authentication in REST APIs
+
+APIs make data accessible not just to your own apps but to third-party clients too, which is exactly what makes them a risk: since they are publicly reachable, they give outside applications a path to your server and database, so securing them is essential.
+
+- **SSL (Secure Socket Layer)** -- encrypts data in transit between the browser and the web server.
+  - With SSL certificates installed correctly, API endpoints are served over HTTPS instead of plain HTTP.
+  - Always check that an API's endpoint starts with `https://`, not `http://`.
+- **Signed URLs** -- restrict which clients can call an API, e.g. only a project's own mobile app and website.
+  - A signed URL includes a **signature**, a piece of text attached to the request that the server verifies to confirm the call comes from an authentic source, granting limited, time-boxed access to a specific resource.
+  - HMAC (Hash-based Message Authentication Code) is a popular, easy-to-use signing mechanism: it runs a secret message through a digest algorithm together with a secret key to produce the signature, which ensures both authenticity and integrity of the message.
+- **Authentication** -- verifies who is calling the API.
+  - Basic (HTTP) authentication requires the client to send a username and password with every single call, which is both inconvenient and less secure.
+  - Token-based authentication is preferred instead: the client sends its username and password once to a sign-in endpoint and receives a unique token in return.
+    - Every subsequent API call includes that token in an HTTP header instead of the raw credentials.
+    - The server validates the token, extracts the encoded information, matches it to an existing user, and then performs the request on that user's behalf.
+    - Tokens can be generated with an ad hoc policy from the backend framework, or with an industry-standard format like JWT (JSON Web Token).
+  - Two HTTP status codes are central to authentication:
+    - `401 Unauthorized` -- the username/password (or token) do not match; the server cannot proceed.
+    - `403 Forbidden` -- the credentials are valid and identity is confirmed, but the identified user lacks permission to perform the requested action.
+- **CORS (Cross-Origin Resource Sharing) and firewalls** -- control which origins and clients may reach the API at the network/browser level.
+  - CORS headers can restrict an API to accept calls only from specific domains instead of from anywhere.
+  - A firewall can further restrict access to only specific IP addresses at the server level.
+
+```http
+# Token-based authentication: header sent with every call after sign-in
+GET /api/menu-items HTTP/1.1
+Authorization: Token xxx
+
+# CORS: restrict an API response to a single trusted origin
+Access-Control-Allow-Origin: https://www.littlelemon.com
+```
+
+#### Access Control
+
+API responses can carry sensitive data (e.g. a customer's delivery address), so not every caller should be able to reach every endpoint -- for the Little Lemon project, order-detail APIs should only be reachable by manager and delivery-crew accounts, and anyone else should be denied. Access control is what lets you specify which users can access which parts of an API and which data they can see.
+
+- **Roles and privileges** are the building blocks of an access control system.
+  - A **privilege** is permission to perform one particular task.
+  - A **role** is a named collection of privileges assigned to a type of user.
+  - Example roles for the Little Lemon project:
+    - **Customer** -- browse menu items, add items to the cart, place orders, add food reviews, browse their own orders.
+    - **Manager** -- add/edit/delete menu items, browse all orders, browse customer data, assign orders to the delivery crew, browse transaction data.
+    - **Delivery crew** -- browse orders assigned to them, update the status of an assigned order.
+  - Larger projects can define further roles (administrators, senior managers, HR accounts, etc.); the more detailed and specific each role's privileges are, the better the resulting access control system.
+- **Authorization vs. authentication** -- authorization is just another term for access control, and it is a distinct concept from authentication.
+  - Authentication verifies identity and gets a user in.
+  - Authorization determines what an already-authenticated user is allowed to do (or prevented from doing).
+- **Handling users who need multiple roles' worth of privileges** -- e.g. a general manager who must be able to do everything an accountant, an HR representative, and a normal manager can do. Two design approaches:
+  - Create one combined role with all the necessary privileges bundled in, then update/edit that role's privileges over time as needs change -- keeps a single role tailored and up to date.
+  - Assign a user multiple task-specific roles instead (accountant, HR, manager), so each role stays narrowly scoped to its own team, and the general manager is simply granted all three roles.
+    - This composition approach means a new privilege added to one role (e.g. accountant) automatically propagates to any user holding that role, including the general manager.
+- Investing time in designing roles and privileges up front is not optional polish -- it avoids costly debugging and refactoring later, and a well-designed access control system saves the whole project time and money in the long run.
+
+#### Authentication vs. Authorization
+
+APIs need to be secured because they give third-party clients access to backend data -- without proper security, anyone could tamper with the data or access sensitive information. Even once a client is allowed to access the data, you still need to control who is permitted to do what: that is what authentication and authorization handle. Although the two terms sound similar, they are not the same; this reading covers the difference between them and how to use each to protect API endpoints.
+
+##### Authentication
+
+Authentication is the process of verifying the credentials of a user.
+
+- Logging into a website with a username and password is a typical example of authentication.
+- When the username and password match, the website recognizes the user and sets cookies in the user's browser.
+- On subsequent page visits, the browser sends those cookies in the HTTP request headers; the website recognizes them, together with server-side session data, and does not ask for credentials again until the user logs out.
+
+Token-based authentication follows a similar two-step pattern in an API architecture:
+
+1. The client identifies itself with a username and password.
+2. The API server issues a bearer token, which the client then includes with every subsequent API call; the server verifies the token and decides whether to allow the requested action -- that decision step is authorization, covered below.
+
+If the credentials are not valid, the client receives a `401 Unauthorized` HTTP status code.
+
+This is like a first day at a new office: you submit your papers and documents once, receive an employee card, and from then on only the employee card is needed to get inside. Authentication works the same way.
+
+The two steps of the API authentication process are shown below.
+
+**Authentication process: getting an access token**
+
+![Diagram of the process of getting an access token](./assets/authentication-and-authorization-1.png)
+
+**Authenticated API calls**
+
+![Diagram of an authenticated API call](./assets/authentication-and-authorization-2.png)
+
+##### Authorization
+
+However, even with an employee card, not all rooms or spaces in the office are accessible -- some areas are restricted to a specific group of people who have been given that privilege. Authorization works the same way: authentication lets you in, authorization lets you act, checking after authentication whether the user has the proper privileges to perform a given task.
+
+- On the server side, this is typically implemented by assigning the user to one or more groups.
+- After verifying the token, the server code checks whether the user belongs to the group required for that action.
+- If not, the client receives a `403 Forbidden` HTTP status code.
+
+**API authorization**
+
+![Diagram of API authorization](./assets/authentication-and-authorization-3.png)
+
+This extra authorization layer ensures that only users with the proper privileges can access and modify data. An authorization system is an important part of any API project, since it prevents data corruption and data breaches.
+
+##### Implementing Authorization
+
+Privileges are the individual tasks an API user can perform, and they are the building blocks of an authorization layer.
+
+- As an API developer, first identify the privileges required by the project. For a bookshop, these might include:
+  - Browse the books
+  - Add new books
+  - Edit books
+  - Delete books
+  - Place orders
+- Not every user has every privilege -- for example, regular customers cannot add or edit books even once authenticated; only managers can.
+- After identifying the privileges, distribute them across multiple roles.
+- The authorization check itself happens in the backend code of each API endpoint that requires a role check: the developer verifies whether the user belongs to the appropriate group or role, then allows or denies the action accordingly.
+
+##### User Groups in Django
+
+The Django admin panel has built-in support for a user group system.
+
+- Logging into the admin panel shows two distinct sections: **Users** and **Groups**.
+
+![Django admin panel with two sections for users and groups](./assets/authentication-and-authorization-4.png)
+
+- From there, you can create groups/roles such as `Manager`, `Editor`, `Customer`, or `Admin`, and assign privileges to each group.
+- Clicking **Add** next to Groups opens a screen for creating a new group; Django automatically lists the privileges available based on the project's models. For example, a bookshop project shows the following available privileges:
+
+![Django admin panel with bookshop privileges listed](./assets/authentication-and-authorization-5.png)
+
+- On this screen you can create an `Editor` role and assign it privileges:
+
+![Django admin panel with Editor role and privileges](./assets/authentication-and-authorization-6.png)
+
+- Or create a `Customer` role with a different set of privileges:
+
+![Django admin panel with Customer role and privileges](./assets/authentication-and-authorization-7.png)
+
+- The admin panel lets you manage groups throughout the project's lifetime, adding or removing privileges as the project grows:
+
+![Django admin panel with two user roles](./assets/authentication-and-authorization-8.png)
+
+- Creating groups with privileges is not enough by itself: after creating the groups and assigning users to them, the function- or class-based views still need code that checks whether the authenticated user belongs to the required group(s) and acts on that check -- covered later in the course.
+
 ### Writing Your First API
 
 ## 2. Django REST Framework
@@ -817,4 +1006,3 @@ $.json.published.year
 ### Securing an API in Django REST Framework
 
 ## 4. Final Project
-
