@@ -41,6 +41,8 @@ Table of Contents:
         - [Rule 06: Query Parameters for Filtering and Pagination](#rule-06-query-parameters-for-filtering-and-pagination)
         - [Rule 07: No Trailing Slash](#rule-07-no-trailing-slash)
       - [Essential Tools for API Development](#essential-tools-for-api-development)
+      - [Setting Up a Django REST Framework Project](#setting-up-a-django-rest-framework-project)
+      - [Example: Using Insomnia](#example-using-insomnia)
     - [Principles of API Development](#principles-of-api-development)
     - [Writing Your First API](#writing-your-first-api)
   - [2. Django REST Framework](#2-django-rest-framework)
@@ -494,6 +496,58 @@ URL:    https://httpbin.org/post
 Body (JSON): { "project": "LittleLemon" }
 -> Response body echoes back: { "json": { "project": "LittleLemon" }, ... }
 ```
+
+#### Setting Up a Django REST Framework Project
+
+- The course sets up the project with `pipenv`; this guide uses `uv` instead, since it manages the virtual environment and dependency lockfile together and is faster.
+- Project setup workflow:
+  - Create a project directory, then create a virtual environment pinned to a specific Python version with `uv venv --python 3.11`.
+  - Add Django and the DRF (Django REST Framework) packages as dependencies with `uv add`; this updates `pyproject.toml` and `uv.lock`, then installs them.
+  - Activate the virtual environment (or skip activation and prefix commands with `uv run`).
+  - Scaffold the Django project with `django-admin startproject <ProjectName> .` -- the trailing dot creates it in the current directory instead of a nested subfolder.
+  - Create an app inside the project with `python manage.py startapp <AppName>`.
+  - Run the development server with `python manage.py runserver`; it serves on port 8000 by default, or on a custom port when one is passed as an argument (e.g. `runserver 8080`).
+  - In VS Code, open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **Python: Select Interpreter** to pick the `uv`-created virtual environment -- this step matters because it makes the integrated terminal auto-activate that environment, so commands like `manage.py runserver` work in any new terminal tab without manual activation.
+- Everyday `uv` commands used beyond initial setup:
+  - `uv lock` / `uv sync` -- refresh the lockfile from `pyproject.toml`, or install/sync the environment to match `pyproject.toml` and `uv.lock`.
+  - `uv add <package>` / `uv remove <package>` -- add or remove a dependency, updating the lockfile automatically.
+  - `uv run <command>` -- run a command (script, `pytest`, etc.) inside the project's virtual environment without activating it manually.
+  - `git submodule update --init --recursive` -- pull in any git submodules the project depends on.
+
+```bash
+# Create the project directory and a virtual environment with the correct Python version
+cd labs/01-little-lemon-api
+mkdir LittleLemon && cd LittleLemon
+uv venv --python 3.11
+
+# Add Django + DRF packages to pyproject.toml, update the lockfile, and install them
+uv add django djangorestframework djangorestframework-xml djoser
+uv sync
+
+# Activate the virtual environment
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS/Linux
+source .venv/bin/activate
+
+# Scaffold the Django project (the trailing dot avoids a nested subfolder) and app
+uv run django-admin startproject LittleLemon .
+uv run python manage.py startapp LittleLemonAPI
+
+# Run the development server
+uv run python manage.py runserver        # default port 8000, http://127.0.0.1:8000
+uv run python manage.py runserver 8080   # custom port
+
+# Other everyday uv/related commands
+uv lock                                  # refresh uv.lock without installing
+uv sync                                  # create/sync the venv with pyproject.toml + uv.lock
+uv run <command>                         # run any command inside the project environment
+git submodule update --init --recursive  # update submodules
+```
+
+#### Example: Using Insomnia
+
+
 
 ### Principles of API Development
 
