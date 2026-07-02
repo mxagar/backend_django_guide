@@ -42,7 +42,12 @@ Table of Contents:
         - [Rule 07: No Trailing Slash](#rule-07-no-trailing-slash)
       - [Essential Tools for API Development](#essential-tools-for-api-development)
       - [Setting Up a Django REST Framework Project](#setting-up-a-django-rest-framework-project)
-      - [Example: Using Insomnia](#example-using-insomnia)
+      - [How to Use Insomnia](#how-to-use-insomnia)
+        - [Getting Started](#getting-started)
+        - [Running httpbin Locally with Docker (Optional)](#running-httpbin-locally-with-docker-optional)
+        - [Create a GET Request](#create-a-get-request)
+        - [Create a POST Request with Form Data](#create-a-post-request-with-form-data)
+        - [Create a POST Request with JSON Data](#create-a-post-request-with-json-data)
     - [Principles of API Development](#principles-of-api-development)
     - [Writing Your First API](#writing-your-first-api)
   - [2. Django REST Framework](#2-django-rest-framework)
@@ -545,8 +550,254 @@ uv run <command>                         # run any command inside the project en
 git submodule update --init --recursive  # update submodules
 ```
 
-#### Example: Using Insomnia
+#### How to Use Insomnia
 
+This section uses the desktop REST API client [Insomnia](https://insomnia.rest/) to make HTTP requests against `httpbin.org`, an open-source echo service that reflects back whatever is sent, with no server-side setup required.
+
+##### Getting Started
+
+- Open Insomnia and go to the collection tab -- the tab used to be labelled **Debug** and is now labelled **Collection**.
+- On launch, Insomnia offers a choice between signing in/creating an account or using **Scratch Pad** mode:
+  - Scratch Pad lets you use the full app locally without an Insomnia (Kong) account.
+  - Requests, collections, and environments are stored only on your machine (typically under your local app-data folder) rather than synced to Insomnia's cloud.
+  - There is no team sharing, cloud sync, or multi-device access -- it is local storage for solo, offline use.
+  - You can switch to a signed-in account later and migrate/import the scratch pad data if needed.
+  - This exercise uses Scratch Pad mode.
+
+##### Running httpbin Locally with Docker (Optional)
+
+- The [httpbin.org](https://httpbin.org/) website exposes an **HTTP Methods** menu listing the endpoints available for each verb (`DELETE`, `GET`, `PATCH`, `POST`, etc.).
+- Since the public `httpbin.org` service can be unreliable, a local alternative is running its Docker image instead:
+
+```bash
+docker pull kennethreitz/httpbin
+docker run -p 8081:80 kennethreitz/httpbin
+# Then access the local instance at http://localhost:8081
+
+# To stop the container:
+docker ps                    # find the container ID/name
+docker stop <container_id>   # gracefully stop it
+docker rm <container_id>     # optional: remove the stopped container
+# ... or stop the most recently started container:
+docker stop $(docker ps -lq)
+# ... or press Ctrl+C in the terminal where it was started, if run without -d
+```
+
+![The HTTP Methods menu on the httpbin.org website includes options such as DELETE, GET, PATCH and POST](./assets/httpbin_docker_https_methods.png)
+
+##### Create a GET Request
+
+1. Click the **+** icon on the left-hand side of Insomnia and select **HTTP Request** from the drop-down menu.
+
+   ![New Request in Scratch Pad Collection](./assets/insomnia_new_request.png)
+
+2. Double-click the new request to rename it, e.g. `GET request using Insomnia`.
+
+   ![GET Method](./assets/insomnia_get_method.png)
+
+3. Open the method dropdown and (re-)select `GET`. Set the URL to `https://httpbin.org/get` or `http://localhost:8081/get`, then press **Send**.
+   - The JSON response echoes the request's headers, origin, and (empty) args:
+
+```json
+{
+	"args": {},
+	"headers": {
+		"Accept": "*/*",
+		"Host": "localhost:8081",
+		"User-Agent": "insomnia/13.0.2"
+	},
+	"origin": "172.xxx.xxx.xxx",
+	"url": "http://localhost:8081/get"
+}
+```
+
+   ![Insomnia GET Request](./assets/insomnia_get_request.png)
+
+4. Under the **Body** dropdown, select **Multipart Form Data**, add a `title: Lord of the Rings` name/value pair, and press **Send** again.
+   - `Content-Length` in the response updates to reflect the added form field.
+
+   ![Insomnia GET Request](./assets/insomnia_get_method_2.png)
+
+5. Add a second form entry, `author: JRR Tolkien`, and press **Send** again -- `Content-Length` increases further:
+
+```json
+{
+	"args": {},
+	"headers": {
+		"Accept": "*/*",
+		"Content-Length": "200",
+		"Content-Type": "multipart/form-data; boundary=X-INSOMNIA-BOUNDARY",
+		"Host": "localhost:8081",
+		"User-Agent": "insomnia/13.0.2"
+	},
+	"origin": "172.xxx.xxx.xxx",
+	"url": "http://localhost:8081/get"
+}
+```
+
+6. Use the **Filter response body** field in the bottom-right of Insomnia to query the JSON output with a JSONPath-style dot notation.
+
+   ![Insomnia Filter Response Body](./assets/insomnia_get_method_3.png)
+
+   - Filter `$.origin` narrows the preview to the matching field:
+
+```
+$.origin
+```
+
+```json
+[
+	"172.xxx.xxx.xxx"
+]
+```
+7. Refine the filter incrementally to drill into nested fields:
+   - `$.headers` returns the full headers object:
+
+```
+$.headers
+```
+
+```json
+[
+	{
+		"Accept": "*/*",
+		"Content-Length": "200",
+		"Content-Type": "multipart/form-data; boundary=X-INSOMNIA-BOUNDARY",
+		"Host": "localhost:8081",
+		"User-Agent": "insomnia/13.0.2"
+	}
+]
+```
+
+   - `$.headers.Content-Type` narrows further to a single field:
+
+```
+$.headers.Content-Type
+```
+
+```json
+[
+	"multipart/form-data; boundary=X-INSOMNIA-BOUNDARY"
+]
+```
+
+   - The dot operator navigates the JSON structure; `Content-Type` shows `multipart/form-data` because the body used the Multipart Form option.
+   - Clear the filter field afterward to see the full response again.
+
+8. Deselect the `title` form field and re-send the `GET` request -- `Content-Length` changes again to reflect the smaller payload.
+
+9. *(Optional)* Explore Insomnia's other configuration options to get more familiar with the tool now that the basic `GET` workflow is clear.
+
+##### Create a POST Request with Form Data
+
+1. Click **+** and select **HTTP Request** to create a new request.
+
+   ![Insomnia POST Request](./assets/insomnia_post_request.png)
+
+2. Keep the same form data, change the method to `POST`, set the URL to `https://httpbin.org/post` or `http://localhost:8081/post`, and press **Send**.
+
+   ![Form data output of a POST request in Insomnia](./assets/insomnia_post_method.png)
+
+```json
+{
+	"args": {},
+	"data": "",
+	"files": {},
+	"form": {
+		"author": "JRR Tolkien",
+		"title": "Lord of the Rings"
+	},
+	"headers": {
+		"Accept": "*/*",
+		"Content-Length": "200",
+		"Content-Type": "multipart/form-data; boundary=X-INSOMNIA-BOUNDARY",
+		"Host": "localhost:8081",
+		"User-Agent": "insomnia/13.0.2"
+	},
+	"json": null,
+	"origin": "172.xxx.xxx.xxx",
+	"url": "http://localhost:8081/post"
+}
+```
+
+   - Unlike the `GET` response, the `POST` response now includes a populated `form` object with the submitted fields.
+
+1. Explore the other output tabs: **Headers**, **Cookies**, and **Timeline**.
+
+```
+# Headers tab output
+Server: gunicorn/19.9.0
+Date: Thu, 02 Jul 2026 09:50:24 GMT
+Connection: keep-alive
+Content-Type: application/json
+Content-Length: 427
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+```
+
+##### Create a POST Request with JSON Data
+
+1. Create another **HTTP Request** via the **+** icon, as before.
+2. Set the method to `POST` and label the request, e.g. `POST Request with JSON` -- labels are for reference only and independent of the actual request type.
+3. Set the URL to `https://httpbin.org/post` or `http://localhost:8081/post`.
+4. Under the **Body** dropdown, select **JSON** as the text input type; a text area appears for the body content.
+5. Enter the following JSON body and press **Send**:
+
+```json
+{
+    "title": "Lord of the Rings",
+    "author": "JRR Tolkien",
+    "published" : {
+        "year": 1954,
+        "month": "july",
+        "day" : 29
+    }
+}
+```
+
+   - Note: if the response's `json` field shows `null` instead of the parsed object, remove any extra indentation Insomnia may have auto-inserted into the body and re-enter it (select all, clear, then use Tab for indentation) -- stray leading whitespace can break JSON parsing on the server.
+   - Expected response:
+
+```json
+{
+	"args": {},
+	"data": "{\n    \"title\": \"Lord of the Rings\",\n    \"author\": \"JRR Tolkien\",\n    \"published\" : {\n        \"year\": 1954,\n        \"month\": \"july\",\n        \"day\" : 29\n    }\n}",
+	"files": {},
+	"form": {},
+	"headers": {
+		"Accept": "*/*",
+		"Content-Length": "181",
+		"Content-Type": "application/json",
+		"Host": "localhost:8081",
+		"User-Agent": "insomnia/13.0.2"
+	},
+	"json": null,
+	"origin": "172.xxx.xxx.xxx",
+	"url": "http://localhost:8081/post"
+}
+```
+
+   - The exercise expects the parsed body to also appear in the `json` field alongside the raw `data` string; in this run `json` stayed `null` even after re-entering the body, which points at the indentation/whitespace issue noted above rather than a problem with the request itself.
+6. Filter the response body to drill into the JSON payload:
+   - `$.json.published.year`:
+
+```
+$.json.published.year
+```
+
+```json
+[
+	1954
+]
+```
+
+   - Bracket notation is also valid, e.g. `$[json][published][day]`:
+
+```json
+[
+  29
+]
+```
 
 
 ### Principles of API Development
@@ -566,5 +817,4 @@ git submodule update --init --recursive  # update submodules
 ### Securing an API in Django REST Framework
 
 ## 4. Final Project
-
 
