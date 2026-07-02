@@ -969,11 +969,6 @@ API responses can carry sensitive data (e.g. a customer's delivery address), so 
 
 - Defining groups isn't enough by itself -- views still need code that checks group membership and acts on it, covered later in the course.
 
-##### Conclusion
-
-- Authentication and authorization differ in both function and setup.
-- The groups, roles, and privileges covered here lay the groundwork for the security layer implementation covered later.
-
 ### Writing Your First API
 
 ## 2. Django REST Framework
