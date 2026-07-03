@@ -1,0 +1,11 @@
+[project]
+name = "booklist"
+version = "0.1.0"
+description = "BookList API exercise -- plain Django, function-based views"
+requires-python = ">=3.11"
+dependencies = [
+    "django",
+    "djangorestframework",
+    "djangorestframework-xml",
+    "djoser",
+]

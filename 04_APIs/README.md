@@ -58,6 +58,11 @@ Table of Contents:
         - [Implementing Authorization](#implementing-authorization)
         - [User Groups in Django](#user-groups-in-django)
     - [Writing Your First API](#writing-your-first-api)
+      - [BookAPI List Project](#bookapi-list-project)
+      - [Organizing an API Project](#organizing-an-api-project)
+      - [Consequences of a Poorly Designed API Project](#consequences-of-a-poorly-designed-api-project)
+      - [XML and JSON Response Types](#xml-and-json-response-types)
+      - [Exercise: Build a Simple API](#exercise-build-a-simple-api)
   - [2. Django REST Framework](#2-django-rest-framework)
     - [Introduction to Django REST Framework (DRF)](#introduction-to-django-rest-framework-drf)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
@@ -970,6 +975,334 @@ API responses can carry sensitive data (e.g. a customer's delivery address), so 
 - Defining groups isn't enough by itself -- views still need code that checks group membership and acts on it, covered later in the course.
 
 ### Writing Your First API
+
+#### BookAPI List Project
+
+- Project brief: a bookstore needs a website and mobile app so managers can add/edit books quickly and visitors can browse the collection -- both are served by the same underlying API.
+- Data model: a `Book` model backs the storage table and bridges the data with the business logic.
+  - `title` -- `CharField`, `max_length=255`.
+  - `author` -- `CharField`, same specs as `title`.
+  - `price` -- `DecimalField`, `max_digits=5`, `decimal_places=2`.
+  - `inventory` -- optional `PositiveSmallIntegerField` indicating whether a book is in stock.
+- Endpoints, following REST conventions:
+  - `GET /api/books` -- returns every book in the database; the `inventory` field lets the client distinguish books in stock from books out of stock.
+  - `GET /api/books/{bookId}` -- returns a single book.
+    - `404` if the requested id doesn't exist.
+    - `200` on success; the payload is a single JSON object, not wrapped in square brackets, since it is one resource, not an array element.
+  - `POST /api/books` -- creates a new book from the request payload.
+    - `201` plus the newly created book on success.
+    - `400` plus an error message if required data (e.g. the author) is missing.
+  - `PUT /api/books/{bookId}` and `DELETE /api/books/{bookId}` -- edit and delete a single book, reusing the same detail URL pattern (`api/books/<pk>`).
+- Converting a model instance to a JSON response:
+  - `model_to_dict` (from `django.forms.models`) turns a retrieved model instance into a dict.
+  - `JsonResponse` (from `django.http`) serializes that dict into the HTTP response.
+- Parsing the request body: a `POST`/`PUT` payload arrives as either a raw JSON string or a form URL-encoded string.
+  - `QueryDict` (from `django.http`) parses that raw body into a Python dictionary-like object so individual fields become accessible.
+- Recap: define the model first, then the collection/detail endpoints, then the model-to-JSON conversion, then the create/edit/delete handlers that parse the request body -- planning the steps up front minimizes debugging once you start writing the actual view code.
+
+```python
+# models.py
+from django.db import models
+
+
+class Book(models.Model):
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=5, decimal_places=2)
+    inventory = models.PositiveSmallIntegerField(blank=True, null=True)
+```
+
+```python
+# urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("api/books", views.books),            # collection: GET, POST
+    path("api/books/<int:pk>", views.book_detail),  # detail: GET, PUT, DELETE
+]
+```
+
+```python
+# views.py
+from django.forms.models import model_to_dict
+from django.http import JsonResponse, HttpResponseNotFound, HttpResponseBadRequest, QueryDict
+
+from .models import Book
+
+
+def books(request):
+    if request.method == "GET":
+        # GET /api/books -> list all books
+        return JsonResponse(list(Book.objects.values()), safe=False)
+
+    if request.method == "POST":
+        # POST /api/books -> create a book from the JSON/form payload
+        payload = QueryDict(request.body)
+        title, author = payload.get("title"), payload.get("author")
+        if not title or not author:
+            return HttpResponseBadRequest()  # 400: required data missing
+        book = Book.objects.create(title=title, author=author, price=payload.get("price"))
+        return JsonResponse(model_to_dict(book), status=201)
+
+
+def book_detail(request, pk):
+    try:
+        book = Book.objects.get(pk=pk)
+    except Book.DoesNotExist:
+        return HttpResponseNotFound()  # 404
+
+    if request.method == "GET":
+        return JsonResponse(model_to_dict(book))  # 200, single object, not a list
+
+    if request.method == "PUT":
+        payload = QueryDict(request.body)
+        book.title = payload.get("title", book.title)
+        book.author = payload.get("author", book.author)
+        book.save()
+        return JsonResponse(model_to_dict(book))
+
+    if request.method == "DELETE":
+        book.delete()
+        return JsonResponse({}, status=204)
+```
+
+#### Organizing an API Project
+
+- Upfront planning and organization make a project maintainable, saving effort later when extending it, adding features, or debugging.
+- Split a big app into multiple apps, each decoupled and dealing with one particular set of related concerns -- an essential step for staying productive with Django.
+  - Break the overall goal into smaller sub-goals first, then create one app per sub-goal, instead of building a single app that does everything.
+  - Without this split, an app keeps absorbing new features until it becomes unmanageable: further features take longer to add, bugs become harder to isolate, and the project can turn into one large, hard-to-touch block.
+- Once a project has multiple apps, several other practices keep it healthy:
+  - Use a virtual environment instead of the global environment for dependencies, since projects differ in which packages -- and which package versions -- they need; a shared global environment creates version conflicts.
+    - `uv` (this guide's tool of choice) creates and manages a project's virtual environment together with its dependency lockfile (`pyproject.toml` + `uv.lock`) in one step, and is fast.
+    - `pipenv` is a lighter-weight alternative that achieves the same per-project isolation via a `Pipfile`/`Pipfile.lock` pair.
+  - Version an API when upgrading it, since a new version's response can differ from the old one and would otherwise break existing clients.
+    - Keep the old, working API intact and add the new version as a separate app, rather than modifying the old app in place, so client developers have time to migrate.
+  - Record dependencies and their exact version numbers so the project doesn't break on deployment or for a new contributor picking it up.
+    - With `uv`, `pyproject.toml` and `uv.lock` already track dependencies and their inter-dependencies precisely, so no separate requirements file is needed day-to-day; `uv export --format requirements-txt > requirements.txt` can still produce one for tools that expect that format.
+    - With `pipenv`, the `Pipfile.lock` plays the same tracking role; it too removes the day-to-day need for a `requirements.txt`, though `pipenv` can bootstrap a project's dependencies from an existing `requirements.txt` the first time.
+    - With plain `pip` (no lockfile tool), generate that file manually with `pip3 freeze > requirements.txt`.
+  - Give each app its own resource folder (static files, templates) instead of one shared folder, to avoid naming conflicts and manage files more efficiently.
+  - Split one large settings file into several smaller files included from the main settings file (e.g. via the `django-split-settings` package), instead of a single long file that's hard to edit and search.
+  - Keep business logic in the models rather than the views, so the logic lives in one organized place; models become more powerful, decoupled, and reusable, and less code is needed overall.
+
+```bash
+# uv: dependencies are already locked in pyproject.toml + uv.lock;
+# export a requirements.txt only if some tool needs that format
+uv export --format requirements-txt > requirements.txt
+
+# plain pip: no lockfile, so freeze the environment manually
+pip3 freeze > requirements.txt
+```
+
+#### Consequences of a Poorly Designed API Project
+
+Skipping conventions, error checks, security checks, and performance planning has concrete costs. Main failure modes:
+
+- **Data breach** -- caused by weak security checks, missing authentication/authorization, wrong file permissions, or no SSL.
+  - Fix: solid authorization layer, proper security checks, double-check sensitive endpoints before production.
+- **Data corruption** -- caused by missing authentication/authorization or missing input validation/sanitization.
+  - Fix: validate and sanitize all input before processing or saving, on top of auth checks.
+- **Wasted compute and memory** -- caused by unoptimized code/logic, unoptimized queries or model relationships, missing indexes, no caching.
+  - Fix: optimize code and database access before deploying to production.
+- **Wasted bandwidth** -- caused by missing caching headers/policy, missing pagination and filtering.
+  - Fix: send proper caching headers; implement filtering and pagination.
+- **Bad user experience** -- caused by ignoring naming conventions, wrong HTTP status codes, ignoring `Accept` headers, missing pagination/sorting/searching/filtering, weak error checking.
+  - Fix: follow naming conventions, implement filtering/sorting/searching/pagination, keep error checking and tests to avoid unexpected `5xx`s.
+- **Breaking client applications** -- caused by no versioning system, so a new API's request/response shape can break existing clients instantly.
+  - Fix: version the API instead of changing an existing version in place (see [Organizing an API Project](#organizing-an-api-project)).
+- **Failure to manage the app** -- caused by one big Django app with all business logic in the views.
+  - Fix: split into multiple smaller, decoupled apps; move reusable business logic into the models.
+
+#### XML and JSON Response Types
+
+- Clients should always be able to request their preferred content type via the `Accept` request header (see [HTTP Methods, Status Codes and Response Types](#http-methods-status-codes-and-response-types)); this section compares the two formats seen most often: JSON and XML.
+- Request headers for each format:
+  - JSON -- `Accept: application/json`
+  - XML -- `Accept: application/xml` or `Accept: text/xml`
+- The same `GET` request renders the same underlying data differently depending on which `Accept` header is sent:
+
+![An API request for a JSON response](./assets/XML-and-JSON-response-types-1.png)
+
+![An API request for an XML response](./assets/XML-and-JSON-response-types-2.png)
+
+- Data conversion in Django REST Framework (DRF): built-in renderers convert data to JSON and display it in the browsable API viewer; third-party renderer classes add XML or YAML support.
+- JSON vs. XML tradeoffs:
+  - **Format style** -- JSON is a lightweight, dependency-free key-value format; XML is a tag-based format similar to HTML that can represent more complex, attribute-rich data while staying readable.
+  - **Size and bandwidth** -- JSON is smaller and uses less bandwidth; XML is lengthier and uses more.
+  - **Performance** -- generating and parsing JSON is faster and uses less memory and compute than XML.
+  - **Comments** -- XML supports comments; JSON has no comment syntax.
+  - **Popularity** -- JSON is especially popular with JavaScript developers, since it parses directly into a native object.
+
+```json
+// JSON: key-value pairs
+{
+  "author": "Jack London",
+  "title": "Seawolf"
+}
+```
+
+```xml
+<!-- XML: tag-based, no key-value pairs -->
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+   <author>Jack London</author>
+   <title>Seawolf</title>
+</root>
+```
+
+```json
+// JSON: arrays stay compact
+{
+  "items": [1, 2, 3, 4, 5]
+}
+```
+
+```xml
+<!-- XML: arrays need one element per item -- much more verbose -->
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+   <items>
+      <element>1</element>
+      <element>2</element>
+      <element>3</element>
+      <element>4</element>
+      <element>5</element>
+   </items>
+</root>
+```
+
+#### Exercise: Build a Simple API
+
+Folder: [`lab/02-booklist-api/`](./lab/02-booklist-api/) ([`Instructions.md`](./lab/02-booklist-api/Instructions.md)).
+
+- Goal: build a plain-Django (no DRF) Booklist API with endpoints to list books and add a new book, following the [BookAPI List Project](#bookapi-list-project) design.
+- Scenario: a bookshop manager needs to add books from the website/app; the manager and visitors need to browse the collection.
+- Project layout: a Django project `BookList` with a single app `BookListAPI`.
+- The starter project used `pipenv` (`Pipfile`); replaced with `uv` (`pyproject.toml` + `uv.lock`), consistent with the rest of this guide.
+
+```bash
+# Set up the environment with uv instead of pipenv
+cd 04_APIs/lab/02-booklist-api/BookList
+uv venv --python 3.11
+uv add django djangorestframework djangorestframework-xml djoser
+uv sync
+
+# Migrations and dev server
+uv run python manage.py makemigrations BookListAPI
+uv run python manage.py migrate
+uv run python manage.py createsuperuser   # username: admin, password: books@123!
+uv run python manage.py runserver 8080
+```
+
+- `models.py` -- `Book` model with the three required fields plus the optional `inventory` field from the exercise's "Additional Step", and a `Meta.indexes` entry on `price`:
+
+```python
+# BookListAPI/models.py
+from django.db import models
+
+
+class Book(models.Model):
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=5, decimal_places=2)
+    inventory = models.PositiveSmallIntegerField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['price']),
+        ]
+```
+
+- `admin.py` -- register `Book` so it appears in the Django admin panel:
+
+```python
+# BookListAPI/admin.py
+from django.contrib import admin
+from .models import Book
+
+admin.site.register(Book)
+```
+
+- `BookListAPI/urls.py` (new file) -- app-level URL for the collection endpoint:
+
+```python
+# BookListAPI/urls.py
+from django.urls import path
+from . import views
+
+
+urlpatterns = [
+    path('books', views.books),
+]
+```
+
+- `BookList/urls.py` -- wire the app's URLs under `/api/`:
+
+```python
+# BookList/urls.py
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/', include('BookListAPI.urls')),
+]
+```
+
+- `views.py` -- one function-based view handling `GET` (list) and `POST` (create); `csrf_exempt` since API clients don't send a CSRF token:
+
+```python
+# BookListAPI/views.py
+from django.db import IntegrityError
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.forms.models import model_to_dict
+
+from .models import Book
+
+
+@csrf_exempt
+def books(request):
+    if request.method == 'GET':
+        # GET /api/books -> list all books
+        books = Book.objects.all().values()
+        return JsonResponse({'books': list(books)})
+
+    elif request.method == 'POST':
+        # POST /api/books -> create a book from the form-encoded payload
+        title = request.POST.get('title')
+        author = request.POST.get('author')
+        price = request.POST.get('price')
+        inventory = request.POST.get('inventory')
+        book = Book(title=title, author=author, price=price, inventory=inventory)
+        try:
+            book.save()
+        except IntegrityError:
+            return JsonResponse({'error': 'true', 'message': 'required field missing'}, status=400)
+        return JsonResponse(model_to_dict(book), status=201)
+```
+
+- Verified end to end with `uv run python manage.py runserver 8080` and `curl`:
+
+```bash
+# GET -- empty collection initially
+curl http://127.0.0.1:8080/api/books
+# {"books": []}
+
+# POST -- create a book
+curl -X POST http://127.0.0.1:8080/api/books \
+     -d "title=Northanger Abbey" -d "author=Jane Austen" -d "price=18.20" -d "inventory=5"
+# {"id": 1, "title": "Northanger Abbey", "author": "Jane Austen", "price": "18.20", "inventory": "5"} -- 201 Created
+
+# GET -- new book now listed
+curl http://127.0.0.1:8080/api/books
+# {"books": [{"id": 1, "title": "Northanger Abbey", "author": "Jane Austen", "price": "18.20", "inventory": 5}]}
+
+# POST with a required field missing -> 400
+curl -X POST http://127.0.0.1:8080/api/books -d "author=NoTitleAuthor" -d "price=1.00"
+# {"error": "true", "message": "required field missing"}
+```
+
+
 
 ## 2. Django REST Framework
 
