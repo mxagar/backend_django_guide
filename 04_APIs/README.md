@@ -63,6 +63,9 @@ Table of Contents:
       - [Consequences of a Poorly Designed API Project](#consequences-of-a-poorly-designed-api-project)
       - [XML and JSON Response Types](#xml-and-json-response-types)
       - [Exercise: Build a Simple API](#exercise-build-a-simple-api)
+      - [Debugging your API](#debugging-your-api)
+      - [Browser Tools and Extensions for API Development](#browser-tools-and-extensions-for-api-development)
+      - [Mock APIs](#mock-apis)
   - [2. Django REST Framework](#2-django-rest-framework)
     - [Introduction to Django REST Framework (DRF)](#introduction-to-django-rest-framework-drf)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
@@ -1302,6 +1305,94 @@ curl -X POST http://127.0.0.1:8080/api/books -d "author=NoTitleAuthor" -d "price
 # {"error": "true", "message": "required field missing"}
 ```
 
+#### Debugging your API
+
+- Debugging is the process of finding and fixing code errors efficiently instead of guessing; it also builds a better understanding of how the program actually works.
+- VS Code (Visual Studio Code) ships a built-in debugger for Django projects.
+  - Open the project in VS Code, select the Python interpreter for the project's virtual environment from the command palette, then open the debugger panel from the sidebar icon.
+  - On first use, click the panel's **create a launch.json file** link, then:
+    - pick **Python** > **Django** from the configuration list.
+  - Two run options are available: **Start Debugging** and **Run Without Debugging**.
+    - Start Debugging activates the virtual environment and starts the dev server automatically, so it does not need to be started manually.
+- Key debugging concepts:
+  - A **breakpoint** is a line where execution intentionally pauses so variable values can be inspected at that point; toggle one by clicking the red dot beside a line number.
+  - The **watch** list tracks chosen variables and shows their values as they change; add a variable via the plus icon in the watch panel.
+- The debug toolbar appears once execution pauses at a breakpoint and offers six controls:
+  - **Continue/Pause** -- runs to the next breakpoint.
+  - **Step Over** -- executes the current line and pauses at the next one, without entering called functions.
+  - **Step Into** -- enters a called function and pauses there.
+  - **Step Out** -- returns to the caller's line from inside a function.
+  - **Restart** -- restarts the debugging session.
+  - **Stop** -- ends the debugging session and stops the dev server.
+- Worked example: a view meant to return even numbers displayed nothing in the browser.
+  - A breakpoint on the line appending a number to the result never triggered, meaning the remainder was never equal to `0`.
+  - Adding `remainder` to the watch list and stepping through showed its value increasing by `0.5` per iteration -- impossible for a true modulo remainder.
+  - Root cause: the code used the division operator (`/`) instead of the modulo operator (`%`).
+  - After fixing the operator, removing the breakpoints, and restarting, the endpoint correctly returned only even numbers.
+
+```python
+# views.py -- before fix: '/' instead of '%' means remainder is never 0, so nothing is ever appended
+def numbers(request):
+    evens = []
+    for number in range(20):
+        remainder = number / 2       # bug: division instead of modulo
+        if remainder == 0:
+            evens.append(number)
+    return JsonResponse({'evens': evens})
+
+
+# views.py -- after fix: modulo operator correctly identifies even numbers
+def numbers(request):
+    evens = []
+    for number in range(20):
+        remainder = number % 2       # fixed: modulo
+        if remainder == 0:
+            evens.append(number)
+    return JsonResponse({'evens': evens})
+```
+
+#### Browser Tools and Extensions for API Development
+
+- Every browser ships a developer console with tools for debugging API calls made from a website's JavaScript; the examples below use Chrome, but equivalent tools exist in every major browser.
+  - Open DevTools (Developer Tools) with 
+    - `Ctrl+Shift+I` on Windows/Linux 
+    - or `Cmd+Option+I` on macOS.
+- The **Network** tab records every network request the page makes.
+  - Use the **Fetch/XHR** filter to show only API calls, hiding unrelated assets like images and stylesheets.
+  - Trigger a test call by pasting a `fetch(url)` line into the **Console** tab and pressing Enter -- any valid API URL works; the call then appears in the Network tab's list.
+  - Selecting a recorded call and opening its **Headers** tab shows every request and response header involved.
+  - **Preview** renders the response body in a formatted, readable style; **Response** shows the same body as raw, unformatted output.
+  - **Initiator** points to the exact line of JavaScript that triggered the call, which is useful for tracing a request back to its source.
+  - The **Disable cache** checkbox at the top of the panel forces every request to skip the browser cache, guaranteeing a fresh response instead of a cached one.
+  - The **Clear** button next to the record button removes all currently recorded calls at any time.
+
+```bash
+# Run a local httpbin instance in Docker to test API calls
+docker run -p 8081:80 kennethreitz/httpbin
+```
+
+- JSON responses viewed directly in the browser -- e.g. the local httpbin instance at `http://localhost:8081/get` -- render as unformatted, hard-to-read text by default.
+  - Installing a JSON formatter extension (available in every major browser's extension store) automatically pretty-prints JSON responses when visiting an API endpoint directly in the browser.
+
+```javascript
+// Paste into the DevTools Console to trigger a GET call visible in the Network tab
+fetch('http://localhost:8081/get');
+```
+
+#### Mock APIs
+
+- A mock API imitates a real API endpoint with fake data, letting client application developers start building against it before the real API exists.
+  - The data structure is correct, but values are fake and no business logic runs -- the endpoint just returns a pre-generated, hard-coded response.
+- Benefits:
+  - Both API and client developers can immediately see what data an endpoint returns, without waiting for the real implementation.
+  - Client developers code against the mock's data shape right away instead of blocking on the API developers.
+  - Once the real API is ready, client developers swap the mock endpoints for the real ones -- easier to build and maintain throughout development.
+- Creating a mock API takes two steps:
+  1. Create the mock data.
+  2. Create mock API endpoints that serve it.
+- Free tools (search "Mock API Data Generator" / "Mock API Endpoints" for more):
+  - [**Mockaroo**](https://www.mockaroo.com) -- fake-data generator.
+  - [**Mockapi**](https://mockapi.io/) -- mock API endpoint hosting.
 
 
 ## 2. Django REST Framework
