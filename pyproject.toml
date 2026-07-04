@@ -82,6 +82,7 @@ dependencies = [
     "wordcloud",
     "youtube-transcript-api",
     "yt-dlp",
+    "django-debug-toolbar>=7.0.0",
 ]
 
 [tool.uv]
