@@ -71,6 +71,14 @@ Table of Contents:
       - [What Is the Django REST Framework (DRF)?](#what-is-the-django-rest-framework-drf)
       - [Installing and Setting Up DRF](#installing-and-setting-up-drf)
       - [Better API View with Decorators](#better-api-view-with-decorators)
+      - [Different Types of Routing in DRF](#different-types-of-routing-in-drf)
+        - [Regular routes](#regular-routes)
+        - [Routing to a class method](#routing-to-a-class-method)
+        - [Routing class-based views](#routing-class-based-views)
+        - [Routing classes that extend viewsets](#routing-classes-that-extend-viewsets)
+        - [Routing with the SimpleRouter class in DRF](#routing-with-the-simplerouter-class-in-drf)
+        - [Routing with the DefaultRouter class in DRF](#routing-with-the-defaultrouter-class-in-drf)
+      - [Generic Views and ViewSets in DRF](#generic-views-and-viewsets-in-drf)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
@@ -1529,6 +1537,390 @@ def books(request):
         return Response({"message": "Book added", "data": request.data})
     return Response(["Book 1", "Book 2"])
 ```
+
+#### Different Types of Routing in DRF
+
+- DRF (Django REST Framework) supports several ways to do URL mapping/routing in an API project, beyond the traditional style, to save development time.
+- All routing is done in the `urls.py` file of the Django app.
+
+##### Regular routes
+
+- Maps a single function from `views.py` to an endpoint; requires importing `path` from `django.urls`.
+- The `@api_view` decorator controls which HTTP methods the function view accepts, e.g. `@api_view(['GET', 'POST'])` for both GET and POST.
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('books', views.books),  # maps `books` to /api/books
+]
+```
+
+##### Routing to a class method
+
+- Map a single method of a class by declaring it `@staticmethod` first, then referencing it as `views.ClassName.method_name` in `urls.py`.
+
+```python
+class Orders():
+    @staticmethod
+    @api_view()
+    def listOrders(request):
+        return Response({'message': 'list of orders'}, 200)
+```
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('orders', views.Orders.listOrders)
+]
+```
+
+##### Routing class-based views
+
+- Classes that extend `APIView` (or a generic view) have HTTP-verb-specific methods (`get`, `put`, `post`, `delete`, `patch`), so the whole class is mapped once instead of mapping each method individually.
+- Whichever of those methods the class defines determines which HTTP verbs the endpoint accepts.
+
+```python
+class BookView(APIView):
+    def get(self, request, pk):
+        return Response({"message": "single book with id " + str(pk)}, status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        return Response({"title": request.data.get('title')}, status.HTTP_200_OK)
+```
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('books/<int:pk>', views.BookView.as_view())
+]
+```
+
+- Result: `/api/books/{bookId}` now accepts GET and PUT (and would accept POST/DELETE/PATCH too, if those methods were defined).
+
+##### Routing classes that extend viewsets
+
+- Classes extending `viewsets.ViewSet` expose their own set of methods (`list`, `create`, `retrieve`, `update`, `partial_update`, `destroy`) instead of HTTP-verb method names.
+  - `list()` returns all items; `retrieve()` returns a single item.
+
+```python
+class BookView(viewsets.ViewSet):
+    def list(self, request):
+        return Response({"message": "All books"}, status.HTTP_200_OK)
+
+    def create(self, request):
+        return Response({"message": "Creating a book"}, status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None):
+        return Response({"message": "Updating a book"}, status.HTTP_200_OK)
+
+    def retrieve(self, request, pk=None):
+        return Response({"message": "Displaying a book"}, status.HTTP_200_OK)
+
+    def partial_update(self, request, pk=None):
+        return Response({"message": "Partially updating a book"}, status.HTTP_200_OK)
+
+    def destroy(self, request, pk=None):
+        return Response({"message": "Deleting a book"}, status.HTTP_200_OK)
+```
+
+- Each viewset method must be explicitly mapped to an HTTP verb per route, unlike `APIView`.
+
+```python
+urlpatterns = [
+    path('books', views.BookView.as_view(
+        {
+            'get': 'list',
+            'post': 'create',
+        })
+    ),
+    path('books/<int:pk>', views.BookView.as_view(
+        {
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update',
+            'delete': 'destroy',
+        })
+    )
+]
+```
+
+- Result: `/api/books` accepts GET and POST; `/api/books/1` accepts GET, PUT, PATCH, and DELETE.
+
+##### Routing with the SimpleRouter class in DRF
+
+- For a `ViewSet` class, a built-in router auto-generates the verb-to-method mapping, avoiding the manual `as_view({...})` mapping from the previous section.
+- `trailing_slash=False` is needed to avoid a trailing slash on the generated endpoints (the default adds one).
+
+```python
+from rest_framework.routers import SimpleRouter
+
+router = SimpleRouter(trailing_slash=False)
+router.register('books', views.BookView, basename='books')
+urlpatterns = router.urls
+```
+
+- Result: same `api/books` and `api/books/1` endpoints/methods as the manual mapping above.
+
+##### Routing with the DefaultRouter class in DRF
+
+- `DefaultRouter` works like `SimpleRouter` but additionally creates an API root view listing all available endpoints, reachable at `http://127.0.0.1:8000/api/`.
+
+```python
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter(trailing_slash=False)
+router.register('books', views.BookView, basename='books')
+urlpatterns = router.urls
+```
+
+![API root view with all the available endpoints](./assets/root-view-api-drf.png)
+
+#### Generic Views and ViewSets in DRF
+
+- DRF (Django REST Framework) ships generic views and ViewSets to scaffold a functioning CRUD (create, read, update, delete) API without starting from scratch, cutting down boilerplate.
+- All the examples below share one model and serializer:
+
+  ```python
+  # models.py
+  from django.db import models
+
+  class MenuItem(models.Model):
+      title = models.CharField(max_length=255)
+      price = models.DecimalField(max_digits=6, decimal_places=2)
+      inventory = models.PositiveSmallIntegerField()
+  ```
+
+  ```python
+  # serializers.py
+  from rest_framework import serializers
+  from .models import MenuItem
+
+  class MenuItemSerializer(serializers.ModelSerializer):
+      class Meta:
+          model = MenuItem
+          fields = ['id', 'title', 'price', 'inventory']
+  ```
+
+##### ViewSets
+
+- ViewSets are class-based views with a method-naming convention that enables one-line routing; import via `from rest_framework import viewsets`.
+- `ViewSet` is the base class (extends `APIView`), giving browsable API views out of the box. You write the business logic yourself:
+
+  | Class method | Supported HTTP method | Purpose |
+  |---|---|---|
+  | `list()` | GET | Display resource collection |
+  | `create()` | POST | Create new resource |
+  | `retrieve()` | GET | Display a single resource |
+  | `update()` | PUT | Completely replace a single resource |
+  | `partial_update()` | PATCH | Partially update a single resource |
+  | `destroy()` | DELETE | Delete a single resource |
+
+  ```python
+  # views.py
+  from rest_framework import viewsets, status
+  from rest_framework.response import Response
+  from .models import MenuItem
+  from .serializers import MenuItemSerializer
+
+  class MenuItemViewSet(viewsets.ViewSet):
+      def list(self, request):
+          items = MenuItem.objects.all()
+          serializer = MenuItemSerializer(items, many=True)
+          return Response(serializer.data)
+
+      def retrieve(self, request, pk=None):
+          item = MenuItem.objects.get(pk=pk)
+          serializer = MenuItemSerializer(item)
+          return Response(serializer.data)
+
+      def create(self, request):
+          serializer = MenuItemSerializer(data=request.data)
+          serializer.is_valid(raise_exception=True)
+          serializer.save()
+          return Response(serializer.data, status=status.HTTP_201_CREATED)
+  ```
+
+  - Notice `list()`, `retrieve()`, and `create()` all convert model instances to/from JSON by hand with `MenuItemSerializer` -- that manual work is exactly what `ModelViewSet` removes below.
+
+- `ModelViewSet` extends `ViewSet` and automatically handles CRUD operations: just supply a `queryset` and a `serializer_class`, no manual database code needed.
+
+  ```python
+  # views.py
+  from rest_framework import viewsets
+  from .models import MenuItem
+  from .serializers import MenuItemSerializer
+
+  class MenuItemView(viewsets.ModelViewSet):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+  ```
+
+- `ReadOnlyModelViewSet` only supports `list()` and `retrieve()` (GET); no POST, PUT, PATCH, or DELETE.
+
+  ```python
+  # views.py
+  from rest_framework import viewsets
+  from .models import MenuItem
+  from .serializers import MenuItemSerializer
+
+  class ReadOnlyMenuItemView(viewsets.ReadOnlyModelViewSet):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+  ```
+
+- Any of the three ViewSets above is wired up the same way, with a router (see [Routing with the DefaultRouter class in DRF](#different-types-of-routing-in-drf)):
+
+  ```python
+  # urls.py
+  from rest_framework.routers import DefaultRouter
+  from .views import MenuItemView
+
+  router = DefaultRouter(trailing_slash=False)
+  router.register('menu-items', MenuItemView, basename='menu-items')
+  urlpatterns = router.urls
+  ```
+
+  - This exposes `GET`/`POST` on `/menu-items` and `GET`/`PUT`/`PATCH`/`DELETE` on `/menu-items/<pk>`.
+
+##### Generic views
+
+- Generic views are class-based views that each provide one piece of CRUD functionality; import via `from rest_framework import generics`. All of them require a `queryset` and a `serializer_class`.
+
+  | Generic view class | Supported method | Purpose |
+  |---|---|---|
+  | `CreateAPIView` | POST | Create a new resource |
+  | `ListAPIView` | GET | Display resource collection |
+  | `RetrieveAPIView` | GET | Display a single resource |
+  | `DestroyAPIView` | DELETE | Delete a single resource |
+  | `UpdateAPIView` | PUT, PATCH | Replace or partially update a single resource |
+  | `ListCreateAPIView` | GET, POST | Display resource collection and create a new resource |
+  | `RetrieveUpdateAPIView` | GET, PUT, PATCH | Display a single resource and replace/partially update it |
+  | `RetrieveDestroyAPIView` | GET, DELETE | Display a single resource and delete it |
+  | `RetrieveUpdateDestroyAPIView` | GET, PUT, PATCH, DELETE | Display, replace/update, and delete a single resource |
+
+- Composite views can be built either by extending multiple single-purpose views or the equivalent combined view; both are equivalent, and -- like `ModelViewSet` -- need only a `queryset` and `serializer_class`:
+
+  ```python
+  # views.py
+  from rest_framework import generics
+  from .models import MenuItem
+  from .serializers import MenuItemSerializer
+
+  class MenuItemView(generics.ListAPIView, generics.CreateAPIView):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+
+  # equivalent to:
+  class MenuItemView(generics.ListCreateAPIView):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+
+  # single-resource counterpart, for GET/PUT/PATCH/DELETE on one item:
+  class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+  ```
+
+- Unlike ViewSets, generic views map to URLs individually with `path()`, not through a router:
+
+  ```python
+  # urls.py
+  from django.urls import path
+  from . import views
+
+  urlpatterns = [
+      path('menu-items', views.MenuItemView.as_view()),
+      path('menu-items/<int:pk>', views.SingleMenuItemView.as_view()),
+  ]
+  ```
+
+##### Authentication and selective authentication
+
+- To require authentication for all calls on a generic-view class, set `permission_classes = [IsAuthenticated]`.
+- To require it only for some methods (e.g. everything but GET), override `get_permissions()`:
+
+  ```python
+  # views.py
+  from rest_framework import generics
+  from rest_framework.permissions import IsAuthenticated
+  from .models import MenuItem
+  from .serializers import MenuItemSerializer
+
+  class MenuItemView(generics.ListCreateAPIView):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+
+      def get_permissions(self):
+          permission_classes = []
+          if self.request.method != 'GET':
+              permission_classes = [IsAuthenticated]
+          return [permission() for permission in permission_classes]
+  ```
+
+  - Result: GET is open to everyone; POST, PUT, PATCH, and DELETE require authentication.
+
+##### Return items for the authenticated user only
+
+- This example introduces a second model, owned by a user:
+
+  ```python
+  # models.py
+  from django.contrib.auth.models import User
+  from django.db import models
+
+  class Order(models.Model):
+      user = models.ForeignKey(User, on_delete=models.CASCADE)
+      total = models.DecimalField(max_digits=6, decimal_places=2)
+      date = models.DateField(auto_now_add=True)
+  ```
+
+  ```python
+  # serializers.py
+  from rest_framework import serializers
+  from .models import Order
+
+  class OrderSerializer(serializers.ModelSerializer):
+      class Meta:
+          model = Order
+          fields = ['id', 'user', 'total', 'date']
+  ```
+
+- Override `get_queryset()` to scope results to `self.request.user`:
+
+  ```python
+  # views.py
+  class OrderView(generics.ListCreateAPIView):
+      queryset = Order.objects.all()
+      serializer_class = OrderSerializer
+      permission_classes = [IsAuthenticated]
+
+      def get_queryset(self):
+          return Order.objects.all().filter(user=self.request.user)
+  ```
+
+  - `queryset` is still required as the class attribute DRF introspects for metadata, but every actual request goes through `get_queryset()` instead, so each user only ever sees their own orders.
+
+##### Override default behavior
+
+- Generic views automate CRUD, but any default method (`get()`, `post()`, `put()`, `patch()`, `delete()`) can still be overridden, e.g. to return a static response instead of the resource:
+
+  ```python
+  # views.py
+  from rest_framework.response import Response
+
+  class OrderView(generics.ListCreateAPIView):
+      queryset = Order.objects.all()
+      serializer_class = OrderSerializer
+
+      def get(self, request, *args, **kwargs):
+          return Response('new response')
+  ```
 
 ### Django REST Framework Essentials
 
