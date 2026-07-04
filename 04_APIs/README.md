@@ -68,6 +68,9 @@ Table of Contents:
       - [Mock APIs](#mock-apis)
   - [2. Django REST Framework](#2-django-rest-framework)
     - [Introduction to Django REST Framework (DRF)](#introduction-to-django-rest-framework-drf)
+      - [What Is the Django REST Framework (DRF)?](#what-is-the-django-rest-framework-drf)
+      - [Installing and Setting Up DRF](#installing-and-setting-up-drf)
+      - [Better API View with Decorators](#better-api-view-with-decorators)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
@@ -78,7 +81,7 @@ Table of Contents:
 
 ### Note on Lab Usage
 
-In the coursera lab environment, we need to run the following commands to set up the environment and start the Django server:
+In the Coursera lab environment, we need to run the following commands to set up the environment and start the Django server:
 
 ```bash
 # Go to project directory
@@ -1398,6 +1401,134 @@ fetch('http://localhost:8081/get');
 ## 2. Django REST Framework
 
 ### Introduction to Django REST Framework (DRF)
+
+#### What Is the Django REST Framework (DRF)?
+
+- DRF (Django REST Framework) is a toolkit built on top of Django that speeds up API development.
+  - It bridges the regular Django app, the Django web framework, and the ORM (Object Relational Mapping) library that talks to the database.
+  - Django's built-in templating system suits web pages, but APIs need to exchange other data types like JSON and XML, which is where DRF adds value.
+- Integrating DRF into an existing Django app is straightforward: a few settings changes give a fully functional DRF-powered app almost instantly.
+- Serialization and deserialization are core DRF benefits.
+  - Serialization converts database models and other non-ORM objects into native Python datatypes, ready to render as JSON, XML, or other content types, so you don't hand-write the model-to-API transformation.
+  - Deserialization is the reverse: it converts incoming request data back into models and validates user input to prevent data corruption.
+  - DRF ships with a number of built-in serializers to help with this conversion.
+- Built-in viewset classes make it quick to create a functional CRUD (create, read, update, delete) API, with full support for the necessary HTTP methods out of the box, and can still be extended for custom workflows.
+- DRF provides its own request and response objects, wrapping the regular Django HTTP request/response but offering more flexibility for processing data in and out.
+- The `status` module gives human-readable HTTP status codes (e.g. `status.HTTP_200_OK`, `status.HTTP_404_NOT_FOUND`), so responses don't need raw numeric codes like `200` or `404`.
+- DRF includes a browsable API viewer for sending different HTTP methods with data and inspecting the output without an external tool like Insomnia; it's limited in features but useful for quick experimentation.
+- DRF also has strong support for modern API authentication, including social authentication, letting users authenticate and authorize through an external provider like Facebook to consume the API, without building that layer from scratch.
+
+```python
+from rest_framework import status
+from rest_framework.response import Response
+
+# Human-readable status codes instead of raw numbers (200, 404, ...)
+return Response(data, status=status.HTTP_200_OK)
+return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+```
+
+#### Installing and Setting Up DRF
+
+- Choosing a Python package/environment manager affects setup effort.
+  - Plain pip requires manually managing dependencies and setting up/configuring the virtual environment.
+  - [uv](https://docs.astral.sh/uv/) is a fast all-in-one package and project manager: it creates and manages the virtual environment automatically (in `.venv`), tracks dependencies in `pyproject.toml`/`uv.lock`, and runs commands inside that environment with `uv run`, so there is far less manual configuration.
+- Project setup steps, run from the terminal:
+  - `uv init BookList` to scaffold the project (creates `pyproject.toml`), then `cd BookList`.
+  - `uv add django djangorestframework` to add DRF (Django REST Framework) and Django as dependencies; this creates the virtual environment and installs both packages automatically.
+  - `uv run django-admin startproject BookList .` to create the Django project, then `uv run python manage.py startapp BookListAPI` to create the app.
+- Configuring DRF only requires adding `"rest_framework"` to `INSTALLED_APPS` in `settings.py`; the new `BookListAPI` app must be added to the same list.
+- Creating an endpoint (e.g. `/books`) means: write a view in `BookListAPI/views.py` using DRF's `Response` class (an improved version of the plain Django `HttpResponse`) wrapped with the `@api_view` decorator, which is what lets the view work with `Request`/`Response` objects.
+- Routing the endpoint: define it in a new `BookListAPI/urls.py`, then include that file from the project's root `urls.py` via `include()` from `django.urls`, so it's reachable under a URL prefix like `/api/`.
+- Running `uv run python manage.py runserver` exposes the endpoint, e.g. at `http://127.0.0.1:8000/api/books`, which can be tested with a tool like Insomnia.
+  - A GET request returns the list of books.
+  - A POST request is rejected ("method not allowed") by default, because `@api_view` only accepts GET unless told otherwise.
+  - Passing the allowed methods explicitly, e.g. `@api_view(['GET', 'POST'])`, makes DRF accept POST too; the same applies for PUT and DELETE.
+
+```bash
+cd .../path/to/my/project
+uv init BookList
+cd BookList
+uv add django djangorestframework
+uv run django-admin startproject BookList .
+uv run python manage.py startapp BookListAPI
+
+# To get the env shell
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+```
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    "rest_framework",
+    "BookListAPI",
+]
+
+# BookListAPI/views.py
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+
+@api_view()
+def books(request):
+    return Response(["Book 1", "Book 2"], status=status.HTTP_200_OK)
+
+# BookListAPI/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("books/", views.books),
+]
+
+# BookList/urls.py (project root)
+from django.urls import include, path
+
+urlpatterns = [
+    # ...
+    path("api/", include("BookListAPI.urls")),
+]
+```
+
+```bash
+uv run python manage.py runserver 8080
+# API available at http://127.0.0.1:8080/api/books/
+# Test with Insomnia or curl
+```
+
+#### Better API View with Decorators
+
+- The `@api_view` decorator (from `rest_framework.decorators`) is what makes a plain function usable as a DRF (Django REST Framework) view, and it brings several benefits over a regular Django function-based view.
+- Returning DRF's `Response` (from `rest_framework.response`) instead of Django's plain `HttpResponse` is what unlocks the browsable API: with `HttpResponse` the `/api/books` endpoint just renders plain text, but with `Response` under `@api_view` it renders as a polished, browsable HTML interface.
+- The decorator lets a view support multiple HTTP methods by passing them as a list, e.g. `@api_view(['GET', 'POST'])`; POST data arrives via `request.data`.
+  - Once POST is allowed, the browsable API page shows POST in its list of allowed methods and adds a form at the bottom of the page for submitting a JSON body directly from the browser, no external tool like Postman or Insomnia needed.
+  - The page's OPTIONS button shows metadata about the endpoint, such as which renderers it uses and what data it accepts; a GET button/refresh reloads the page, and a format dropdown (e.g. `json`) lets you view the raw response instead of the rendered page.
+- Additional per-view policy decorators build on `@api_view`, placed below it:
+  - `@throttle_classes` applies throttling/rate-limiting, capping how many requests a client can make in a given period.
+  - `@authentication_classes` and `@permission_classes` restrict the endpoint so only authenticated (and authorized) users can call it.
+
+```python
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+    throttle_classes,
+)
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import UserRateThrottle
+from rest_framework.response import Response
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication, BasicAuthentication])
+@permission_classes([IsAuthenticated])
+@throttle_classes([UserRateThrottle])
+def books(request):
+    if request.method == "POST":
+        return Response({"message": "Book added", "data": request.data})
+    return Response(["Book 1", "Book 2"])
+```
 
 ### Django REST Framework Essentials
 
