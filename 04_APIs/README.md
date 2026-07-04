@@ -79,6 +79,13 @@ Table of Contents:
         - [Routing with the SimpleRouter class in DRF](#routing-with-the-simplerouter-class-in-drf)
         - [Routing with the DefaultRouter class in DRF](#routing-with-the-defaultrouter-class-in-drf)
       - [Generic Views and ViewSets in DRF](#generic-views-and-viewsets-in-drf)
+        - [ViewSets](#viewsets)
+        - [Generic views](#generic-views)
+        - [Authentication and selective authentication](#authentication-and-selective-authentication)
+        - [Return items for the authenticated user only](#return-items-for-the-authenticated-user-only)
+        - [Override default behavior](#override-default-behavior)
+      - [Function and Class-Based Views](#function-and-class-based-views)
+      - [Django Debug Toolbar](#django-debug-toolbar)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
@@ -1921,6 +1928,131 @@ urlpatterns = router.urls
       def get(self, request, *args, **kwargs):
           return Response('new response')
   ```
+
+#### Function and Class-Based Views
+
+- Function-based views are plain functions in the views file; class-based views group related logic (and HTTP-verb handlers) into a class. Each style has its own strengths.
+  - Function-based views: easy to implement, more readable, and decorators (like `@api_view`) are simpler to apply, making them good for a quick one-off endpoint.
+  - Class-based views: less code and duplication overall, classes can be extended to reuse common functionality and add features later, and each HTTP verb gets its own method.
+- To create a class-based view in DRF (Django REST Framework), extend `APIView` (from `rest_framework.views`) and import `Response` (from `rest_framework.response`).
+  - Name methods after the HTTP verbs they handle, e.g. `get()` and `post()`.
+  - Map the whole class to a URL once in `urls.py` with `.as_view()`; there is no need to map each method separately, unlike function-based views.
+  - A method only exists on the endpoint if the class defines it: with no `post()`, the endpoint rejects POST requests until one is added.
+- Query string parameters (e.g. `/api/books?author=Hemingway`) are read via `request.query_params.get('author')` (the DRF-recommended synonym for `request.GET`, clearer since query parameters can accompany any HTTP method, not just GET).
+  - If `author` is present, filter to that author's books; otherwise return all books.
+- POST/PUT payloads (JSON or form URL-encoded data sent to the API) are read via `request.data.get('title')`.
+  - Because DRF views are browsable, POST/PUT payloads can be tested directly from the browser: open the endpoint, scroll to the bottom, enter the JSON payload in the content box, and click the corresponding method button.
+- A separate class (e.g. `Book`) can manipulate a single item by accepting the primary key (`pk`) as an extra parameter on its methods, e.g. `get(self, request, pk)` and `put(self, request, pk)`; this class is mapped to a URL pattern that captures the `pk`, such as `/api/books/<int:pk>`.
+- Just like the `@api_view` decorator, class-based views support throttling and authentication policies, covered later in the course.
+
+```python
+# views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Book
+
+class BookList(APIView):
+    def get(self, request):
+        author = request.query_params.get('author')
+        books = Book.objects.all()
+        if author:
+            books = books.filter(author=author)
+        return Response([{"title": b.title, "author": b.author} for b in books])
+
+    def post(self, request):
+        title = request.data.get('title')
+        return Response({"message": f"Received book: {title}"})
+
+class BookDetail(APIView):
+    def get(self, request, pk):
+        book = Book.objects.get(pk=pk)
+        return Response({"id": book.id, "title": book.title, "author": book.author})
+
+    def put(self, request, pk):
+        title = request.data.get('title')
+        return Response({"message": f"Updated book {pk} with title: {title}"})
+```
+
+```python
+# urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('books', views.BookList.as_view()),
+    path('books/<int:pk>', views.BookDetail.as_view()),
+]
+```
+
+- Calling these endpoints, e.g. with `curl` (the browsable API works the same way from a browser):
+
+```bash
+# GET all books
+curl http://127.0.0.1:8000/api/books
+
+# GET books filtered by author (query string parameter)
+curl "http://127.0.0.1:8000/api/books?author=Hemingway"
+
+# POST a new book (JSON payload)
+curl -X POST http://127.0.0.1:8000/api/books \
+  -H "Content-Type: application/json" \
+  -d '{"title": "The Old Man and the Sea"}'
+
+# GET a single book by primary key (pk)
+curl http://127.0.0.1:8000/api/books/1
+
+# PUT to update a single book by primary key
+curl -X PUT http://127.0.0.1:8000/api/books/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Updated Title"}'
+```
+
+#### Django Debug Toolbar
+
+- Django Debug Toolbar is a smart debugging tool considered essential for Django development; it displays live information about the current project setup, request, and database queries.
+- Setup steps, run from the project directory:
+  - `uv add django-debug-toolbar` to install it into the project's virtual environment.
+  - Add `"debug_toolbar"` to `INSTALLED_APPS` in `settings.py`.
+  - Add `"debug_toolbar.middleware.DebugToolbarMiddleware"` to `MIDDLEWARE` in `settings.py`, just below `INSTALLED_APPS`.
+  - Add an `INTERNAL_IPS` list containing `"127.0.0.1"` to `settings.py`; this setting does not exist there by default, so it must be created.
+  - Map the toolbar's URLs in the project's root `urls.py`.
+- Visiting any endpoint (e.g. `/api/books`) then shows the toolbar on the right side of the screen.
+  - It can be hidden with the "hide" link at the top, and individual sections can be toggled on/off with their checkboxes.
+- Key sections of the toolbar:
+  - Settings: shows every setting from `settings.py` and other settings used across the project/installed apps; copy a name and value from here to override it in `settings.py`.
+  - Headers: shows all header information sent with the request and generated in the response.
+  - SQL: lists the SQL queries executed for the endpoint, useful for spotting and fixing unnecessary or excessive queries during performance tuning.
+  - Static files: shows the static files loaded for the request and those used by installed apps; APIs don't usually serve static files, but it's worth knowing about.
+  - Cache: shows applications using the cache, which reduces server load (covered later in the course).
+  - Profiling: unchecked by default; shows the full call stack for the request, from the entry point through intermediate function calls to the class/function-based view and back out to the generated response.
+- The toolbar only appears during development when using the browsable API; it does not show up on production API calls or when client apps consume the API directly.
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    "debug_toolbar",
+]
+
+MIDDLEWARE = [
+    # ...
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+]
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+```
+
+```python
+# urls.py (project root)
+from django.urls import path
+from debug_toolbar.toolbar import debug_toolbar_urls
+
+urlpatterns = [
+    # ... the rest of your URLconf goes here ...
+] + debug_toolbar_urls()
+```
 
 ### Django REST Framework Essentials
 
