@@ -86,6 +86,7 @@ Table of Contents:
         - [Override default behavior](#override-default-behavior)
       - [Function and Class-Based Views](#function-and-class-based-views)
       - [Django Debug Toolbar](#django-debug-toolbar)
+      - [Restaurant Menu API Project with DRF](#restaurant-menu-api-project-with-drf)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
@@ -2046,13 +2047,88 @@ INTERNAL_IPS = [
 
 ```python
 # urls.py (project root)
-from django.urls import path
 from debug_toolbar.toolbar import debug_toolbar_urls
 
 urlpatterns = [
     # ... the rest of your URLconf goes here ...
 ] + debug_toolbar_urls()
 ```
+
+![Debug Toolbar on the right side of the browsable API](./assets/debug_toolbar.png)
+
+#### Restaurant Menu API Project with DRF
+
+Now that you're already familiar with the class-based views, this video will walk you
+through the steps to create a fully functional
+crude APA project that can allow you to
+read from the database, display records, update, and delete them with just
+a few lines of code. You already know how to create a Django project and install TRF with a virtual environment using P band. Let's do that. Create a new app called
+little lemon API and include this app in
+the setting.py file. Ensure you have included the
+rest Framework app as well. Otherwise, TRF will not work. You need a database model first. Let's open the models.py
+file and add three fields, title, price, and inventory. Now make the migrations
+and migrate them. Another thing you need
+for this project, is a serializers object. By now, you know that serializers helped to
+convert model instances into Python datatypes
+that can be displayed as JSON or XML. It also helps you to convert HTTP request body into Python datatypes and made
+them to a model instance. But you'll learn more about these three different types
+of serializers later. For now, let's just create
+a simple model serializer. Open a new file inside the little lemon API app called serializers.py and add
+the following code. Don't worry about the
+details right now. But make sure that it has every field from the main whiter model in
+the field section. Now, open the little
+lemon api/view.py file. This is where you will write
+code for this project. This time, you're not going to write
+everything from scratch. Instead, you'll
+take advantage of the generate view
+classes built into TRF. These classes have
+everything built into them for crude operations. Import the generics module from the Django rest framework, the menu item model, and the serializer,
+you just created. Menu item, serializer. Now it's time for
+some direct magic. Create a new menu
+items view class and extend the ListCreateView class
+from the generics module. ListCreateView can
+display records and accept Post calls
+to create new records. To function correctly, at least CreateView
+needs two items, a queryset that retrieves all
+the records using a model, and a serializer class to display and store the
+records properly. Let's create those two items. You are almost done. It's time to map this
+class in the URL patterns. Create a new file
+called urls.py inside little lemon API app and add the URL pattern
+that you learned earlier. Views.MenuItemView.as_view. Next, include this file in the main urls.py file
+of your project. Just add the following line. Insert the URL patterns section. Path and then in parentheses,
+type api/include, add another set of
+parentheses and type LittleLemonAPI.urls and close the two
+sets of parenthesis. That's it. It's time
+to test your code. Run the web server
+using Pythonmanage.py, run server, and visit the
+local host url/api/menu items. At this point, you don't
+have any menu items, so none are included
+in the output. It's time to create records. Since you have extended
+listcreateapiview, this menu items endpoint automatically supports
+HTTP post calls. Scroll down and you'll notice a form to add menu
+items with the title, price and inventory fills. Great. Let's add some data
+and hit the Post button. Now, visit the menu
+items endpoint, and this time all your records
+are returned by this API. Next, let's display
+a single record using the endpoint
+menu items/itemid. For this, you need to create another class
+in your views.py file. Open the views.py
+file and create a new class called
+SingleMenuItemView. This time, we'll extend generics.RetrieveUpdate APIView, generics.DestroyApiView classes. RetrieveUpdateView
+class has everything to fetch a record, display it, and accept post calls to update
+them and DestroyApiView, has everything to accept, delete calls, and
+finally, delete a record. Just like before, you need a
+queryset and a serializer. You can copy those
+two lines from the MenuItemView class
+and paste them here. Met this new class in the little lemon api/urls.py
+file. You are done. Now, you can visit the localhost url/api/MenuItems/1 to
+display a single record. If you scroll down, you can see a form that you can use to update this record. There is also a Delete button, to delete the record. You can send HTTP, get, put, patch, and delete calls
+to this endpoint, which works without
+any issues. That's it. You have created a fully
+functional crude APA project using TRF with just
+a few lines of code. Congratulations. You also learned to
+take advantage of the generic view classes from the Django rest
+framework to avoid writing everything from scratch.
 
 ### Django REST Framework Essentials
 
