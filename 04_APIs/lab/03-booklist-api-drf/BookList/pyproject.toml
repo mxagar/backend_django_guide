@@ -1,0 +1,10 @@
+[project]
+name = "booklist-api-drf"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.0.6",
+    "djangorestframework>=3.17.1",
+    "djangorestframework-xml>=2.0.0",
+    "djoser>=2.3.3",
+]

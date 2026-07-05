@@ -87,6 +87,7 @@ Table of Contents:
       - [Function and Class-Based Views](#function-and-class-based-views)
       - [Django Debug Toolbar](#django-debug-toolbar)
       - [Restaurant Menu API Project with DRF](#restaurant-menu-api-project-with-drf)
+      - [Exercise: Book List API with DRF](#exercise-book-list-api-with-drf)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
@@ -2058,77 +2059,179 @@ urlpatterns = [
 
 #### Restaurant Menu API Project with DRF
 
-Now that you're already familiar with the class-based views, this video will walk you
-through the steps to create a fully functional
-crude APA project that can allow you to
-read from the database, display records, update, and delete them with just
-a few lines of code. You already know how to create a Django project and install TRF with a virtual environment using P band. Let's do that. Create a new app called
-little lemon API and include this app in
-the setting.py file. Ensure you have included the
-rest Framework app as well. Otherwise, TRF will not work. You need a database model first. Let's open the models.py
-file and add three fields, title, price, and inventory. Now make the migrations
-and migrate them. Another thing you need
-for this project, is a serializers object. By now, you know that serializers helped to
-convert model instances into Python datatypes
-that can be displayed as JSON or XML. It also helps you to convert HTTP request body into Python datatypes and made
-them to a model instance. But you'll learn more about these three different types
-of serializers later. For now, let's just create
-a simple model serializer. Open a new file inside the little lemon API app called serializers.py and add
-the following code. Don't worry about the
-details right now. But make sure that it has every field from the main whiter model in
-the field section. Now, open the little
-lemon api/view.py file. This is where you will write
-code for this project. This time, you're not going to write
-everything from scratch. Instead, you'll
-take advantage of the generate view
-classes built into TRF. These classes have
-everything built into them for crude operations. Import the generics module from the Django rest framework, the menu item model, and the serializer,
-you just created. Menu item, serializer. Now it's time for
-some direct magic. Create a new menu
-items view class and extend the ListCreateView class
-from the generics module. ListCreateView can
-display records and accept Post calls
-to create new records. To function correctly, at least CreateView
-needs two items, a queryset that retrieves all
-the records using a model, and a serializer class to display and store the
-records properly. Let's create those two items. You are almost done. It's time to map this
-class in the URL patterns. Create a new file
-called urls.py inside little lemon API app and add the URL pattern
-that you learned earlier. Views.MenuItemView.as_view. Next, include this file in the main urls.py file
-of your project. Just add the following line. Insert the URL patterns section. Path and then in parentheses,
-type api/include, add another set of
-parentheses and type LittleLemonAPI.urls and close the two
-sets of parenthesis. That's it. It's time
-to test your code. Run the web server
-using Pythonmanage.py, run server, and visit the
-local host url/api/menu items. At this point, you don't
-have any menu items, so none are included
-in the output. It's time to create records. Since you have extended
-listcreateapiview, this menu items endpoint automatically supports
-HTTP post calls. Scroll down and you'll notice a form to add menu
-items with the title, price and inventory fills. Great. Let's add some data
-and hit the Post button. Now, visit the menu
-items endpoint, and this time all your records
-are returned by this API. Next, let's display
-a single record using the endpoint
-menu items/itemid. For this, you need to create another class
-in your views.py file. Open the views.py
-file and create a new class called
-SingleMenuItemView. This time, we'll extend generics.RetrieveUpdate APIView, generics.DestroyApiView classes. RetrieveUpdateView
-class has everything to fetch a record, display it, and accept post calls to update
-them and DestroyApiView, has everything to accept, delete calls, and
-finally, delete a record. Just like before, you need a
-queryset and a serializer. You can copy those
-two lines from the MenuItemView class
-and paste them here. Met this new class in the little lemon api/urls.py
-file. You are done. Now, you can visit the localhost url/api/MenuItems/1 to
-display a single record. If you scroll down, you can see a form that you can use to update this record. There is also a Delete button, to delete the record. You can send HTTP, get, put, patch, and delete calls
-to this endpoint, which works without
-any issues. That's it. You have created a fully
-functional crude APA project using TRF with just
-a few lines of code. Congratulations. You also learned to
-take advantage of the generic view classes from the Django rest
-framework to avoid writing everything from scratch.
+- This walkthrough builds a fully functional CRUD (create, read, update, delete) API, "LittleLemonAPI," using generic views, with only a few lines of code.
+- Project setup:
+  - Create a new app, e.g. `uv run python manage.py startapp LittleLemonAPI`, and add both `"rest_framework"` and the new app to `INSTALLED_APPS` in `settings.py` (DRF, Django REST Framework, won't work without the former).
+  - Define the model in `models.py` with the `title`, `price`, and `inventory` fields, then run makemigrations/migrate.
+- A serializer converts model instances to Python datatypes for JSON/XML output, and converts an incoming HTTP request body back into a model instance; there are other serializer types, covered later, but a simple `ModelSerializer` is enough here, with every model field listed.
+- Views reuse DRF's generic view classes instead of writing CRUD logic from scratch:
+  - `MenuItemView` extends `generics.ListCreateAPIView`, which displays the resource collection (GET) and accepts new records (POST); it just needs a `queryset` (all records via the model) and a `serializer_class`.
+  - `SingleMenuItemView` extends `generics.RetrieveUpdateDestroyAPIView`, which fetches/displays a single record (GET), updates it (PUT/PATCH), and deletes it (DELETE); it reuses the same `queryset` and `serializer_class` as `MenuItemView`.
+- Routing: map `MenuItemView` and `SingleMenuItemView` in a new `urls.py` inside the app, then include that file from the project's root `urls.py` under the `api/` prefix.
+- Testing the result:
+  - `GET /api/menu-items` initially returns no records.
+  - Because `MenuItemView` extends `ListCreateAPIView`, the browsable API page for that endpoint includes a form (title, price, inventory) for POSTing new records; after adding one, `GET /api/menu-items` returns it.
+  - `GET /api/menu-items/1` (via `SingleMenuItemView`) displays a single record, with a form to update it and a button to delete it; GET, PUT, PATCH, and DELETE all work against this endpoint without extra code.
+
+```python
+# models.py
+from django.db import models
+
+class MenuItem(models.Model):
+    title = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    inventory = models.PositiveSmallIntegerField()
+```
+
+```python
+# serializers.py
+from rest_framework import serializers
+from .models import MenuItem
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'inventory']
+```
+
+```python
+# views.py
+from rest_framework import generics
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+class MenuItemView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+```
+
+```python
+# LittleLemonAPI/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('menu-items', views.MenuItemView.as_view()),
+    path('menu-items/<int:pk>', views.SingleMenuItemView.as_view()),
+]
+```
+
+```python
+# urls.py (project root)
+from django.urls import include, path
+
+urlpatterns = [
+    # ...
+    path('api/', include('LittleLemonAPI.urls')),
+]
+```
+
+![Single Menu Item API](./assets/single_menu_item_api.png)
+
+#### Exercise: Book List API with DRF
+
+Folder: [`lab/03-booklist-api-drf/`](./lab/03-booklist-api-drf/), instructions: [`Instructions.md`](./lab/03-booklist-api-drf/Instructions.md).
+
+- Converted the plain-Django BookList project into a DRF (Django REST Framework) API:
+  - Defined the `Book` model (`title`, `author`, `price`) in `models.py`.
+  - Added `serializers.py` with a `BookSerializer` (`ModelSerializer`) exposing `id`, `title`, `author`, `price`.
+  - Added `views.py` with `BookView` (`generics.ListCreateAPIView`, for GET/POST on the collection) and `SingleBookView` (`generics.RetrieveUpdateAPIView`, for GET/PUT on a single book by `pk`), both backed by `Book.objects.all()` and `BookSerializer`.
+  - Added the app-level `urls.py` mapping `books` to `BookView` and `books/<int:pk>` to `SingleBookView`.
+  - Included the app's `urls.py` from the project-level `urls.py` under the `api/` prefix.
+  - Ran migrations and verified the API: added three books through the browsable API's POST form (`The Prophet`, `Siddhartha`, `The Great Gatsby`), confirmed `GET /api/books` lists all of them, and confirmed `GET /api/books/<id>` returns a single book.
+- Replaced the project's `Pipfile`/`Pipfile.lock` with a standalone `uv` project (`pyproject.toml`/`uv.lock`), scoped to this lab folder with its own `.venv`, independent of the repo's root-level environment.
+
+Shell commands, run from inside `lab/03-booklist-api-drf/BookList/`:
+
+```bash
+# One-time setup: create the project's own virtual environment and install dependencies
+uv sync
+
+# Making migrations
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+
+# Start the dev server
+uv run python manage.py runserver 8080
+# Browsable API: http://127.0.0.1:8080/api/books
+```
+
+Solution code for `models.py`:
+
+```python
+from django.db import models
+
+
+class Book(models.Model):
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=5, decimal_places=2)
+```
+
+Solution code for `serializers.py`:
+
+```python
+from rest_framework import serializers
+
+from .models import Book
+
+
+class BookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Book
+        fields = ['id', 'title', 'author', 'price']
+```
+
+Solution code for `views.py`:
+
+```python
+from rest_framework import generics
+
+from .models import Book
+from .serializers import BookSerializer
+
+
+class BookView(generics.ListCreateAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+
+
+class SingleBookView(generics.RetrieveUpdateAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+```
+
+Solution code for `urls.py` (app-level):
+
+```python
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path('books', views.BookView.as_view()),
+    path('books/<int:pk>', views.SingleBookView.as_view(), name='SingleBook'),
+]
+```
+
+Solution code for `urls.py` (project-level):
+
+```python
+from django.contrib import admin
+from django.urls import include, path
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/', include('BookListDRF.urls')),
+]
+```
+
+
+
 
 ### Django REST Framework Essentials
 
