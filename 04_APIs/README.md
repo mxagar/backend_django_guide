@@ -88,6 +88,7 @@ Table of Contents:
       - [Django Debug Toolbar](#django-debug-toolbar)
       - [Restaurant Menu API Project with DRF](#restaurant-menu-api-project-with-drf)
       - [Exercise: Book List API with DRF](#exercise-book-list-api-with-drf)
+      - [Additional Resources](#additional-resources)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
@@ -2245,6 +2246,13 @@ urlpatterns = [
 ![Browsable API](./assets/booklist_api_drf_result.png)
 
 ![Database Contents](./assets/booklist_db_result.png)
+
+#### Additional Resources
+
+- [Django rest framework toolkit for building web APIs](https://www.django-rest-framework.org/)
+- [Django debug toolbar documentation](https://django-debug-toolbar.readthedocs.io/en/latest/)
+- [Django Debug toolbar source code](https://github.com/jazzband/django-debug-toolbar)
+- [DRF router documentation](https://www.django-rest-framework.org/api-guide/routers/)
 
 
 ### Django REST Framework Essentials
