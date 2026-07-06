@@ -90,6 +90,9 @@ Table of Contents:
       - [Exercise: Book List API with DRF](#exercise-book-list-api-with-drf)
       - [Additional Resources](#additional-resources)
     - [Django REST Framework Essentials](#django-rest-framework-essentials)
+      - [Serializers](#serializers)
+      - [Model Serializers](#model-serializers)
+      - [Relationship Serializers](#relationship-serializers)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
     - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
@@ -2256,6 +2259,146 @@ urlpatterns = [
 
 
 ### Django REST Framework Essentials
+
+#### Serializers
+
+- Serializers are DRF (Django REST Framework)'s tool for data conversion, its most popular feature: they turn Django model instances/querysets into a readable format like JSON or XML, and do the reverse (deserialization) by parsing incoming JSON and mapping it onto a model, validating the data along the way to keep it clean and consistent.
+- Without a serializer, a view that returns a queryset directly has DRF auto-convert every field of the model, including any sensitive ones; a serializer is what lets you choose (and hide) fields.
+- Practical setup, using a `MenuItem` model with `title`, `price`, and `inventory` fields:
+  - Create a `serializers.py` file in the Django app to hold all serializer code.
+  - Declare a `Serializer` subclass with one field per model field to expose; only the fields listed here appear in the API output, e.g. omitting `price`/`inventory` hides them.
+  - A view returning multiple records must pass `many=True` when instantiating the serializer, since converting a list/queryset differs from converting a single object; a single-record view omits `many=True`.
+- Fetching a single record by primary key with the plain `Model.objects.get(pk=...)` throws a server error (HTTP 500) for a non-existent ID; using Django's `get_object_or_404()` shortcut instead raises `Http404`, which DRF automatically turns into a proper JSON 404 response (`{"detail": "Not found."}`).
+
+```python
+# serializers.py
+from rest_framework import serializers
+
+class MenuItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField(max_length=255)
+    # We can comment out these following fields, if desired
+    price = serializers.DecimalField(max_digits=6, decimal_places=2)
+    inventory = serializers.IntegerField()
+```
+
+```python
+# views.py
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+@api_view()
+def menu_items(request):
+    items = MenuItem.objects.all()
+    serialized_item = MenuItemSerializer(items, many=True)
+    return Response(serialized_item.data)
+
+@api_view()
+def single_item(request, pk):
+    item = get_object_or_404(MenuItem, pk=pk)
+    serialized_item = MenuItemSerializer(item)
+    return Response(serialized_item.data)
+```
+
+```python
+# urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('menu-items', views.menu_items),
+    path('menu-items/<int:pk>', views.single_item),
+]
+```
+
+#### Model Serializers
+
+- `ModelSerializer` is an easier way to convert Django model instances to JSON than the plain `Serializer` from the previous section: less code, same result.
+  - Swapping a plain `Serializer` for a `ModelSerializer` (for the same `MenuItem` model with `title`, `price`, and `inventory` fields) requires no changes to `views.py` -- both the collection and single-item endpoints keep working as before.
+- Renaming an output field: declare a new field on the serializer with the desired name and point it at the original model field via the `source` argument (e.g. exposing `inventory` as `stock`), then list the new field name -- not the original -- in `Meta.fields`, or it raises an error.
+- Adding a calculated field (not backed directly by a model field): declare a `SerializerMethodField`, then define a `get_<field_name>` method that computes and returns its value from the model instance; that field name must also be added to `Meta.fields`.
+  - Example: a `price_after_tax` field computed as the product's price plus 10% tax, using `Decimal` from Python's `decimal` module for the arithmetic.
+
+```python
+# serializers.py
+from decimal import Decimal
+
+from rest_framework import serializers
+
+from .models import MenuItem
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax']
+
+    def get_price_after_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+#### Relationship Serializers
+
+- Real projects usually have related data across multiple tables, connected through model fields; DRF (Django REST Framework) needs specific handling to convert these related models to JSON correctly.
+- Setup: a new `Category` model is connected to `MenuItem` via a foreign key, with `on_delete=models.PROTECT` so a category cannot be deleted while menu items still reference it. Migrations must be created and applied before continuing.
+- By default, a related field doesn't appear in the API output at all unless it's explicitly added to the serializer's `Meta.fields` -- once added, it shows the raw foreign key ID, not anything more descriptive.
+- Displaying the category's name instead of its ID:
+  - Adding a `StringRelatedField` for `category` relies on the related model's `__str__` method to produce the value, so `Category` needs a `__str__` method defined; without it, the field's output doesn't change.
+  - This still runs one extra SQL query per menu item to fetch the related category -- inefficient for a list of many items.
+- Fixing that N+1 query problem: add `select_related('category')` to the view's queryset, so Django fetches the related categories in the same SQL query instead of a separate one per row.
+- Showing the full category object (not just its name): declare a separate `CategorySerializer` and nest it as the `category` field on `MenuItemSerializer`, replacing the `StringRelatedField`; this embeds the category's own fields (e.g. `id`, `title`) under each menu item.
+
+```python
+# models.py
+class Category(models.Model):
+    title = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.title
+
+class MenuItem(models.Model):
+    title = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    inventory = models.PositiveSmallIntegerField()
+    category = models.ForeignKey(Category, on_delete=models.PROTECT)
+```
+
+```python
+# serializers.py
+from rest_framework import serializers
+
+from .models import Category, MenuItem
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'title']
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    category = CategorySerializer()
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'inventory', 'category']
+```
+
+```python
+# views.py
+from rest_framework import generics
+
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+class MenuItemView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.select_related('category').all()
+    serializer_class = MenuItemSerializer
+```
 
 ## 3. Advanced API Development
 
