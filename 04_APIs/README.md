@@ -99,6 +99,11 @@ Table of Contents:
       - [Deserialization and Validation](#deserialization-and-validation)
       - [Renderers](#renderers)
       - [Different Types of Renderers](#different-types-of-renderers)
+        - [TemplateHTMLRenderer](#templatehtmlrenderer)
+        - [StaticHTMLRenderer](#statichtmlrenderer)
+        - [CSV Renderer](#csv-renderer)
+        - [YAML Renderer](#yaml-renderer)
+        - [Global Settings](#global-settings)
       - [Exercise: Restaurant Menu API with Serialization](#exercise-restaurant-menu-api-with-serialization)
       - [Additional Resources](#additional-resources-1)
   - [3. Advanced API Development](#3-advanced-api-development)
@@ -2661,7 +2666,190 @@ application/xml -> XMLRenderer (requires djangorestframework-xml installed + lis
 
 #### Different Types of Renderers
 
+Beyond the built-in `JSONRenderer`/`BrowsableAPIRenderer` and the third-party `XMLRenderer` covered earlier, DRF (Django REST Framework) supports several other renderers worth knowing.
+
+##### TemplateHTMLRenderer
+
+For endpoints that need to render actual HTML (e.g. an invoice page), `TemplateHTMLRenderer` passes the serialized data into an HTML template rendered with Django's own templating language (DTL, Django Templating Language).
+
+```python
+# views.py
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import TemplateHTMLRenderer
+from rest_framework.response import Response
+
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+@api_view()
+@renderer_classes([TemplateHTMLRenderer])
+def menu(request):
+    items = MenuItem.objects.select_related('category').all()
+    serialized_item = MenuItemSerializer(items, many=True)
+    # `data` becomes the template context; template_name is looked up under
+    # <app>/templates/, e.g. LittleLemonAPI/templates/menu-items.html
+    return Response({'data': serialized_item.data}, template_name='menu-items.html')
+```
+
+```html
+<!-- LittleLemonAPI/templates/menu-items.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Menu Items</title>
+</head>
+<body>
+    <table width="100%" style="text-align: left;">
+        <tr>
+            <th>Item</th>
+            <th>Price</th>
+            <th>Price After Tax</th>
+            <th>Stock</th>
+        </tr>
+        {% for item in data %}
+        <tr>
+            <td>{{ item.title }}</td>
+            <td>{{ item.price }}</td>
+            <td>{{ item.price_after_tax }}</td>
+            <td>{{ item.stock }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+```
+
+```python
+# settings.py -- fixes a "TemplateDoesNotExist" error if Django can't find the templates directory
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],  # add this line
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+# Or, if TEMPLATES is already defined and only DIRS is missing:
+TEMPLATES[0]['DIRS'] = [BASE_DIR / 'templates']
+```
+
+```python
+# urls.py
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path('menu-items', views.menu_items),
+    path('menu-items/<int:id>', views.single_item),
+    path('menu', views.menu),  # -> http://127.0.0.1:8000/api/menu
+]
+```
+
+![Menu-items endpoint displays menu items in formatted HTML table](./assets/different-types-of-renderers-1.png)
+
+##### StaticHTMLRenderer
+
+For endpoints that just need to return a fixed HTML string, with no template or DTL involved.
+
+```python
+# views.py
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+
+@api_view(['GET'])
+@renderer_classes([StaticHTMLRenderer])
+def welcome(request):
+    data = '<html><body><h1>Welcome To Little Lemon API Project</h1></body></html>'
+    return Response(data)
+```
+
+```python
+# urls.py
+path('welcome', views.welcome)  # -> http://127.0.0.1:8000/api/welcome
+```
+
+![Welcome to the Little Lemon API Project greeting](./assets/different-types-of-renderers-2.png)
+
+##### CSV Renderer
+
+CSV (comma-separated values) puts one record per line with fields comma-separated. DRF has no built-in CSV renderer, so it needs a third-party package.
+
+```bash
+pipenv install djangorestframework-csv
+uv add djangorestframework-csv
+```
+
+```python
+# views.py -- add directly below @api_view() on the existing menu_items view
+from rest_framework_csv.renderers import CSVRenderer
+
+@api_view()
+@renderer_classes([CSVRenderer])
+def menu_items(request):
+    ...
+```
+
+Visiting `http://127.0.0.1:8000/api/menu-items` in a REST client like Insomnia now returns CSV:
+
+![API endpoint output in Insomnia](./assets/different-types-of-renderers-3.png)
+
+##### YAML Renderer
+
+Same pattern as CSV, for YAML output.
+
+```bash
+pipenv install djangorestframework-yaml
+uv add djangorestframework-yaml
+```
+
+```python
+# views.py -- add directly below @api_view() on the existing menu_items view
+from rest_framework_yaml.renderers import YAMLRenderer
+
+@api_view()
+@renderer_classes([YAMLRenderer])
+def menu_items(request):
+    ...
+```
+
+![API endpoint output in Insomnia that displays the menu items](./assets/different-types-of-renderers-4.png)
+
+##### Global Settings
+
+Instead of importing and decorating each view individually, register renderers globally in `settings.py` so any endpoint can serve them based on the client's `Accept` header.
+
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+        'rest_framework_xml.renderers.XMLRenderer',
+        'rest_framework_csv.renderers.CSVRenderer',
+        'rest_framework_yaml.renderers.YAMLRenderer',
+    ]
+}
+```
+
+```text
+# Client Accept header -> response format, once the renderers above are registered globally
+Accept: text/csv         -> CSV
+Accept: application/yaml -> YAML
+```
+
 #### Exercise: Restaurant Menu API with Serialization
+
+Folder: [`lab/04-menuitem-api-serialization/`](./lab/04-menuitem-api-serialization/).
 
 #### Additional Resources
 
