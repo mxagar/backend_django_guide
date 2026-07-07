@@ -93,6 +93,14 @@ Table of Contents:
       - [Serializers](#serializers)
       - [Model Serializers](#model-serializers)
       - [Relationship Serializers](#relationship-serializers)
+      - [Other Types of Serializers in DRF](#other-types-of-serializers-in-drf)
+        - [Nested Fields](#nested-fields)
+        - [Displaying a Related Field as a Hyperlink](#displaying-a-related-field-as-a-hyperlink)
+      - [Deserialization and Validation](#deserialization-and-validation)
+      - [Renderers](#renderers)
+      - [Different Types of Renderers](#different-types-of-renderers)
+      - [Exercise: Restaurant Menu API with Serialization](#exercise-restaurant-menu-api-with-serialization)
+      - [Additional Resources](#additional-resources-1)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
     - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
@@ -2399,6 +2407,263 @@ class MenuItemView(generics.ListCreateAPIView):
     queryset = MenuItem.objects.select_related('category').all()
     serializer_class = MenuItemSerializer
 ```
+
+#### Other Types of Serializers in DRF
+
+##### Nested Fields
+
+Visiting the `menu-items` endpoint can show `category` as a nested object with its `id`, `title`, and `slug`, in two ways:
+
+![Menu-items endpoint displaying the category with a nested field with id, title and slug](./assets/other-types-of-serializers-1.png)
+
+- **Method 1 -- explicit nested serializer:** declare a `CategorySerializer` and set it as the `category` field on `MenuItemSerializer` (as in the previous section).
+- **Method 2 -- `depth` option:** instead of nesting a serializer field, set `depth = 1` on `MenuItemSerializer`'s `Meta` class; DRF then expands every relationship on that serializer to show all of the related model's fields, with no other code changes. The API output is identical to Method 1.
+
+```python
+# Method 1: serializers.py
+from decimal import Decimal
+from rest_framework import serializers
+
+from .models import Category, MenuItem
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'slug', 'title']
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+    category = CategorySerializer()
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category']
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+```python
+# Method 2: serializers.py
+class MenuItemSerializer(serializers.ModelSerializer):
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+    # category = CategorySerializer()  -- no longer needed
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category']
+        depth = 1
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+Nesting related fields this way gives clients more information per response and saves them a separate API call to fetch each related object's details.
+
+##### Displaying a Related Field as a Hyperlink
+
+A related field can also be rendered as a hyperlink, e.g. `http://127.0.0.1:8000/api/category/{categoryId}` for `category`, via `HyperlinkedRelatedField` or `HyperlinkedModelSerializer`.
+
+**Method 1: `HyperlinkedRelatedField`**
+
+- Step 1 -- add a detail view and URL for the related model, so the hyperlink has somewhere to resolve to:
+
+  ```python
+  # views.py
+  from django.shortcuts import get_object_or_404
+  from rest_framework.decorators import api_view
+  from rest_framework.response import Response
+
+  from .models import Category
+  from .serializers import CategorySerializer
+
+  @api_view()
+  def category_detail(request, pk):
+      category = get_object_or_404(Category, pk=pk)
+      serialized_category = CategorySerializer(category)
+      return Response(serialized_category.data)
+  ```
+
+  ```python
+  # urls.py
+  path('category/<int:pk>', views.category_detail, name='category-detail')
+  ```
+
+  > Convention: the view name must be `<related-field-name>-detail` -- `category-detail` for the `category` field, `user-detail` for a `user` field, and so on.
+
+- Step 2 -- set `category` to a `HyperlinkedRelatedField`, giving it a `queryset` (to resolve the related object) and a `view_name` (to build the URL); `view_name` can be omitted if the convention from Step 1 was followed:
+
+  ```python
+  # serializers.py
+  from .models import Category
+
+  class MenuItemSerializer(serializers.ModelSerializer):
+      stock = serializers.IntegerField(source='inventory')
+      price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+      category = serializers.HyperlinkedRelatedField(
+          queryset=Category.objects.all(),
+          view_name='category-detail'
+      )
+
+      class Meta:
+          model = MenuItem
+          fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category']
+
+      def calculate_tax(self, product: MenuItem):
+          return product.price * Decimal('1.1')
+  ```
+
+- Step 3 -- pass the request into the serializer's context, which DRF needs to build absolute hyperlinks:
+
+  ```python
+  serialized_item = MenuItemSerializer(items, many=True, context={'request': request})
+  ```
+
+  ![Menu-items endpoint displays the category field as a hyperlink](./assets/other-types-of-serializers-2.png)
+
+  ![Category details that display after clicking on hyperlink](./assets/other-types-of-serializers-3.png)
+
+**Method 2: `HyperlinkedModelSerializer`**
+
+- Simpler alternative: make `MenuItemSerializer` extend `serializers.HyperlinkedModelSerializer` instead of `serializers.ModelSerializer`. Output is identical to Method 1, with less code.
+- The `category-detail` URL pattern from Step 1 is still required.
+
+```python
+# serializers.py
+class MenuItemSerializer(serializers.HyperlinkedModelSerializer):
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category']
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+```python
+# urls.py
+urlpatterns = [
+    path('menu-items', views.menu_items),
+    path('menu-items/<int:id>', views.single_item),
+    path('category/<int:pk>', views.category_detail, name='category-detail'),
+]
+```
+
+#### Deserialization and Validation
+
+- Deserialization reverses serialization: it happens when a client sends data to an API endpoint and DRF maps that data onto an existing model.
+- Adding POST support to an existing GET-only view, continuing with the Little Lemon project's `menu_items` function:
+  - Add `'POST'` to the `@api_view()` decorator's method list, alongside `'GET'`.
+  - Branch on `request.method` inside the function: keep the existing GET logic, and add a branch for POST.
+- Deserializing and validating the POST payload, inside the POST branch:
+  - Instantiate the serializer with the incoming payload: `MenuItemSerializer(data=request.data)`.
+  - Call `serializer.is_valid()` to run the serializer's built-in validation; it checks that every required field (per `Meta.fields`) is present, and raises an error describing what's missing or invalid, so the client can correct and resubmit.
+  - Once valid, either:
+    - read the validated payload without persisting it, via `serializer.validated_data`, or
+    - persist it with `serializer.save()`.
+  - After `save()`, `serializer.data` reflects the saved record, including its new `id`; accessing `.data` before `save()` raises an error -- use `.validated_data` if the payload is needed before saving.
+- Handling the `category` field on POST, once GET and POST both use the same `MenuItemSerializer`:
+  - A first POST attempt fails with "category field is required", because `category` is nested via `CategorySerializer()`, which by default expects input too.
+  - Since `category` should only ever be used for output (showing category details on GET), mark it `read_only=True` on `MenuItemSerializer` rather than removing it -- removing it would also hide it from GET responses.
+  - After that fix, POST succeeds, but every new record ends up saved with whatever `category` the model's default applies, since `category` is no longer accepted as input.
+- Letting POST choose the category, so a client isn't stuck with a hardcoded default:
+  - Add a `category_id` field to `MenuItemSerializer` and list it in `Meta.fields`, so POST can set the category directly (see code comments below for why a plain `IntegerField` is enough).
+  - Mark it `write_only=True`: otherwise GET responses would show both `category` (the nested object) and `category_id` (the same id, duplicated) -- redundant, since the id already appears inside `category`.
+
+![GET /api/menu-items response after the fix, showing POST and GET as allowed methods and category nested read-only in each item](./assets/deserialization_validation.png)
+
+- Tip: rather than stretching one serializer to cover every GET/POST shape, it's often cleaner to define separate serializers per use case and select the one that fits each view.
+
+```python
+# views.py
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+@api_view(['GET', 'POST'])
+def menu_items(request):
+    if request.method == 'GET':
+        items = MenuItem.objects.select_related('category').all()
+        serialized_item = MenuItemSerializer(items, many=True)
+        return Response(serialized_item.data)
+    elif request.method == 'POST':
+        serialized_item = MenuItemSerializer(data=request.data)
+        serialized_item.is_valid(raise_exception=True)
+        serialized_item.save()
+        return Response(serialized_item.data)
+```
+
+```python
+# serializers.py
+from decimal import Decimal
+
+from rest_framework import serializers
+
+from .models import Category, MenuItem
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'slug', 'title']
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+    category = CategorySerializer(read_only=True)
+    # No source= needed: Django stores a FK's raw id as `<field>_id` on the model
+    # (MenuItem.category_id), so this field lines up with it directly.
+    # Looser than PrimaryKeyRelatedField(queryset=...): an id for a category that
+    # doesn't exist fails at save() with a database error, not a clean is_valid() one.
+    category_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category', 'category_id']
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+#### Renderers
+
+- Renderers control the format an API's output is displayed in; DRF ships two built in:
+  - `JSONRenderer`
+  - and `BrowsableAPIRenderer` (the interactive HTML view used throughout this course) -- and supports third-party ones for anything else (XML, YAML, JSONP, ...).
+- The active renderer list lives in `settings.py` under `REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES']`; adding, removing, or commenting out an entry changes what the API can output, with no view code changes needed.
+- A client picks the output format by sending an `Accept` request header (e.g. `application/json`, `text/html` (browsable API), `application/xml`); if no `Accept` header is sent, DRF falls back to the first renderer in the list.
+  - Browsers send `text/html` by default, which is why visiting an endpoint in a browser shows the browsable API instead of raw JSON.
+  - Tools like Insomnia send no `Accept` header unless one is added explicitly, so they get plain JSON until `Accept: text/html` (or the desired type) is set.
+
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',  # comment out to force JSON-only output
+        'rest_framework_xml.renderers.XMLRenderer',  # third party: uv add djangorestframework-xml
+    ],
+}
+```
+
+```text
+# Accept header sent by the client -> renderer DRF uses (given the classes above)
+application/json  -> JSONRenderer (plain JSON)
+text/html -> BrowsableAPIRenderer (only while it's enabled in the list above)
+application/xml -> XMLRenderer (requires djangorestframework-xml installed + listed)
+(no Accept header) -> first renderer in the list, JSONRenderer
+```
+
+#### Different Types of Renderers
+
+#### Exercise: Restaurant Menu API with Serialization
+
+#### Additional Resources
 
 ## 3. Advanced API Development
 
