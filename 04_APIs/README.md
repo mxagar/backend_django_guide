@@ -2851,6 +2851,149 @@ Accept: application/yaml -> YAML
 
 Folder: [`lab/04-menuitem-api-serialization/`](./lab/04-menuitem-api-serialization/).
 
+- Defined the `MenuItem` model (`title`, `price`, `inventory`) and ran `makemigrations`/`migrate` to create its table.
+- Added `serializers.py` with a `MenuItemSerializer(ModelSerializer)`; used `extra_kwargs` to enforce `price >= 2` and `inventory >= 0` at validation time, without writing a custom `validate_*` method.
+- Wired up `views.py` with two generic views sharing the same queryset/serializer:
+  - `MenuItemsView(ListCreateAPIView)` for `GET` (list) and `POST` (create) on `/api/menu-items`.
+  - `SingleMenuItemView(RetrieveUpdateDestroyAPIView)` for `GET`/`PUT`/`DELETE` on `/api/menu-items/<pk>`.
+- Uncommented the two routes in the app-level `urls.py` to expose both views.
+- Registered `XMLRenderer` (from `djangorestframework-xml`) alongside the default JSON and browsable-API renderers in `settings.py`, so `?format=xml` / `?format=json` both work.
+- Replaced the project's `Pipfile`/`Pipfile.lock` with a standalone `uv` project (`pyproject.toml`/`uv.lock`), scoped to this lab folder with its own `.venv`, independent of the repo's root-level environment.
+- Ran the flow end-to-end against the dev server to confirm each piece: `POST` a valid item (succeeds), `POST` an out-of-range item such as `inventory: -1` (rejected with a 400 and the `extra_kwargs` error messages), `GET` the list and a single item, `PUT` an update, `DELETE` an item, and `GET /api/menu-items?format=xml` vs `?format=json`.
+
+Shell commands, run from inside `lab/04-menuitem-api-serialization/LittleLemon/`:
+
+```bash
+# One-time setup: create the project's own virtual environment and install dependencies
+uv sync
+
+# Create and apply the migration for the new MenuItem model
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+
+# Start the dev server
+uv run python manage.py runserver 8080
+# Browsable API: http://127.0.0.1:8080/api/menu-items
+```
+
+`models.py`:
+
+```python
+from django.db import models
+
+# Create your models here.
+class MenuItem(models.Model):
+    title = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    inventory = models.SmallIntegerField()
+```
+
+`urls.py` (app-level):
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('menu-items', views.MenuItemsView.as_view()),
+    path('menu-items/<int:pk>', views.SingleMenuItemView.as_view()),
+]
+```
+
+`views.py`:
+
+```python
+from rest_framework import generics
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+# GET (list) + POST (create) on /api/menu-items
+class MenuItemsView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+# GET + PUT + DELETE on /api/menu-items/<pk>
+class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+```
+
+`serializers.py`:
+
+```python
+from rest_framework import serializers
+from .models import MenuItem
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'inventory']
+        # Field-level validation without custom validate_<field> methods:
+        # POSTing/PUTing a value outside these bounds returns a 400 with an
+        # explanatory error message for that field.
+        extra_kwargs = {
+            'price': {'min_value': 2},
+            'inventory': {'min_value': 0}
+        }
+```
+
+`settings.py`:
+
+```python
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+        'rest_framework_xml.renderers.XMLRenderer',  # dependency: djangorestframework-xml (see pyproject.toml)
+    ]
+}
+```
+
+Testing the API with `curl` (the browsable API's HTML forms work the same way from a browser):
+
+```bash
+# GET -- empty collection initially
+curl http://127.0.0.1:8080/api/menu-items
+# []
+
+# POST -- create a menu item
+curl -X POST http://127.0.0.1:8080/api/menu-items \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Grilled Fish", "price": "8.50", "inventory": 20}'
+# {"id":1,"title":"Grilled Fish","price":"8.50","inventory":20} -- 201 Created
+
+# GET -- new item now listed
+curl http://127.0.0.1:8080/api/menu-items
+# [{"id":1,"title":"Grilled Fish","price":"8.50","inventory":20}]
+
+# POST -- inventory below the extra_kwargs min_value -> 400
+curl -X POST http://127.0.0.1:8080/api/menu-items \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Lemon Dessert", "price": "1.50", "inventory": -1}'
+# {"price":["Ensure this value is greater than or equal to 2."],
+#  "inventory":["Ensure this value is greater than or equal to 0."]}
+
+# GET a single item by pk
+curl http://127.0.0.1:8080/api/menu-items/1
+# {"id":1,"title":"Grilled Fish","price":"8.50","inventory":20}
+
+# PUT -- update the item
+curl -X PUT http://127.0.0.1:8080/api/menu-items/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Grilled Fish", "price": "9.00", "inventory": 15}'
+# {"id":1,"title":"Grilled Fish","price":"9.00","inventory":15}
+
+# DELETE the item
+curl -X DELETE http://127.0.0.1:8080/api/menu-items/1
+# 204 No Content
+
+# GET the same collection rendered as XML vs. JSON
+curl "http://127.0.0.1:8080/api/menu-items?format=xml"
+# <?xml version="1.0" encoding="utf-8"?><root><list-item>...</list-item></root>
+curl "http://127.0.0.1:8080/api/menu-items?format=json"
+# [{"id": ...}]
+```
+
 #### Additional Resources
 
 ## 3. Advanced API Development
