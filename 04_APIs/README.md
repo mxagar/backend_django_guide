@@ -108,6 +108,14 @@ Table of Contents:
       - [Additional Resources](#additional-resources-1)
   - [3. Advanced API Development](#3-advanced-api-development)
     - [Filtering, Ordering, Searching](#filtering-ordering-searching)
+      - [Filtering and Searching](#filtering-and-searching)
+      - [Ordering](#ordering)
+      - [Importance of Data Validation](#importance-of-data-validation)
+      - [Data Sanitization](#data-sanitization)
+      - [Pagination](#pagination)
+      - [More on Filtering and Pagination](#more-on-filtering-and-pagination)
+      - [Caching](#caching)
+      - [Exercise: Restaurant Menu API with Filtering, Ordering, and Searching](#exercise-restaurant-menu-api-with-filtering-ordering-and-searching)
     - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
   - [4. Final Project](#4-final-project)
 
@@ -2996,9 +3004,29 @@ curl "http://127.0.0.1:8080/api/menu-items?format=json"
 
 #### Additional Resources
 
+- [XML renderer, XML support for Django REST framework](https://jpadilla.github.io/django-rest-framework-xml/)
+- [YAML renderer, YAML support for Django REST framework](https://jpadilla.github.io/django-rest-framework-yaml/)
+- [JSONP renderer, JSONP support for Django REST framework](https://jpadilla.github.io/django-rest-framework-jsonp/)
+
 ## 3. Advanced API Development
 
 ### Filtering, Ordering, Searching
+
+#### Filtering and Searching
+
+#### Ordering
+
+#### Importance of Data Validation
+
+#### Data Sanitization
+
+#### Pagination
+
+#### More on Filtering and Pagination
+
+#### Caching
+
+#### Exercise: Restaurant Menu API with Filtering, Ordering, and Searching
 
 ### Securing an API in Django REST Framework
 
