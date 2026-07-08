@@ -119,6 +119,8 @@ Table of Contents:
         - [Where This Code Goes, and Validation Order](#where-this-code-goes-and-validation-order)
         - [Unique Validation](#unique-validation)
       - [Data Sanitization](#data-sanitization)
+        - [Sanitizing HTML and JavaScript](#sanitizing-html-and-javascript)
+        - [Preventing SQL Injection](#preventing-sql-injection)
       - [Pagination](#pagination)
       - [More on Filtering and Pagination](#more-on-filtering-and-pagination)
       - [Caching](#caching)
@@ -3027,14 +3029,16 @@ curl "http://127.0.0.1:8080/api/menu-items?format=json"
   - Filter server-side based on query parameters: more work to build, but keeps the load off the server and the response small, and client applications don't need their own filtering logic.
 - Filtering the `menu_items` view by category and price, using DRF's `request.query_params` (works like `request.GET`, but is available consistently across HTTP methods):
   - `?category=<title>` -- `category` is a foreign key on `MenuItem`, so filtering on the related model's `title` field needs a double underscore to cross the relationship: `items.filter(category__title=category_name)`.
-  - `?to_price=<value>` -- filters using a *field lookup* (a comparison operator appended after another double underscore): `price__lte=to_price` means "price less than or equal to".
+  - `?to_price=<value>` -- despite the name, this filters for an exact match on `price` (`items.filter(price=to_price)`), not a "less than or equal to" range -- a *field lookup* like `price__lte=to_price` would be needed for that instead.
   - Both filters can be combined in one request by joining query parameters with `&`, e.g. `?category=main&to_price=15`.
-- Filtering by a `search` query parameter: `title__icontains=search` matches the search text anywhere in the title, case-insensitively.
-  - Other field lookups work the same way for different match rules: `startswith`/`istartswith` anchor the match to the start of the title (case-sensitive/insensitive), and `contains` is the case-sensitive version of `icontains`.
+- Filtering by a `search` query parameter: `title__contains=search` matches the search text anywhere in the title, case-sensitively.
+  - Other field lookups work the same way for different match rules: `startswith` anchors the match to the start of the title, and `icontains`/`istartswith` are the case-insensitive versions of `contains`/`startswith`.
 - Field lookups act as Django's comparison operators for filtering; the full list is in Django's field lookups documentation, linked in this lesson's Additional Resources.
 
 ```python
 # views.py
+from rest_framework import status
+
 @api_view(['GET', 'POST'])
 def menu_items(request):
     if request.method == 'GET':
@@ -3047,9 +3051,9 @@ def menu_items(request):
         if category_name:
             items = items.filter(category__title=category_name)  # e.g. ?category=main
         if to_price:
-            items = items.filter(price__lte=to_price)  # e.g. ?to_price=15 -> price <= 15
+            items = items.filter(price=to_price)  # e.g. ?to_price=15 -> price == 15
         if search:
-            items = items.filter(title__icontains=search)  # e.g. ?search=choc
+            items = items.filter(title__contains=search)  # e.g. ?search=Choc (case-sensitive)
 
         serialized_item = MenuItemSerializer(items, many=True)
         return Response(serialized_item.data)
@@ -3057,7 +3061,7 @@ def menu_items(request):
         serialized_item = MenuItemSerializer(data=request.data)
         serialized_item.is_valid(raise_exception=True)
         serialized_item.save()
-        return Response(serialized_item.data)
+        return Response(serialized_item.validated_data, status.HTTP_201_CREATED)
 ```
 
 Example requests against the filtered/searched endpoint:
@@ -3066,14 +3070,14 @@ Example requests against the filtered/searched endpoint:
 # All items in the "main" category
 http://127.0.0.1:8000/api/menu-items?category=main
 
-# Items priced 15 or less
+# Items priced exactly 15
 http://127.0.0.1:8000/api/menu-items?to_price=15
 
 # Both filters combined
 http://127.0.0.1:8000/api/menu-items?category=main&to_price=15
 
-# Titles containing "choc", case-insensitively (e.g. "Chocolate Cake")
-http://127.0.0.1:8000/api/menu-items?search=choc
+# Titles containing "Choc" (case-sensitive, e.g. matches "Chocolate Cake" but not "chocolate cake")
+http://127.0.0.1:8000/api/menu-items?search=Choc
 ```
 
 #### Ordering
@@ -3359,7 +3363,169 @@ A duplicate `(title, price)` pair now gets rejected:
 
 #### Data Sanitization
 
+Sanitization cleans data of potential threats before it's stored or displayed. Without it, an API is exploitable via attacks like SQL injection, or client applications via cross-site scripting (XSS) or session hijacking through injected JavaScript -- data validation alone doesn't catch these. Django sanitizes some of this automatically, but a project can still need additional, project-specific sanitization.
+
+##### Sanitizing HTML and JavaScript
+
+Unless HTML input is actually intended, always check for HTML tags in submitted data and neutralize them by converting special characters into HTML entities -- attackers can use `<script>` tags to inject JavaScript, or `<img>` tags to add unwanted trackers.
+
+For example, if a menu item title of `Tomato Pasta <script>alert('hello')</script>` isn't sanitized, that `<script>` tag executes wherever the title is later displayed. An `alert('hello')` is harmless, but the same technique can inject genuinely malicious code.
+
+The third-party `bleach` package handles this: it converts HTML special characters like `<` and `>` into HTML entities, so the browser no longer renders them as tags.
+
+```bash
+pipenv install bleach
+uv add bleach
+```
+
+```python
+# serializers.py
+import bleach
+```
+
+Sanitizing a single field with a `validate_<field>()` method, e.g. `title`, added above the `Meta` class in `MenuItemSerializer`:
+
+```python
+def validate_title(self, value):
+    return bleach.clean(value)
+```
+
+Sending a POST to `/menu-items` with HTML tags in `title` now stores the sanitized (HTML-entity-encoded) version instead of the raw tag:
+
+![Script tag has been converted to HTML](./assets/data-sanitization_img1_new.png)
+
+Without sanitization, the input is stored exactly as submitted:
+
+![Script tag hasn't been converted to HTML](./assets/data-sanitization_img2_new.png)
+
+Sanitizing from inside `validate()` instead makes it possible to clean multiple fields from one place, alongside any other cross-field validation:
+
+```python
+def validate(self, attrs):
+    attrs['title'] = bleach.clean(attrs['title'])
+    if attrs['price'] < 2:
+        raise serializers.ValidationError('Price should not be less than 2.0')
+    if attrs['inventory'] < 0:
+        raise serializers.ValidationError('Stock cannot be negative')
+    return super().validate(attrs)
+```
+
+##### Preventing SQL Injection
+
+SQL injection happens when an attacker gets their own SQL embedded into input data to run malicious queries against the database.
+
+Preventing it is straightforward: avoid raw SQL unless it's genuinely necessary, and when it is, escape parameters using string placeholders -- never place the placeholder inside quotation marks, or the protection is lost. Assuming `limit = request.GET.get('limit')`:
+
+| Approach | `MenuItem.objects.raw(...)` call | Why |
+| --- | --- | --- |
+| Correct -- parameterized, unquoted placeholder | `MenuItem.objects.raw('SELECT * FROM LittleLemonAPI_menuitem LIMIT %s', [limit])` | `%s` is passed unquoted; the parameter is bound securely as part of query execution instead of being spliced into the text. |
+| Incorrect -- string formatting | `MenuItem.objects.raw('SELECT * FROM LittleLemonAPI_menuitem LIMIT %s' % limit)` | `limit` is inserted into the query string via `%` formatting *before* execution, so it's never escaped and stays vulnerable to injection. |
+| Incorrect -- placeholder inside quotes | `MenuItem.objects.raw("SELECT * FROM LittleLemonAPI_menuitem LIMIT '%s'", [limit])` | Wrapping `%s` in quotes turns it into a string literal in SQL, defeating the point of a parameterized query. |
+
 #### Pagination
+
+- Pagination breaks a large result set into smaller chunks instead of returning everything at once: without it, a client that only wants the latest 10 orders out of 1000 still gets all 1000 records back, wasting database load and bandwidth on both ends.
+- The client controls chunk size and position via two query parameters: `perpage` (how many records per page) and `page` (which page to fetch). E.g. with `perpage=2`:
+
+| Page | Records (`perpage=2`) |
+| --- | --- |
+| 1 | 1, 2 |
+| 2 | 3, 4 |
+| 3 | 5, 6 |
+| 4 | 7, 8 |
+
+- Security tip: cap the maximum `perpage` a client can request, to prevent abuse of the endpoint.
+  - Example: with a max of 10 records per page, a client wanting 20 records covering 21-40 needs two calls -- `perpage=10&page=3` for records 21-30, then `perpage=10&page=4` for records 31-40.
+  - If a client asks for more than the maximum in a single call (e.g. 50, when the max is 10), respond with a 400 Bad Request instead of silently truncating or ignoring the limit.
+- Implementing pagination in the `menu_items` view, using Django's built-in `Paginator`:
+  - Read `perpage` and `page` from the query string, defaulting to `2` and `1` respectively when the client doesn't supply them.
+  - Build a `Paginator(items, per_page=perpage)` just before serializing (`per_page` is `Paginator`'s own keyword argument name, not related to the `perpage` query parameter), then fetch the requested page with `paginator.page(number=page)`.
+  - Requesting a page number that doesn't exist raises `EmptyPage`; wrap the call in `try`/`except EmptyPage` and return an empty list in that case, instead of letting the exception propagate as a server error.
+- Testing: `GET /menu-items` with no query string returns the default of 2 items per page; `GET /menu-items?perpage=3&page=1` returns 3 items.
+
+```python
+# views.py -- add just before serializing `items` in the GET branch of menu_items
+from django.core.paginator import EmptyPage, Paginator
+
+perpage = request.query_params.get('perpage', default=2)
+page = request.query_params.get('page', default=1)
+
+paginator = Paginator(items, per_page=perpage)
+try:
+    items = paginator.page(number=page)
+except EmptyPage:
+    items = []
+```
+
+Example requests against the paginated endpoint:
+
+```text
+# Default page size (2 items), first page
+http://127.0.0.1:8000/api/menu-items
+
+# 3 items per page, first page -> items 1-3
+http://127.0.0.1:8000/api/menu-items?perpage=3&page=1
+
+# 3 items per page, second page -> items 4-6
+http://127.0.0.1:8000/api/menu-items?perpage=3&page=2
+
+# A page number beyond the available items -> EmptyPage, empty list returned
+http://127.0.0.1:8000/api/menu-items?perpage=3&page=99
+
+# Combined with filtering, searching, and ordering from the sections above
+http://127.0.0.1:8000/api/menu-items?category=main&ordering=-price&perpage=5&page=1
+```
+
+##### Complete `menu_items` View
+
+Putting filtering, searching, ordering, and pagination together, `menu_items` now looks like this in full:
+
+```python
+# views.py
+from django.core.paginator import EmptyPage, Paginator
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+@api_view(['GET', 'POST'])
+def menu_items(request):
+    if request.method == 'GET':
+        items = MenuItem.objects.select_related('category').all()
+
+        category_name = request.query_params.get('category')
+        to_price = request.query_params.get('to_price')
+        search = request.query_params.get('search')
+        ordering = request.query_params.get('ordering')
+        perpage = request.query_params.get('perpage', default=2)
+        page = request.query_params.get('page', default=1)
+
+        if category_name:
+            items = items.filter(category__title=category_name)
+        if to_price:
+            items = items.filter(price=to_price)
+        if search:
+            items = items.filter(title__contains=search)
+        if ordering:
+            ordering_fields = ordering.split(',')
+            items = items.order_by(*ordering_fields)
+
+        paginator = Paginator(items, per_page=perpage)
+        try:
+            items = paginator.page(number=page)
+        except EmptyPage:
+            items = []
+
+        serialized_item = MenuItemSerializer(items, many=True)
+        return Response(serialized_item.data)
+    elif request.method == 'POST':
+        serialized_item = MenuItemSerializer(data=request.data)
+        serialized_item.is_valid(raise_exception=True)
+        serialized_item.save()
+        return Response(serialized_item.validated_data, status.HTTP_201_CREATED)
+```
 
 #### More on Filtering and Pagination
 
