@@ -111,6 +111,13 @@ Table of Contents:
       - [Filtering and Searching](#filtering-and-searching)
       - [Ordering](#ordering)
       - [Importance of Data Validation](#importance-of-data-validation)
+        - [Validation in DRF](#validation-in-drf)
+        - [Method 1: Conditions on the Field](#method-1-conditions-on-the-field)
+        - [Method 2: `extra_kwargs` on the Meta Class](#method-2-extra_kwargs-on-the-meta-class)
+        - [Method 3: `validate_<field>()` Methods](#method-3-validate_field-methods)
+        - [Method 4: The `validate()` Method](#method-4-the-validate-method)
+        - [Where This Code Goes, and Validation Order](#where-this-code-goes-and-validation-order)
+        - [Unique Validation](#unique-validation)
       - [Data Sanitization](#data-sanitization)
       - [Pagination](#pagination)
       - [More on Filtering and Pagination](#more-on-filtering-and-pagination)
@@ -3112,6 +3119,243 @@ http://127.0.0.1:8000/api/menu-items?ordering=price,-inventory
 ```
 
 #### Importance of Data Validation
+
+Validation checks that user-submitted data is well-formed, meets requirements, and is safe to persist. Serializers in DRF (Django REST Framework) provide several built-in techniques for it. A few example rules for the Little Lemon menu items, before getting into the code:
+
+| Field   | Value           | Status                                                                |
+| ------- | --------------- | ---------------------------------------------------------------------|
+| `price` | `0`             | Invalid -- a menu item's price cannot be `0`.                        |
+| `stock` | negative value  | Invalid -- a menu item's stock cannot be lower than `0`.              |
+| `title` | duplicate value | Invalid -- there should not be more than one menu item with the same title. |
+
+Beyond these common rules, a project can add its own: in Little Lemon, `price` additionally can't be less than `2.0`, and an attempt to add an item below that raises an error.
+
+##### Validation in DRF
+
+Starting point -- the `MenuItemSerializer` and `CategorySerializer` from the earlier sections:
+
+```python
+# serializers.py
+from decimal import Decimal
+from rest_framework import serializers
+
+from .models import Category, MenuItem
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'slug', 'title']
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+    category_id = serializers.IntegerField(write_only=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category', 'category_id']
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+What follows are four ways to add validation to fields on `MenuItemSerializer`.
+
+##### Method 1: Conditions on the Field
+
+Pass validation arguments directly when declaring a field, e.g. `min_value` to reject a `price` below `2.0`:
+
+```python
+price = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=2)
+```
+
+POSTing a `price` of `1` to `/menu-items` now fails with a 400.
+
+![400 - Bad Request error. Price - ensure this value is greater than or equal to 2](./assets/importance-of-data-validation-1.png)
+
+##### Method 2: `extra_kwargs` on the Meta Class
+
+For a field that isn't declared explicitly above `Meta`, the same validation can be added via `extra_kwargs`, which accepts extra properties/validators per field name (remove the field declaration from Method 1 first):
+
+```python
+class Meta:
+    model = MenuItem
+    fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category', 'category_id']
+    extra_kwargs = {
+        'price': {'min_value': 2},
+    }
+```
+
+Sending the same POST call as before triggers the same error as Method 1. Adding a second rule -- `stock` (via `source='inventory'`) can't go below `0` -- just adds another key to `extra_kwargs`:
+
+```python
+'stock': {'source': 'inventory', 'min_value': 0}
+```
+
+Full `MenuItemSerializer` with both rules:
+
+```python
+class MenuItemSerializer(serializers.ModelSerializer):
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+    category_id = serializers.IntegerField(write_only=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category', 'category_id']
+        extra_kwargs = {
+            'price': {'min_value': 2},
+            'stock': {'source': 'inventory', 'min_value': 0},
+        }
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+A negative `stock` in a POST now fails too:
+
+![400 - Bad Request error. Stock - ensure this value is greater than or equal to 0](./assets/importance-of-data-validation-2.png)
+
+##### Method 3: `validate_<field>()` Methods
+
+A `validate_<field_name>()` method on the serializer receives that field's submitted value and can raise `serializers.ValidationError` with a custom message; the name has to match exactly (`validate_price` for `price`, `validate_stock` for `stock`).
+
+```python
+def validate_price(self, value):
+    if value < 2:
+        raise serializers.ValidationError('Price should not be less than 2.0')
+    return value  # must return the value once it passes validation
+
+def validate_stock(self, value):
+    if value < 0:
+        raise serializers.ValidationError('Stock cannot be negative')
+    return value
+```
+
+Sending invalid `price` and `stock` values now returns both custom messages:
+
+![400 - Bad Request. Price, should not be less than 2.0. Stock, inventory cannot be negative](./assets/importance-of-data-validation-3.png)
+
+##### Method 4: The `validate()` Method
+
+`validate()` receives all of a serializer's input fields at once (as `attrs`), so it's the place to validate several fields together or cross-check them against each other. It replaces `validate_price`/`validate_stock` from Method 3 when used.
+
+```python
+def validate(self, attrs):
+    if attrs['price'] < 2:
+        raise serializers.ValidationError('Price should not be less than 2.0')
+    if attrs['inventory'] < 0:
+        raise serializers.ValidationError('Stock cannot be negative')
+    return super().validate(attrs)
+```
+
+Note `attrs['inventory']`, not `attrs['stock']`: `validate()` sees the model's actual field name, not the serializer's renamed `stock` field.
+
+![400 - Bad Request error. Non field errors, price should not be less than 2.0](./assets/importance-of-data-validation-4.png)
+
+##### Where This Code Goes, and Validation Order
+
+The four methods above are alternatives, not meant to run together (each one's write-up says to remove the previous one), but they all live in the same place: inside `MenuItemSerializer`, above `class Meta`. Methods can technically go anywhere in the class body -- Python doesn't enforce an order -- but keeping them above `Meta` matches this project's convention and keeps them next to the fields they validate.
+
+```python
+class MenuItemSerializer(serializers.ModelSerializer):
+    # Method 1: field declared with a validation kwarg directly
+    price = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=2)
+
+    stock = serializers.IntegerField(source='inventory')
+    price_after_tax = serializers.SerializerMethodField(method_name='calculate_tax')
+    category_id = serializers.IntegerField(write_only=True)
+    category = CategorySerializer(read_only=True)
+
+    # Method 3: validate_<field_name> -- one per field, DRF finds them by name
+    def validate_price(self, value):
+        if value < 2:
+            raise serializers.ValidationError('Price should not be less than 2.0')
+        return value
+
+    def validate_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Stock cannot be negative')
+        return value
+
+    # Method 4: validate() -- sees every field at once, for cross-field checks
+    def validate(self, attrs):
+        if attrs['price'] < 2:
+            raise serializers.ValidationError('Price should not be less than 2.0')
+        if attrs['inventory'] < 0:
+            raise serializers.ValidationError('Stock cannot be negative')
+        return super().validate(attrs)
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'stock', 'price_after_tax', 'category', 'category_id']
+        # Method 2: extra_kwargs -- equivalent to Method 1, but for fields
+        # not declared explicitly above
+        extra_kwargs = {
+            'price': {'min_value': 2},
+            'stock': {'source': 'inventory', 'min_value': 0},
+        }
+
+    def calculate_tax(self, product: MenuItem):
+        return product.price * Decimal('1.1')
+```
+
+When `serializer.is_valid()` runs, DRF calls into this in a fixed order:
+
+1. **Per-field built-in validators run first** -- this is where `min_value=2` on the field declaration (Method 1) or `'min_value': 2` in `extra_kwargs` (Method 2) gets checked, before any custom code runs.
+2. **`validate_<field_name>(self, value)`** (Method 3) -- DRF looks for a method with exactly that name for each field and, if found, calls it with the value that already passed step 1. It must `return value` (or a transformed value); returning `None` would overwrite the field with `None`.
+3. **`validate(self, attrs)`** (Method 4) -- called once, after every field has individually passed steps 1-2, with a dict of all validated values (`attrs`). This is the only place that can compare two fields against each other. It must `return attrs`.
+
+Only if all three stages pass does `is_valid()` return `True` and `validated_data`/`save()` become usable -- any `ValidationError` raised along the way short-circuits validation and gets collected into the 400 response.
+
+##### Unique Validation
+
+To reject duplicate entries, DRF provides `UniqueValidator` for a single field and `UniqueTogetherValidator` for a combination of fields. Import whichever is needed (both are used below):
+
+```python
+from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
+```
+
+**`UniqueValidator`** -- enforcing a unique `title` on `MenuItem`, either via `extra_kwargs`:
+
+```python
+extra_kwargs = {
+    'title': {
+        'validators': [UniqueValidator(queryset=MenuItem.objects.all())],
+    },
+}
+```
+
+or declared directly on the field:
+
+```python
+title = serializers.CharField(
+    max_length=255,
+    validators=[UniqueValidator(queryset=MenuItem.objects.all())]
+)
+```
+
+A duplicate `title` now gets rejected:
+
+![400 - Bad Request error, title field must be unique.](./assets/importance-of-data-validation-5.png)
+
+**`UniqueTogetherValidator`** -- enforcing a unique `(title, price)` combination instead, so two items can share a title as long as their price differs. It's declared directly on `Meta`, not inside `extra_kwargs`:
+
+```python
+class Meta:
+    ...
+    validators = [
+        UniqueTogetherValidator(
+            queryset=MenuItem.objects.all(),
+            fields=['title', 'price'],
+        ),
+    ]
+```
+
+A duplicate `(title, price)` pair now gets rejected:
+
+![400 - Bad Request, non field errors. The fields title, price must make a unique set.](./assets/importance-of-data-validation-6.png)
 
 #### Data Sanitization
 
