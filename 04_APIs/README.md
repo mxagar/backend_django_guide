@@ -3014,7 +3014,102 @@ curl "http://127.0.0.1:8080/api/menu-items?format=json"
 
 #### Filtering and Searching
 
+- Filtering lets a client request a subset of an API's results (e.g. only the appetizers category, only items priced $7-$15, only titles containing "pizza") based on query-string criteria, instead of the endpoint always returning the full collection.
+- Two ways to support this:
+  - Return everything and let the client filter locally: quick to build, but doesn't scale -- pulling thousands or millions of records out of the database and over the network just to keep a handful is wasteful and slow.
+  - Filter server-side based on query parameters: more work to build, but keeps the load off the server and the response small, and client applications don't need their own filtering logic.
+- Filtering the `menu_items` view by category and price, using DRF's `request.query_params` (works like `request.GET`, but is available consistently across HTTP methods):
+  - `?category=<title>` -- `category` is a foreign key on `MenuItem`, so filtering on the related model's `title` field needs a double underscore to cross the relationship: `items.filter(category__title=category_name)`.
+  - `?to_price=<value>` -- filters using a *field lookup* (a comparison operator appended after another double underscore): `price__lte=to_price` means "price less than or equal to".
+  - Both filters can be combined in one request by joining query parameters with `&`, e.g. `?category=main&to_price=15`.
+- Filtering by a `search` query parameter: `title__icontains=search` matches the search text anywhere in the title, case-insensitively.
+  - Other field lookups work the same way for different match rules: `startswith`/`istartswith` anchor the match to the start of the title (case-sensitive/insensitive), and `contains` is the case-sensitive version of `icontains`.
+- Field lookups act as Django's comparison operators for filtering; the full list is in Django's field lookups documentation, linked in this lesson's Additional Resources.
+
+```python
+# views.py
+@api_view(['GET', 'POST'])
+def menu_items(request):
+    if request.method == 'GET':
+        items = MenuItem.objects.select_related('category').all()
+
+        category_name = request.query_params.get('category')
+        to_price = request.query_params.get('to_price')
+        search = request.query_params.get('search')
+
+        if category_name:
+            items = items.filter(category__title=category_name)  # e.g. ?category=main
+        if to_price:
+            items = items.filter(price__lte=to_price)  # e.g. ?to_price=15 -> price <= 15
+        if search:
+            items = items.filter(title__icontains=search)  # e.g. ?search=choc
+
+        serialized_item = MenuItemSerializer(items, many=True)
+        return Response(serialized_item.data)
+    elif request.method == 'POST':
+        serialized_item = MenuItemSerializer(data=request.data)
+        serialized_item.is_valid(raise_exception=True)
+        serialized_item.save()
+        return Response(serialized_item.data)
+```
+
+Example requests against the filtered/searched endpoint:
+
+```text
+# All items in the "main" category
+http://127.0.0.1:8000/api/menu-items?category=main
+
+# Items priced 15 or less
+http://127.0.0.1:8000/api/menu-items?to_price=15
+
+# Both filters combined
+http://127.0.0.1:8000/api/menu-items?category=main&to_price=15
+
+# Titles containing "choc", case-insensitively (e.g. "Chocolate Cake")
+http://127.0.0.1:8000/api/menu-items?search=choc
+```
+
 #### Ordering
+
+- Ordering (sorting) a query set by a query-string parameter, using Django's own `order_by()` rather than a third-party package: `django-filters` offers more advanced filtering/sorting/searching, but is built mainly for class-based views; since `menu_items` is a function-based view (via `@api_view`), Django's native ordering support is enough with just a few lines.
+- Single-field ordering: read `?ordering=<field>` and pass it straight to `items.order_by(ordering)`, added just before the items are serialized.
+  - `?ordering=price` sorts ascending (lowest price first).
+  - `?ordering=-price` sorts descending -- `order_by()` treats a leading `-` on a field name as "descending" on that field, so no extra code is needed to support it.
+- Multi-field ordering: `?ordering=price,inventory` should sort by `price` first and use `inventory` as a tiebreaker, both ascending. `order_by()` already accepts multiple field arguments (no loop needed), so it's enough to split the `ordering` string on commas and unpack the resulting list into `order_by()`.
+  - The same leading `-` convention applies per field, so `?ordering=price,-inventory` sorts by `price` ascending, then by `inventory` descending for ties.
+
+```python
+# views.py
+@api_view(['GET', 'POST'])
+def menu_items(request):
+    if request.method == 'GET':
+        items = MenuItem.objects.select_related('category').all()  
+        # ...
+        ordering = request.query_params.get('ordering')
+        if ordering:
+            ordering_fields = ordering.split(',')  # e.g. "price,-inventory" -> ['price', '-inventory']
+            items = items.order_by(*ordering_fields)
+
+        serialized_item = MenuItemSerializer(items, many=True)
+        return Response(serialized_item.data)
+# ...
+```
+
+Example requests against the ordered endpoint:
+
+```text
+# Ascending by price (cheapest first)
+http://127.0.0.1:8000/api/menu-items?ordering=price
+
+# Descending by price (most expensive first)
+http://127.0.0.1:8000/api/menu-items?ordering=-price
+
+# Price ascending, inventory ascending as a tiebreaker
+http://127.0.0.1:8000/api/menu-items?ordering=price,inventory
+
+# Price ascending, inventory descending as a tiebreaker
+http://127.0.0.1:8000/api/menu-items?ordering=price,-inventory
+```
 
 #### Importance of Data Validation
 
