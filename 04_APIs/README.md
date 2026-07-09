@@ -134,6 +134,7 @@ Table of Contents:
       - [Exercise: Restaurant Menu API with Filtering, Ordering, and Searching](#exercise-restaurant-menu-api-with-filtering-ordering-and-searching)
       - [Additional Resources](#additional-resources-2)
     - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
+      - [Token-Based Authentication in DRF](#token-based-authentication-in-drf)
   - [4. Final Project](#4-final-project)
 
 ## 1. REST APIs
@@ -3872,5 +3873,70 @@ curl "http://127.0.0.1:8080/api/menu-items?price=6.00"
 - [Redis: Open source, in-memory data store used by developers as a database, cache, streaming engine and message broker](https://redis.io/)
 
 ### Securing an API in Django REST Framework
+
+#### Token-Based Authentication in DRF
+
+- APIs expose back-end data to third parties, which risks breaches or corruption if left wide open; some endpoints are meant to be public, but others -- especially anything that modifies data -- should only be reachable by authenticated clients.
+- Password-based authentication sends the username and password with every single API call; it works, but resending credentials constantly is both inconvenient and less secure.
+- Token-based authentication instead sends credentials once: if they're valid, the server issues a token (a long, hard-to-guess string of letters, digits, and symbols) with a server-controlled lifetime.
+  - The client attaches this token to a header on every later request instead of the username/password.
+  - DRF (Django REST Framework)'s `TokenAuthentication` class, from the `rest_framework.authtoken` app, validates the token, checks it hasn't expired, and resolves which user it belongs to -- the request then runs as that user.
+- Setting up token auth:
+  - Add `'rest_framework.authtoken'` to `INSTALLED_APPS` in `settings.py`, then run migrations to create its table.
+  - Create an admin user with `python manage.py createsuperuser`, and log into `/admin`, where tokens for every user are listed and new ones can be created manually (the "+"/"Add" button).
+- Protecting an endpoint: an `@api_view` function is public by default -- adding `@permission_classes([IsAuthenticated])` (from `rest_framework.permissions`, applied via the `permission_classes` decorator from `rest_framework.decorators`) makes it reject unauthenticated requests with "Authentication credentials were not provided."
+- Turning on token authentication so that permission check actually has something to authenticate against: set `DEFAULT_AUTHENTICATION_CLASSES` to `TokenAuthentication` in the `REST_FRAMEWORK` section of `settings.py`.
+  - The token then has to be sent as `Authorization: Token <token>` -- note the scheme name is literally `Token`, not the more common `Bearer` (in a REST client like Insomnia, this means setting the auth type's prefix field to `Token`).
+- Generating tokens from an endpoint instead of the admin panel: DRF ships `obtain_auth_token`, a ready-made view mapped to a `POST`-only URL. Posting a valid `username`/`password` (as form data) to it returns that user's token in the response -- useful for any user created via code, not just through the admin panel.
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    'rest_framework.authtoken',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
+```
+
+```python
+# views.py
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view()
+@permission_classes([IsAuthenticated])  # rejects requests with no valid token
+def secret(request):
+    return Response({'message': 'Some secret message'})
+```
+
+```python
+# urls.py
+from rest_framework.authtoken.views import obtain_auth_token
+
+urlpatterns = [
+    # ...
+    path('secret', views.secret),
+    path('api-token-auth', obtain_auth_token),  # POST username/password -> {"token": "..."}
+]
+```
+
+```bash
+# One-time setup
+python manage.py migrate
+python manage.py createsuperuser
+
+# Get a token for a user (form-encoded POST)
+curl -X POST http://127.0.0.1:8000/api/api-token-auth -d "username=<user>&password=<pass>"
+# {"token": "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4"}
+
+# Use the token to call a protected endpoint
+curl http://127.0.0.1:8000/api/secret -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4"
+```
 
 ## 4. Final Project
