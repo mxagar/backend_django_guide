@@ -122,9 +122,17 @@ Table of Contents:
         - [Sanitizing HTML and JavaScript](#sanitizing-html-and-javascript)
         - [Preventing SQL Injection](#preventing-sql-injection)
       - [Pagination](#pagination)
+        - [Complete `menu_items` View](#complete-menu_items-view)
       - [More on Filtering and Pagination](#more-on-filtering-and-pagination)
+        - [Scaffolding the Project](#scaffolding-the-project)
+        - [Ordering and Sorting](#ordering-and-sorting)
+        - [Pagination](#pagination-1)
+        - [Search](#search)
+        - [Searching in Nested Fields](#searching-in-nested-fields)
       - [Caching](#caching)
+      - [Extra: What Is a Reverse Proxy?](#extra-what-is-a-reverse-proxy)
       - [Exercise: Restaurant Menu API with Filtering, Ordering, and Searching](#exercise-restaurant-menu-api-with-filtering-ordering-and-searching)
+      - [Additional Resources](#additional-resources-2)
     - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
   - [4. Final Project](#4-final-project)
 
@@ -3529,9 +3537,339 @@ def menu_items(request):
 
 #### More on Filtering and Pagination
 
+The previous sections implemented filtering, searching, and pagination by hand in a function-based view. DRF (Django REST Framework) also ships filter backend and pagination classes that add the same features to a class-based view with just a few lines of configuration.
+
+##### Scaffolding the Project
+
+- Step 1 -- a `ModelViewSet` gives a full CRUD endpoint for menu items in a few lines:
+
+  ```python
+  # views.py
+  from rest_framework import viewsets
+
+  from .models import MenuItem
+  from .serializers import MenuItemSerializer
+
+  class MenuItemsViewSet(viewsets.ModelViewSet):
+      queryset = MenuItem.objects.all()
+      serializer_class = MenuItemSerializer
+  ```
+
+- Step 2 -- map it in `urls.py`, exposing only the `GET` actions (`list` for the collection, `retrieve` for a single item):
+
+  ```python
+  # urls.py
+  from django.urls import path
+
+  from . import views
+
+  urlpatterns = [
+      path('menu-items', views.MenuItemsViewSet.as_view({'get': 'list'})),
+      path('menu-items/<int:pk>', views.MenuItemsViewSet.as_view({'get': 'retrieve'})),
+  ]
+  ```
+
+- Step 3 -- register the filtering backends in `settings.py`, under `DEFAULT_FILTER_BACKENDS`:
+
+  ```python
+  # settings.py
+  REST_FRAMEWORK = {
+      'DEFAULT_RENDERER_CLASSES': [
+          'rest_framework.renderers.JSONRenderer',
+          'rest_framework.renderers.BrowsableAPIRenderer',
+          'rest_framework_xml.renderers.XMLRenderer',
+      ],
+      'DEFAULT_FILTER_BACKENDS': [
+          'django_filters.rest_framework.DjangoFilterBackend',  # third-party package: pip install django-filter
+          'rest_framework.filters.OrderingFilter',
+          'rest_framework.filters.SearchFilter',
+      ],
+  }
+  ```
+
+With these three steps in place, `http://127.0.0.1:8000/api/menu-items` lists every item and `http://127.0.0.1:8000/api/menu-items/1` retrieves a single one.
+
+##### Ordering and Sorting
+
+`OrderingFilter` adds sorting support just by listing which fields are sortable, via `ordering_fields` on the view set:
+
+```python
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+    ordering_fields = ['price', 'inventory']
+```
+
+Visiting `http://127.0.0.1:8000/api/menu-items` now shows a filter button in the browsable API:
+
+![Filter button option at menu-items endpoint](./assets/more-on-filtering-and-pagination-1.png)
+
+Clicking it opens a popup with ascending/descending ordering options for each listed field:
+
+![Pop up with ascending and descending ordering options for price and inventory](./assets/more-on-filtering-and-pagination-2.png)
+
+The same sorting is also available directly as a query string, including by both fields at once: `http://127.0.0.1:8000/api/menu-items?ordering=price,inventory`.
+
+##### Pagination
+
+Two settings in the `REST_FRAMEWORK` section of `settings.py` turn on pagination for every view using the built-in pagination classes:
+
+```python
+# settings.py -- inside REST_FRAMEWORK
+'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+'PAGE_SIZE': 2,
+```
+
+`PAGE_SIZE` sets how many items DRF shows per page. Visiting the menu items endpoint now shows a paginated, differently-shaped response, with page numbers available under the filter button; only 2 records show per page because of the `PAGE_SIZE` setting above.
+
+![Paginated API output that shows two records](./assets/more-on-Filtering-and-Searching-img1.png)
+
+##### Search
+
+`search_fields` on the view set turns on searching by that field:
+
+```python
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+    ordering_fields = ['price', 'inventory']
+    search_fields = ['title']
+```
+
+Opening the menu-items endpoint and clicking the filter button now also shows a search field, usable together with ordering:
+
+![Menu-items endpoint with ordering option and search field](./assets/more-on-filtering-and-pagination-4.png)
+
+DRF's default search lookup is `icontains` -- a case-insensitive "contains" match. Searching for `illa` matches every title containing those letters in any case, so both "Vanilla" and "VANILLA" come up.
+
+##### Searching in Nested Fields
+
+To search a related field too, e.g. the menu item's `category` title, use the naming convention `<related_model>__<field_name>` (a double underscore, the same relationship-traversal syntax used for filtering): the related model here is `category` and the field is `title`, so the search field is `category__title`.
+
+```python
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+    ordering_fields = ['price', 'inventory']
+    search_fields = ['title', 'category__title']
+```
+
+Clients can now search across both menu item titles and category titles, with pagination and ordering still working alongside search:
+
+![Pagination and ordering working with the search feature](./assets/more-on-filtering-and-pagination-5.png)
+
+Testing search via `curl`: `SearchFilter` reads the term from a `search` query parameter by default, applied with `icontains` across every field in `search_fields`, OR'd together (a match in either field is enough):
+
+```bash
+# Search across both title and category__title
+curl "http://127.0.0.1:8000/api/menu-items?search=illa"
+# matches "Vanilla" / "VANILLA" in title, case-insensitively
+
+# Combine search with ordering
+curl "http://127.0.0.1:8000/api/menu-items?search=illa&ordering=-price"
+
+# Search also hits category__title, e.g. items in a category titled "Main"
+curl "http://127.0.0.1:8000/api/menu-items?search=main"
+```
+
 #### Caching
 
+- Caching serves a saved result instead of recomputing one on every request, cutting server load and bandwidth use; it's also one reason REST APIs are designed to be cacheable in the first place.
+  - Motivating scenario: a restaurant's website gets featured on a popular blog, traffic spikes, and without caching the database and web server can't keep up and go down.
+- A REST API is a layered architecture, and caching can happen at each layer along a typical request's path: client -> firewall -> reverse proxy -> web server -> database server, and back.
+- **Database server** -- most modern databases run a query cache, storing SQL queries and their results in memory and serving from there when nothing relevant has changed, instead of re-running the query.
+  - Relying on this alone is still costly: the application has to connect to the database for every request to retrieve even a cached result, and a database engine only accepts a fixed number of connections for a given amount of RAM/CPU.
+- **Web server** -- server-side scripts can cache a response themselves once they're confident the underlying data hasn't changed, storing it outside the database (flat files, a separate database, or a tool like Redis or Memcached).
+  - Example: 1,000 hits/minute against data that only changes once a day means up to 1,440,000 potential database hits per day; caching the result once and serving it from cache until the data changes (then flushing and re-caching) avoids nearly all of them.
+- **Reverse proxy** -- traffic-heavy setups run multiple web servers behind a reverse proxy; the web server sends caching headers on its response, and the reverse proxy caches the result for the duration those headers specify, serving it directly so the web servers behind it don't get overloaded.
+- **Client** -- reverse proxies or web servers can send caching headers telling the client (browser or app) how long to cache a response; the client then decides whether to reuse that cached copy or make a fresh call.
+  - This layer is largely outside the server's control, which is why a solid server-side caching strategy still matters most.
+
+#### Extra: What Is a Reverse Proxy?
+
+- A reverse proxy is a server that sits in front of your web server(s) and intercepts incoming requests before they reach them -- the opposite of a normal ("forward") proxy, which sits in front of clients and hides them from the servers they talk to.
+- In the request flow from the Caching section above (client -> firewall -> reverse proxy -> web server -> database -> back), clients only ever talk to the reverse proxy; they don't know or care which actual web server handles the request.
+- Common jobs a reverse proxy takes on:
+  - **Load balancing** -- with multiple web servers behind it, it distributes incoming requests across them so no single server gets overwhelmed.
+  - **Caching** -- as covered above, it can cache a web server's response according to the caching headers that server sends, and serve repeat requests straight from cache without bothering the web server again.
+  - **TLS/SSL termination** -- handling HTTPS itself, so backend servers don't have to.
+  - Compression, and hiding backend server details/IPs for security.
+  - Common examples: **nginx**, **HAProxy**, **Traefik**, and cloud load balancers (e.g. AWS ALB) are all typically deployed as reverse proxies.
+- In a typical Django deployment, the reverse proxy doesn't talk to Django directly. It sits in front of a WSGI/ASGI server (e.g. **Gunicorn**, **uWSGI**, or **Daphne**/**Uvicorn** for async), which is what actually runs the Django app and handles the HTTP protocol details:
+
+  ```text
+  client -> reverse proxy (nginx, etc.) -> Gunicorn worker 1 (Django)
+                                         -> Gunicorn worker 2 (Django)
+                                         -> Gunicorn worker 3 (Django)
+  ```
+
+  - The reverse proxy load-balances across those Gunicorn processes/instances (multiple workers on one machine, or spread across several machines). Django itself is just the application code running inside each worker -- it doesn't listen on a port or manage connections on its own outside of `manage.py runserver`, which is dev-only and not meant for production traffic.
+- Summary: reverse proxy = the thing clients connect to; load balancing = one of the jobs it does when there's more than one backend instance to spread requests across.
+
 #### Exercise: Restaurant Menu API with Filtering, Ordering, and Searching
+
+Folder: [`lab/05-menuitem-api-filtering/`](./lab/05-menuitem-api-filtering/), instructions: [`Instructions.md`](./lab/05-menuitem-api-filtering/Instructions.md).
+
+- Added a `Category` model (`slug`, `title`) and gave `MenuItem` a `category` foreign key (`on_delete=models.PROTECT`, `default=1`), establishing a many-to-one relationship between menu items and categories.
+- Added `serializers.py` with `CategorySerializer` (`ModelSerializer`, exposing `id`/`title`) and `MenuItemSerializer`: `category` is nested and read-only (for display), while a separate `category_id` (`write_only`) lets clients set the relation on create -- the same read/write split used in the DRF Essentials sections earlier in this file.
+- Added `views.py` with two `ListCreateAPIView`s sharing the pattern from the previous exercise: `CategoriesView` for `GET`/`POST` on `/categories`, and `MenuItemsView` for `GET`/`POST` on `/menu-items`, the latter also declaring `ordering_fields`, `filterset_fields`, and `search_fields`.
+- Uncommented the two routes in the app-level `urls.py`.
+- Registered `OrderingFilter` and `SearchFilter` in `settings.py`'s `DEFAULT_FILTER_BACKENDS`, plus `PageNumberPagination` with `PAGE_SIZE: 3`.
+  - Note: `filterset_fields` on `MenuItemsView` has no effect here, since it requires `django_filters.rest_framework.DjangoFilterBackend` to be registered too, and only `OrderingFilter`/`SearchFilter` are -- confirmed below, where `?price=6.00` returns every item, unfiltered. `ordering_fields` and `search_fields` don't need that backend and work as expected.
+- Replaced the project's `Pipfile`/`Pipfile.lock` with a standalone `uv` project (`pyproject.toml`/`uv.lock`), scoped to this lab folder with its own `.venv`, independent of the repo's root-level environment.
+- Ran the flow end-to-end against the dev server: created 3 categories and the 9 menu items from the walkthrough, confirmed pagination returns 3 items per page (`count: 9`, `next` pointing at page 2), confirmed `?ordering=price`/`?ordering=-price` sort ascending/descending, confirmed `?search=Pasta` matches only the two pasta dishes, and confirmed `?price=6.00` is silently ignored as expected.
+
+Shell commands, run from inside `lab/05-menuitem-api-filtering/LittleLemon/`:
+
+```bash
+# One-time setup: create the project's own virtual environment and install dependencies
+uv sync
+
+# Create and apply the migrations for the new Category and MenuItem models
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+
+# Start the dev server
+uv run python manage.py runserver 8080
+# Browsable API: http://127.0.0.1:8080/api/categories and http://127.0.0.1:8080/api/menu-items
+```
+
+`models.py`:
+
+```python
+from django.db import models
+
+
+class Category(models.Model):
+    slug = models.SlugField()
+    title = models.CharField(max_length=255)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class MenuItem(models.Model):
+    title = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    inventory = models.SmallIntegerField()
+    # PROTECT: a category can't be deleted while menu items still reference
+    # it; default=1 lets existing rows survive the migration that adds this
+    # column to an already-populated table.
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, default=1)
+
+    def __str__(self) -> str:
+        return self.title
+```
+
+`serializers.py`:
+
+```python
+from rest_framework import serializers
+
+from .models import Category, MenuItem
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'title']
+
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    # Split read/write: `category` nests the full object for GET responses,
+    # `category_id` is the plain FK id accepted on POST (see the
+    # Deserialization and Validation section earlier for why a plain
+    # IntegerField works here without a source= override).
+    category_id = serializers.IntegerField(write_only=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'inventory', 'category', 'category_id']
+```
+
+`views.py`:
+
+```python
+from rest_framework import generics
+
+from .models import Category, MenuItem
+from .serializers import CategorySerializer, MenuItemSerializer
+
+
+class CategoriesView(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class MenuItemsView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+    ordering_fields = ['price', 'inventory']  # ?ordering=price / ?ordering=-inventory
+    filterset_fields = ['price', 'inventory']  # inert without DjangoFilterBackend -- see note above
+    search_fields = ['title']  # ?search=<text>, case-insensitive "contains"
+```
+
+`urls.py` (app-level):
+
+```python
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path('categories', views.CategoriesView.as_view()),
+    path('menu-items', views.MenuItemsView.as_view()),
+]
+```
+
+`settings.py`:
+
+```python
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': [
+        'rest_framework.filters.OrderingFilter',
+        'rest_framework.filters.SearchFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 3,
+}
+```
+
+Testing with `curl`:
+
+```bash
+# Seed 3 categories
+curl -X POST http://127.0.0.1:8080/api/categories -H "Content-Type: application/json" -d '{"title": "Main", "slug": "main"}'
+curl -X POST http://127.0.0.1:8080/api/categories -H "Content-Type: application/json" -d '{"title": "Desserts", "slug": "desserts"}'
+curl -X POST http://127.0.0.1:8080/api/categories -H "Content-Type: application/json" -d '{"title": "Appetizers", "slug": "appetizers"}'
+
+# Seed a menu item, linked to category id 1 ("Main")
+curl -X POST http://127.0.0.1:8080/api/menu-items -H "Content-Type: application/json" \
+  -d '{"title": "Beef Pasta", "price": "6.00", "inventory": 20, "category_id": 1}'
+# {"id":1,"title":"Beef Pasta","price":"6.00","inventory":20,"category":{"id":1,"title":"Main"}}
+
+# After adding all 9 items from the walkthrough: 3 per page (PAGE_SIZE), with a `next` link
+curl http://127.0.0.1:8080/api/menu-items
+# {"count":9,"next":"http://127.0.0.1:8080/api/menu-items?page=2","previous":null,"results":[...3 items...]}
+
+# Ascending / descending by price
+curl "http://127.0.0.1:8080/api/menu-items?ordering=price"
+curl "http://127.0.0.1:8080/api/menu-items?ordering=-price"
+
+# Search by title (case-insensitive contains)
+curl "http://127.0.0.1:8080/api/menu-items?search=Pasta"
+# {"count":2, ... "results":[{"title":"Beef Pasta",...},{"title":"Tomato Pasta",...}]}
+
+# filterset_fields has no effect: DjangoFilterBackend isn't registered, so this returns all 9, unfiltered
+curl "http://127.0.0.1:8080/api/menu-items?price=6.00"
+```
+
+#### Additional Resources
+
+- [Overview of security in Django](https://docs.djangoproject.com/en/4.1/topics/security/)
+- [Memcached: Open source, high-performance, distributed memory object caching system](https://memcached.org/)
+- [Redis: Open source, in-memory data store used by developers as a database, cache, streaming engine and message broker](https://redis.io/)
 
 ### Securing an API in Django REST Framework
 
