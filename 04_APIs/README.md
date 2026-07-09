@@ -135,6 +135,8 @@ Table of Contents:
       - [Additional Resources](#additional-resources-2)
     - [Securing an API in Django REST Framework](#securing-an-api-in-django-rest-framework)
       - [Token-Based Authentication in DRF](#token-based-authentication-in-drf)
+      - [User Roles](#user-roles)
+      - [Setting up API Throttling](#setting-up-api-throttling)
   - [4. Final Project](#4-final-project)
 
 ## 1. REST APIs
@@ -3937,6 +3939,120 @@ curl -X POST http://127.0.0.1:8000/api/api-token-auth -d "username=<user>&passwo
 
 # Use the token to call a protected endpoint
 curl http://127.0.0.1:8000/api/secret -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4"
+```
+
+#### User Roles
+
+- Authentication alone isn't enough: an authenticated user could still call `DELETE` on a menu item, or `PATCH` someone else's order, if nothing checks whether they're actually *allowed* to. That check -- privileges/roles, not just identity -- is authorization, and Django's built-in user group system gives a straightforward way to build that layer.
+- Setting up groups and users in the Django admin (`/admin`):
+  - Create a group named `Manager` (no individual permissions need to be selected for this approach -- membership itself is what's checked).
+  - Create two users, e.g. `johndoe` (the manager) and `jimmydoe` (a plain customer).
+  - On `johndoe`'s admin page, add him to the `Manager` group under the Groups section; leave `jimmydoe` out of it.
+- Building the protected view, the same pattern as the earlier `secret` view -- `@api_view()` + `@permission_classes([IsAuthenticated])`, mapped in `urls.py`: at first this only checks that *some* authenticated user is calling it, so both `johndoe` and `jimmydoe` can see the manager-only message, which is wrong.
+- Fixing it: inside the view, check whether `request.user` belongs to the `Manager` group via `request.user.groups.filter(name='Manager').exists()`, and only return the message if that's `True`; otherwise respond with a 403.
+- Testing with the token flow from the previous section: get a token for each user via `POST /api/api-token-auth`, then `GET` the manager view with each token -- `johndoe`'s token now gets the message, `jimmydoe`'s gets a 403.
+
+```python
+# views.py
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view()
+@permission_classes([IsAuthenticated])
+def manager_view(request):
+    if request.user.groups.filter(name='Manager').exists():
+        return Response({'message': 'Only Manager should see this'})
+    return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+```
+
+```python
+# urls.py
+from rest_framework.authtoken.views import obtain_auth_token
+
+urlpatterns = [
+    # ...
+    path('secret', views.secret),
+    path('manager-view', views.manager_view),
+    path('api-token-auth', obtain_auth_token),  # POST username/password -> {"token": "..."}
+]
+```
+
+```bash
+# Get a token for each user (as in the previous section)
+curl -X POST http://127.0.0.1:8000/api/api-token-auth -d "username=johndoe&password=<pass>"
+curl -X POST http://127.0.0.1:8000/api/api-token-auth -d "username=jimmydoe&password=<pass>"
+
+# johndoe is in the Manager group -> 200, sees the message
+curl http://127.0.0.1:8000/api/manager-view -H "Authorization: Token <johndoe's token>"
+
+# jimmydoe is not in the Manager group -> 403
+curl http://127.0.0.1:8000/api/manager-view -H "Authorization: Token <jimmydoe's token>"
+```
+
+#### Setting up API Throttling
+
+- Throttling limits how often a client can call an endpoint within a time window, protecting the API's compute and bandwidth from abuse; DRF ships built-in throttle classes for it.
+- Two built-in throttle classes cover the common cases:
+  - `AnonRateThrottle` -- applies when there's no token on the request (anonymous/unauthenticated calls).
+  - `UserRateThrottle` -- applies when there's a valid token (authenticated calls).
+- Rates are set globally in `settings.py`, under `DEFAULT_THROTTLE_RATES` in the `REST_FRAMEWORK` dict, as `'<scope>': '<count>/<period>'` (period is `second`, `minute`, `hour`, or `day`), e.g. `'anon': '2/minute'` or `'anon': '20/day'`.
+- Applying a throttle class to a specific view uses the `@throttle_classes([...])` decorator (from `rest_framework.decorators`) alongside `@api_view()`.
+  - With `AnonRateThrottle` and `'anon': '2/minute'` set, a 3rd call within a minute is rejected with a "Request was throttled" message and a countdown until the next call is allowed.
+  - The same pattern with `UserRateThrottle` and `'user': '5/minute'` throttles authenticated calls after 5 requests in a minute.
+- Giving one specific endpoint a different rate than the global default, instead of changing it for every authenticated endpoint: subclass `UserRateThrottle` in a new `throttles.py` file with a custom `scope` name, give that scope its own entry in `DEFAULT_THROTTLE_RATES`, then use the subclass instead of `UserRateThrottle` in that view's `@throttle_classes`.
+  - Testing this, calls 1-10 succeed and the 11th is throttled, confirming the endpoint now follows its own `10/minute` limit rather than the global `5/minute` used for authenticated calls elsewhere.
+
+```python
+# throttles.py
+from rest_framework.throttling import UserRateThrottle
+
+class TenCallsPerMinute(UserRateThrottle):
+    scope = 'ten'
+```
+
+```python
+# views.py
+from rest_framework.decorators import api_view, throttle_classes
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
+
+from .throttles import TenCallsPerMinute
+
+@api_view()
+@throttle_classes([AnonRateThrottle])  # -> /api/throttle-check
+def throttle_check(request):
+    return Response({'message': 'successful'})
+
+@api_view()
+@throttle_classes([TenCallsPerMinute])  # -> /api/throttle-check-auth, 10/minute instead of the global 5/minute
+def throttle_check_auth(request):
+    return Response({'message': 'successful'})
+```
+
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '2/minute',
+        'user': '5/minute',
+        'ten': '10/minute',
+    },
+}
+```
+
+```bash
+# Anonymous: first 2 calls in a minute succeed, the 3rd is throttled
+curl http://127.0.0.1:8000/api/throttle-check
+curl http://127.0.0.1:8000/api/throttle-check
+curl http://127.0.0.1:8000/api/throttle-check
+# {"detail": "Request was throttled. Expected available in 59 seconds."}
+
+# Authenticated, using the custom "ten" scope: calls 1-10 succeed, the 11th is throttled
+for i in $(seq 1 11); do
+  curl http://127.0.0.1:8000/api/throttle-check-auth -H "Authorization: Token <token>"
+done
 ```
 
 ## 4. Final Project
