@@ -18,6 +18,7 @@ dependencies = [
     "deepagents",
     "django",
     "djangorestframework",
+    "djangorestframework-simplejwt",
     "djangorestframework-xml",
     "djoser",
     "docling",

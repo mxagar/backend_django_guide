@@ -137,6 +137,16 @@ Table of Contents:
       - [Token-Based Authentication in DRF](#token-based-authentication-in-drf)
       - [User Roles](#user-roles)
       - [Setting up API Throttling](#setting-up-api-throttling)
+      - [API Throttling for Class-Based Views](#api-throttling-for-class-based-views)
+        - [Project Scaffolding](#project-scaffolding)
+        - [Add Support for Throttling](#add-support-for-throttling)
+        - [Throttling for Class-Based Views](#throttling-for-class-based-views)
+        - [Conditional Throttling](#conditional-throttling)
+        - [Custom Throttling Classes](#custom-throttling-classes)
+        - [Real-World Examples of API Rate Limits](#real-world-examples-of-api-rate-limits)
+      - [Introduction to Djoser library for Better Authentication](#introduction-to-djoser-library-for-better-authentication)
+      - [Registration and Authentication Endpoints with JWT](#registration-and-authentication-endpoints-with-jwt)
+      - [User Account Management](#user-account-management)
   - [4. Final Project](#4-final-project)
 
 ## 1. REST APIs
@@ -4053,6 +4063,327 @@ curl http://127.0.0.1:8000/api/throttle-check
 for i in $(seq 1 11); do
   curl http://127.0.0.1:8000/api/throttle-check-auth -H "Authorization: Token <token>"
 done
+```
+
+#### API Throttling for Class-Based Views
+
+Builds on the throttling basics from [Setting up API Throttling](#setting-up-api-throttling): shows how to apply the same rate limits to a class-based view instead of a function-based one, add conditional throttling per HTTP method, and reuse a custom throttle class.
+
+##### Project Scaffolding
+
+A `ModelViewSet` gives a full CRUD endpoint for menu items in a few lines:
+
+```python
+# views.py
+from rest_framework import viewsets
+
+from .models import MenuItem
+from .serializers import MenuItemSerializer
+
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+```
+
+Mapped in `urls.py`, exposing only the `GET` actions (`list` for the collection, `retrieve` for a single item):
+
+```python
+# urls.py
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path('menu-items', views.MenuItemsViewSet.as_view({'get': 'list'})),
+    path('menu-items/<int:pk>', views.MenuItemsViewSet.as_view({'get': 'retrieve'})),
+]
+```
+
+With these in place, `http://127.0.0.1:8000/api/menu-items` lists every item and `http://127.0.0.1:8000/api/menu-items/1` retrieves a single one.
+
+##### Add Support for Throttling
+
+DRF (Django REST Framework) ships ready-to-use throttling classes -- registering them globally in `settings.py` turns throttling on for every view by default:
+
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+}
+```
+
+##### Throttling for Class-Based Views
+
+Class-based views don't use the `@throttle_classes` decorator that function-based views do. Instead, `throttle_classes` is a public class attribute, set directly on the view set:
+
+```python
+# views.py
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+```
+
+This throttles `menu-items` for both anonymous and authenticated users, at rates set the same way as before, in `DEFAULT_THROTTLE_RATES`:
+
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '2/minute',
+        'user': '10/minute',
+    },
+}
+```
+
+Visiting `http://127.0.0.1:8000/api/menu-items` a 3rd time within a minute (as an anonymous user) now returns an HTTP 429 -- 2 calls succeed, and the one after that is throttled:
+
+![Error message: Request was throttled. Expected available in 58 seconds.](./assets/throttling-for-class-based-views.png)
+
+An authenticated user (with a valid token) sees the same message, but only after 10 successful calls -- matching the `user` rate above.
+
+##### Conditional Throttling
+
+Throttling can also be scoped to specific HTTP methods, e.g. throttling `POST` but leaving `GET` unlimited, by overriding `get_throttles()` instead of setting `throttle_classes` as a plain class attribute (so that line is removed from the class body). On a `ModelViewSet`, `POST` requests are handled by the `create` action and `GET` list requests by the `list` action, both exposed via `self.action`:
+
+```python
+# views.py
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+    def get_throttles(self):
+        if self.action == 'create':
+            throttle_classes = [UserRateThrottle]
+        else:
+            throttle_classes = []
+        return [throttle() for throttle in throttle_classes]
+```
+
+This limits `POST` calls to `menu-items` to 10 per minute (the `user` rate), while `GET` calls go through unthrottled.
+
+##### Custom Throttling Classes
+
+A custom throttle class defined earlier in the course, like `TenCallsPerMinute` in `throttles.py`, plugs in the same way as the built-in ones -- import it and add it to `throttle_classes`:
+
+```python
+# views.py
+from .throttles import TenCallsPerMinute
+
+class MenuItemsViewSet(viewsets.ModelViewSet):
+    throttle_classes = [TenCallsPerMinute]
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+```
+
+##### Real-World Examples of API Rate Limits
+
+A few popular services and their published rate limits, for a sense of scale:
+
+| Service | Anonymous | Authenticated |
+| --- | --- | --- |
+| Facebook Graph API | -- (no anonymous access) | 200/hour |
+| Instagram API | -- (no anonymous access) | 200/hour |
+| Instagram Messenger API | -- (no anonymous access) | 100/second |
+| WhatsApp Messaging API | -- (no anonymous access) | 80/second |
+
+#### Introduction to Djoser library for Better Authentication
+
+- Getting authentication and authorization wrong risks data breaches or corruption, but hand-building a full authentication layer for every DRF (Django REST Framework) project from scratch is slow and repetitive. Djoser is a package that provides a ready-made set of authentication endpoints (registration, login, password reset, etc.) with just a few lines of configuration.
+- Installing and registering it:
+  - `pipenv install djoser` (or `uv add djoser`), then add `'djoser'` to `INSTALLED_APPS` in `settings.py` -- it must come *after* `'rest_framework'`.
+  - A `DJOSER` settings dict configures it, e.g. `USER_ID_FIELD` picks which field on the user model identifies a user in Djoser's responses (defaults to the primary key; `username` is used here). `LOGIN_FIELD` can switch the field used to log in from `username` to `email` if preferred -- left at its default in this walkthrough.
+  - `TokenAuthentication` (added to `DEFAULT_AUTHENTICATION_CLASSES` earlier in this course) still applies; adding `SessionAuthentication` alongside it lets the Django admin session and Djoser's browsable API work at the same time -- safe to remove later before going to production.
+  - In the project's `urls.py`, two `include()` lines mount Djoser's user-management endpoints and its token endpoints, both under an `auth/` prefix.
+- The full set of endpoints Djoser adds under `http://127.0.0.1:8000/auth/`:
+
+  | Endpoint | Methods | Purpose |
+  | --- | --- | --- |
+  | `users/` | GET, POST | List all users, or register a new one -- creating a user via `POST` needs no token. |
+  | `users/me/` | GET, PUT, PATCH, DELETE | View, update, or delete the *authenticated* user's own account, identified by their token rather than an id in the URL. |
+  | `users/confirm/` | POST | Activate a newly registered account, submitting the `uid`/`token` pair Djoser emailed on registration. |
+  | `users/resend_activation/` | POST | Resend the activation email, e.g. if it expired or never arrived. |
+  | `users/set_password/` | POST | Change the authenticated user's password (current + new password). |
+  | `users/reset_password/` | POST | "Forgot password" flow -- sends a reset email containing a `uid`/`token` pair. |
+  | `users/reset_password_confirm/` | POST | Second half of that flow -- submit the new password with the `uid`/`token` from the email. |
+  | `users/set_username/` | POST | Change the authenticated user's username. |
+  | `users/reset_username/` | POST | "Forgot username" flow -- sends a reset email with a `uid`/`token` pair. |
+  | `users/reset_username_confirm/` | POST | Submit the new username along with the `uid`/`token` from that email. |
+  | `token/login/` | POST | Exchange a username/password for an auth token. |
+  | `token/logout/` | POST | Invalidate the current token (server-side logout). |
+
+  - `users/confirm/` is this project's name for the activation step; some Djoser versions/docs call the same action `users/activation/` instead -- same purpose, just a naming difference across versions.
+  - Visiting `users/` to add a new user through the browsable API first requires logging into the Django admin as a superuser.
+  - The browsable API's "Extra actions" button (next to "Options" and the HTTP method button) surfaces common operations for the endpoint being viewed; "Options" itself lists the parameters and HTTP methods that endpoint accepts.
+  - `token/login/` also has a browsable-API form with `username`/`password` fields, for generating a token without a separate client like Insomnia.
+- Djoser also supports JWT (JSON Web Token)-based authentication as an alternative to plain tokens, covered later in the course.
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    'rest_framework',
+    'rest_framework.authtoken',
+    'djoser',  # must come after rest_framework
+]
+
+DJOSER = {
+    'USER_ID_FIELD': 'username',
+    # 'LOGIN_FIELD': 'email',  # optional: log in with email instead of username
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',  # lets Django admin login work alongside the browsable API
+    ],
+}
+```
+
+```python
+# urls.py
+urlpatterns = [
+    # ...
+    path('auth/', include('djoser.urls')),
+    path('auth/', include('djoser.urls.authtoken')),
+]
+```
+
+```bash
+# Register a new user -- no token required
+curl -X POST http://127.0.0.1:8000/auth/users/ -d "username=jimmydoe&password=<pass>"
+
+# Log in to get a token
+curl -X POST http://127.0.0.1:8000/auth/token/login/ -d "username=jimmydoe&password=<pass>"
+# {"auth_token": "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4"}
+
+# Get the authenticated user's own details
+curl http://127.0.0.1:8000/auth/users/me/ -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4"
+```
+
+#### Registration and Authentication Endpoints with JWT
+
+- JWT (JSON Web Token) is a popular alternative to DRF's built-in token authentication, provided by the `djangorestframework-simplejwt` package.
+- Setup:
+  - `pipenv install djangorestframework-simplejwt~=5.2.1` (or `uv add "djangorestframework-simplejwt~=5.2.1"`).
+  - Add `'rest_framework_simplejwt'` to `INSTALLED_APPS`, and `'rest_framework_simplejwt.authentication.JWTAuthentication'` to `DEFAULT_AUTHENTICATION_CLASSES` in `settings.py`.
+  - In `urls.py`, map `TokenObtainPairView` (issues tokens) and `TokenRefreshView` (renews an access token), both from `rest_framework_simplejwt.views`.
+- Two tokens come out of a successful login, each with a different job:
+  - **Access token** -- sent with every API call to authenticate; expires quickly (5 minutes by default in Simple JWT, configurable in `settings.py`, and deliberately kept short for security).
+  - **Refresh token** -- used to obtain a new access token once the old one expires, without the client logging in again. Since an access token can't be manually invalidated before it expires, revoking a refresh token (blacklisting it) is the way to force a client to stop being able to regenerate access.
+- Testing the flow:
+  - `POST /api/token` with `username`/`password` (form data) returns `access` and `refresh` tokens.
+  - Protected endpoints are called with `Authorization: Bearer <access token>` -- note the scheme is `Bearer` here, unlike DRF's own `TokenAuthentication`, which uses `Authorization: Token <token>`.
+  - Once the access token expires, calls with it fail; `POST /api/token/refresh` with `refresh=<refresh token>` (form data) returns a fresh `access` token to use instead.
+- Blacklisting a refresh token so it can no longer be used:
+  - Add `'rest_framework_simplejwt.token_blacklist'` to `INSTALLED_APPS`, then run `python manage.py migrate` (restarting the dev server afterward) to create its tables.
+  - Map `TokenBlacklistView` (also from `rest_framework_simplejwt.views`) in `urls.py`.
+  - `POST /api/token/blacklist` with `refresh=<refresh token>` returns an empty 200 response; that refresh token is now blacklisted, and a later `POST /api/token/refresh` with it fails.
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ...
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
+```
+
+```python
+# urls.py
+from rest_framework_simplejwt.views import TokenBlacklistView, TokenObtainPairView, TokenRefreshView
+
+urlpatterns = [
+    # ...
+    path('token', TokenObtainPairView.as_view()),
+    path('token/refresh', TokenRefreshView.as_view()),
+    path('token/blacklist', TokenBlacklistView.as_view()),
+]
+```
+
+```bash
+# Log in -> access + refresh tokens
+curl -X POST http://127.0.0.1:8000/api/token -d "username=<user>&password=<pass>"
+# {"access": "<access token>", "refresh": "<refresh token>"}
+
+# Call a protected endpoint with the access token
+curl http://127.0.0.1:8000/api/secret -H "Authorization: Bearer <access token>"
+
+# After the access token expires, get a new one via the refresh token
+curl -X POST http://127.0.0.1:8000/api/token/refresh -d "refresh=<refresh token>"
+# {"access": "<new access token>"}
+
+# Blacklist the refresh token -- it can no longer be used to refresh
+curl -X POST http://127.0.0.1:8000/api/token/blacklist -d "refresh=<refresh token>"
+```
+
+#### User Account Management
+
+- Builds on [Introduction to Djoser library for Better Authentication](#introduction-to-djoser-library-for-better-authentication) and [User Roles](#user-roles) to register new users through Djoser and let a super admin manage group membership through a custom endpoint. Not using JWT here, so it's worth cleaning up the JWT-specific settings and URL patterns from the previous section if they're still in `settings.py`/`urls.py`.
+- User registration is already fully working via Djoser's `users/` endpoint, with no extra code needed:
+  - `POST` with `username`, `email`, and `password` (no token required) creates the account, as long as the username isn't taken.
+  - `GET` behaves differently depending on who's asking: a superuser sees every user's full details, but a regular authenticated user only sees their own `username`/`email` -- both still need a valid token to call it at all.
+- Adding a super-admin-only endpoint to add or remove a user from the `Manager` group, since Djoser doesn't provide one:
+  - Restrict it with `IsAdminUser` (from `rest_framework.permissions`), which only allows staff/admin users through -- a normal user's token gets rejected.
+  - The view reads a `username` from the request body, looks that user up with `get_object_or_404` (404 if it doesn't exist), and either adds or removes them from the `Manager` group depending on the HTTP method (`POST` to add, `DELETE` to remove) -- missing `username` returns a 400.
+
+```python
+# views.py
+from django.contrib.auth.models import Group, User
+from django.shortcuts import get_object_or_404
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAdminUser])
+def managers(request):
+    username = request.data.get('username')
+    if not username:
+        return Response({'message': 'error: username is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = get_object_or_404(User, username=username)
+    manager_group = Group.objects.get(name='Manager')
+
+    if request.method == 'POST':
+        user.groups.add(manager_group)
+    elif request.method == 'DELETE':
+        user.groups.remove(manager_group)
+    return Response({'message': 'okay'})
+```
+
+```python
+# urls.py
+urlpatterns = [
+    # ...
+    path('groups/manager/users', views.managers),
+]
+```
+
+```bash
+# Add a user to the Manager group -- only works with a super admin token
+curl -X POST http://127.0.0.1:8000/api/groups/manager/users \
+  -H "Authorization: Token <super admin token>" -d "username=johndoe"
+
+# A normal user's token gets rejected (IsAdminUser)
+curl -X POST http://127.0.0.1:8000/api/groups/manager/users \
+  -H "Authorization: Token <regular user token>" -d "username=johndoe"
+
+# Remove a user from the Manager group
+curl -X DELETE http://127.0.0.1:8000/api/groups/manager/users \
+  -H "Authorization: Token <super admin token>" -d "username=johndoe"
 ```
 
 ## 4. Final Project
