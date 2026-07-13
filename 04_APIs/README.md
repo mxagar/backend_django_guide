@@ -5297,30 +5297,47 @@ DJOSER = {
 1. **Start the server**, from inside `lab/07-littlelemon-api-project/LittleLemon/`:
 
    ```bash
-   pipenv install
-   pipenv run python manage.py runserver 8080
+   cd ...\04_APIs\lab\07-littlelemon-api-project\LittleLemon
+   python -m pip install --user pipenv
+   python -m pipenv install
+
+   # Start the app/server
+   python -m pipenv run python manage.py runserver 8080
    ```
 
 2. **Create your own superuser** (the credentials go in `notes.txt` for the submission, so pick something you're fine sharing with reviewers):
 
    ```bash
-   pipenv run python manage.py createsuperuser
+   python -m pipenv run python manage.py createsuperuser
    # prompts for username, email, password
+   # Example values in notes.txt
    ```
 
 3. **Log into `/admin`** at `http://127.0.0.1:8080/admin` with that superuser.
-   - Under **Groups**, add two groups named exactly `Manager` and `Delivery crew`.
+   - Under **Groups**, add two groups named exactly `Manager` and `Delivery crew`. Any user who is not in these groups is treated as a plain customer; but there is not a separate "Customer" group. No permission need to be assigned.
    - Under **Users**, create a few more users (e.g. one manager, one delivery crew member, one plain customer) and note their usernames/passwords -- these also go in `notes.txt`.
    - Add each user to the right group from their user detail page (**except** the customer, who should be left in no group).
 
-4. **Get a token for each user** -- no need to create tokens by hand in the admin panel here, since Djoser's login endpoint issues one automatically:
+   Example values (used throughout this write-up's own testing):
 
-   ```bash
-   curl -X POST http://127.0.0.1:8080/token/login/ -d "username=<username>" -d "password=<password>"
-   # {"auth_token": "<token>"}
+   ```text
+   # Example values in notes.txt
+   Manager        username=mario   email=mario@littlelemon.com   password=<manager-password>
+   Delivery crew  username=adrian  email=adrian@littlelemon.com  password=<delivery-crew-password>
+   Customer       username=sana    email=sana@littlelemon.com    password=<customer-password>
    ```
 
-   Do this once per user (superuser, manager, delivery crew, customer) and keep the tokens handy for Insomnia.
+4. **Get a token for each user** -- no need to create tokens by hand in the admin panel here, since Djoser's login endpoint issues one automatically. In PowerShell, use `curl.exe` (not the bare `curl` alias, which resolves to `Invoke-WebRequest` and doesn't accept `-d`):
+
+   ```powershell
+   curl.exe -X POST http://127.0.0.1:8080/token/login/ -d "username=mikel" -d "password=<superuser-password>"
+   curl.exe -X POST http://127.0.0.1:8080/token/login/ -d "username=mario" -d "password=<manager-password>"
+   curl.exe -X POST http://127.0.0.1:8080/token/login/ -d "username=adrian" -d "password=<delivery-crew-password>"
+   curl.exe -X POST http://127.0.0.1:8080/token/login/ -d "username=sana" -d "password=<customer-password>"
+   # each returns {"auth_token": "<token>"} -- copy the token for use in Insomnia
+   ```
+
+   Do this once per user (superuser, manager, delivery crew, customer) and keep the tokens handy for Insomnia in `notes.txt`.
 
 5. **As the superuser or manager, seed a category and a menu item** (this is also your first required screenshot -- capture the Insomnia request/response):
 
