@@ -148,7 +148,22 @@ Table of Contents:
       - [Registration and Authentication Endpoints with JWT](#registration-and-authentication-endpoints-with-jwt)
       - [User Account Management](#user-account-management)
       - [Exercise: User Account Management](#exercise-user-account-management)
+      - [Additional Resources](#additional-resources-3)
   - [4. Final Project](#4-final-project)
+    - [Project Introduction](#project-introduction)
+    - [Project Structure and API Routes](#project-structure-and-api-routes)
+      - [Introduction](#introduction)
+      - [Scope](#scope)
+      - [Structure](#structure)
+      - [Error Handling and Status Codes](#error-handling-and-status-codes)
+      - [API Endpoints](#api-endpoints)
+      - [Additional Step](#additional-step)
+      - [Throttling](#throttling)
+      - [Conclusion](#conclusion)
+    - [Creating Models](#creating-models)
+    - [Project](#project)
+      - [How to Run, Seed Data, and Capture Screenshots](#how-to-run-seed-data-and-capture-screenshots)
+      - [How to Prepare the Submission](#how-to-prepare-the-submission)
 
 ## 1. REST APIs
 
@@ -4573,6 +4588,768 @@ curl -X POST http://127.0.0.1:8080/api/ratings \
 # 400 {"rating":["Ensure this value is less than or equal to 5."]}
 ```
 
+#### Additional Resources
 
+- [Djoser documentation](https://djoser.readthedocs.io/en/latest/)
+- [Djoser source code](https://github.com/sunscrapers/djoser)
+- [Simple JWT documentation](https://django-rest-framework-simplejwt.readthedocs.io/en/latest/)
+- [Simple JWT source code](https://github.com/jazzband/djangorestframework-simplejwt)
 
 ## 4. Final Project
+
+### Project Introduction
+
+- Final project: build a full REST API for the Little Lemon restaurant, combining everything covered so far (models, serializers, views, authentication, permissions, filtering, throttling).
+- Three user types share the API, each with different capabilities:
+  - **Manager** -- add, edit, and remove menu items; promote any user to delivery crew; browse all orders and assign them to a delivery person; filter orders by status (delivered / not delivered).
+  - **Customer** -- the default role for any user not assigned to a group.
+    - Browse, filter (by category and price range), and search menu items.
+    - Add menu items to a cart and place an order from it; the cart must empty automatically once the order is created.
+    - Flush the cart on demand; each customer has exactly one cart, which can hold multiple menu items.
+    - View their own orders, including status and total price.
+  - **Delivery crew** -- after authenticating, browse the orders assigned to them and mark them as delivered.
+- Start with user registration and authentication, then add endpoints to assign/remove users from groups (manager, delivery crew) -- decide carefully which token/permission type should gate that endpoint.
+- Add throttling across the API, capped at five calls per minute.
+- Endpoints must accept only their required HTTP methods and always return an appropriate status code.
+- Tooling: VS Code, Django with DRF (Django REST Framework), a virtual environment, and Insomnia for testing -- reuse only packages and libraries introduced earlier in the course.
+- Final submission constraint: the finished project must support token-based authentication only -- remove any session authentication class used during development before submitting.
+
+### Project Structure and API Routes
+
+#### Introduction
+
+This reading is an overview of the scope of the project, all the necessary endpoints, and notes that you will have to implement in the final project. Read it carefully and reference it while developing the API project to keep on track.
+
+#### Scope
+
+You will create a fully functioning API project for the Little Lemon restaurant so that client application developers can use the APIs to develop web and mobile applications. People with different roles will be able to browse, add, and edit menu items, place orders, browse orders, assign delivery crew to orders, and finally deliver the orders.
+
+The next section walks through the required endpoints with an authorization level and other helpful notes. The task is to create these endpoints by following the instructions.
+
+#### Structure
+
+- Create one single Django app called `LittleLemonAPI` and implement all API endpoints in it. Use pipenv to manage the dependencies in the virtual environment.
+- Function- or class-based views, or a mix of both, can be used in this project. Follow the proper API naming convention throughout the project.
+- User groups:
+  - Create two user groups -- **Manager** and **Delivery crew** -- then create some random users and assign them to these groups from the Django admin panel.
+  - Users not assigned to a group are considered customers.
+
+#### Error Handling and Status Codes
+
+Display error messages with appropriate HTTP status codes for specific errors: a request for a non-existing item, an unauthorized API request, or invalid data sent in a `POST`, `PUT`, or `PATCH` request. Full list:
+
+| HTTP Status Code | Reason |
+|---|---|
+| `200 - Ok` | For all successful `GET`, `PUT`, `PATCH`, and `DELETE` calls |
+| `201 - Created` | For all successful `POST` requests |
+| `403 - Unauthorized` | If authorization fails for the current user token |
+| `401 - Forbidden` | If user authentication fails |
+| `400 - Bad request` | If validation fails for `POST`, `PUT`, `PATCH`, and `DELETE` calls |
+| `404 - Not found` | If the request was made for a non-existing resource |
+
+#### API Endpoints
+
+All the required API routes for this project, grouped into several categories.
+
+**User registration and token generation endpoints**
+
+Djoser can be used in the project to automatically create the following endpoints and functionalities.
+
+| Endpoint | Role | Method | Purpose |
+|---|---|---|---|
+| `/api/users` | No role required | `POST` | Creates a new user with name, email, and password |
+| `/api/users/users/me/` | Anyone with a valid user token | `GET` | Displays only the current user |
+| `/token/login/` | Anyone with a valid username and password | `POST` | Generates access tokens that can be used in other API calls in this project |
+
+Including Djoser's endpoints also brings in the other useful endpoints it creates automatically.
+
+**Menu-items endpoints**
+
+| Endpoint | Role | Method | Purpose |
+|---|---|---|---|
+| `/api/menu-items` | Customer, delivery crew | `GET` | Lists all menu items. Returns a `200 - Ok` HTTP status code |
+| `/api/menu-items` | Customer, delivery crew | `POST`, `PUT`, `PATCH`, `DELETE` | Denies access and returns a `403 - Unauthorized` HTTP status code |
+| `/api/menu-items/{menuItem}` | Customer, delivery crew | `GET` | Lists a single menu item |
+| `/api/menu-items/{menuItem}` | Customer, delivery crew | `POST`, `PUT`, `PATCH`, `DELETE` | Returns `403 - Unauthorized` |
+| `/api/menu-items` | Manager | `GET` | Lists all menu items |
+| `/api/menu-items` | Manager | `POST` | Creates a new menu item and returns `201 - Created` |
+| `/api/menu-items/{menuItem}` | Manager | `GET` | Lists a single menu item |
+| `/api/menu-items/{menuItem}` | Manager | `PUT`, `PATCH` | Updates a single menu item |
+| `/api/menu-items/{menuItem}` | Manager | `DELETE` | Deletes the menu item |
+
+**User group management endpoints**
+
+| Endpoint | Role | Method | Purpose |
+|---|---|---|---|
+| `/api/groups/manager/users` | Manager | `GET` | Returns all managers |
+| `/api/groups/manager/users` | Manager | `POST` | Assigns the user in the payload to the manager group and returns `201 - Created` |
+| `/api/groups/manager/users/{userId}` | Manager | `DELETE` | Removes this particular user from the manager group and returns `200 - Success` if everything is okay. If the user is not found, returns `404 - Not found` |
+| `/api/groups/delivery-crew/users` | Manager | `GET` | Returns all delivery crew |
+| `/api/groups/delivery-crew/users` | Manager | `POST` | Assigns the user in the payload to the delivery crew group and returns `201 - Created` |
+| `/api/groups/delivery-crew/users/{userId}` | Manager | `DELETE` | Removes this user from the manager group and returns `200 - Success` if everything is okay. If the user is not found, returns `404 - Not found` |
+
+**Cart management endpoints**
+
+| Endpoint | Role | Method | Purpose |
+|---|---|---|---|
+| `/api/cart/menu-items` | Customer | `GET` | Returns current items in the cart for the current user token |
+| `/api/cart/menu-items` | Customer | `POST` | Adds the menu item to the cart. Sets the authenticated user as the user ID for these cart items |
+| `/api/cart/menu-items` | Customer | `DELETE` | Deletes all menu items created by the current user token |
+
+**Order management endpoints**
+
+| Endpoint | Role | Method | Purpose |
+|---|---|---|---|
+| `/api/orders` | Customer | `GET` | Returns all orders with order items created by this user |
+| `/api/orders` | Customer | `POST` | Creates a new order item for the current user. Gets current cart items from the cart endpoints and adds those items to the order items table, then deletes all items from the cart for this user |
+| `/api/orders/{orderId}` | Customer | `GET` | Returns all items for this order id. If the order ID doesn't belong to the current user, displays an appropriate HTTP error status code |
+| `/api/orders` | Manager | `GET` | Returns all orders with order items by all users |
+| `/api/orders/{orderId}` | Customer | `PUT`, `PATCH` | Updates the order. A manager can use this endpoint to set a delivery crew for this order, and also update the order status to `0` or `1`: status `0` with a delivery crew assigned means the order is out for delivery; status `1` means the order has been delivered |
+| `/api/orders/{orderId}` | Manager | `DELETE` | Deletes this order |
+| `/api/orders` | Delivery crew | `GET` | Returns all orders with order items assigned to the delivery crew |
+| `/api/orders/{orderId}` | Delivery crew | `PATCH` | A delivery crew member can use this endpoint to update the order status to `0` or `1`. They cannot update anything else in this order |
+
+#### Additional Step
+
+Implement proper filtering, pagination, and sorting capabilities for the `/api/menu-items` and `/api/orders` endpoints.
+
+#### Throttling
+
+Apply some throttling for authenticated users and for anonymous/unauthenticated users.
+
+#### Conclusion
+
+With a better idea of the scope of this project and its essential API endpoints, it's time to start coding. Good luck!
+
+### Creating Models
+
+- Five models cover the final project's data: Django's built-in `User` model handles accounts, so only `Category`, `MenuItem`, `Cart`, `Order`, and `OrderItem` need to be created.
+- `Category` needs two fields:
+  - `slug` (`SlugField`).
+  - `title` (`CharField`, `max_length=255`), indexed because client applications search against it.
+- `MenuItem` needs:
+  - `title` (`CharField`) and `price` (`DecimalField`).
+  - `featured` (`BooleanField`), marking whether the item is currently featured.
+  - `category` (`ForeignKey` to `Category`), since every menu item belongs to exactly one category.
+- `Cart` is temporary storage for the menu items a user adds before placing an order; each user can only have one cart at a time.
+  - `user` (`ForeignKey` to Django's built-in `User` model, imported from `django.contrib.auth.models`).
+  - `menuitem` (`ForeignKey` to `MenuItem`).
+  - `quantity`, plus two price fields kept for easier calculation: `unit_price` (the menu item's price) and `price` (`quantity` times `unit_price`, computed and saved).
+- Placing an order does two things: creates an `Order` record holding the order's summary info, then moves every item from the cart into the `OrderItem` table linked to that new order -- after which the cart is emptied.
+- `Order` needs:
+  - `user` (`ForeignKey` to `User`).
+  - `delivery_crew` (`ForeignKey` to `User`) -- a second foreign key to the same `User` table alongside `user`, so it needs an explicit related name (set to `delivery_crew`) for Django to tell the two relations apart.
+  - `status` (`BooleanField`, default `0`), marking whether the order has been delivered.
+  - `total`, holding the combined price of all menu items in the order.
+  - `date`, marking when the order was placed.
+- `OrderItem` mirrors `Cart`'s item-level fields but links to the order instead: `order` (`ForeignKey` to `Order`), `menuitem` (`ForeignKey` to `MenuItem`), `quantity`, `unit_price`, and `price`.
+- Both `Cart` and `OrderItem` add a `Meta` class with a unique-together index:
+  - `Cart`: unique on (`user`, `menuitem`) -- a user can only have one entry per menu item, so only its quantity can change afterward.
+  - `OrderItem`: unique on (`order`, `menuitem`) -- an order can only have one entry per menu item, though the quantity can vary.
+
+```python
+from django.contrib.auth.models import User
+from django.db import models
+
+
+class Category(models.Model):
+    slug = models.SlugField()
+    # db_index=True: client apps search/filter menu items by this title
+    title = models.CharField(max_length=255, db_index=True)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class MenuItem(models.Model):
+    title = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    featured = models.BooleanField(default=False)
+    # PROTECT: a category can't be deleted while menu items still reference it
+    category = models.ForeignKey(Category, on_delete=models.PROTECT)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class Cart(models.Model):
+    # CASCADE: deleting a user also clears their cart
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    menuitem = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
+    quantity = models.SmallIntegerField()
+    unit_price = models.DecimalField(max_digits=6, decimal_places=2)
+    price = models.DecimalField(max_digits=6, decimal_places=2)  # quantity * unit_price, computed on save
+
+    class Meta:
+        # one row per user per menu item; adding the same item again just updates quantity
+        unique_together = ('user', 'menuitem')
+
+
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # second FK to User: needs its own related_name so Django doesn't clash
+    # with the reverse accessor already created by `user` above; null=True
+    # because an order has no delivery crew assigned until a manager sets one
+    delivery_crew = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name='delivery_crew'
+    )
+    status = models.BooleanField(default=False)  # False = not yet delivered
+    total = models.DecimalField(max_digits=6, decimal_places=2)
+    date = models.DateField(auto_now_add=True)
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    menuitem = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
+    quantity = models.SmallIntegerField()
+    unit_price = models.DecimalField(max_digits=6, decimal_places=2)
+    price = models.DecimalField(max_digits=6, decimal_places=2)  # quantity * unit_price, computed on save
+
+    class Meta:
+        # one row per menu item per order; quantity can still vary
+        unique_together = ('order', 'menuitem')
+```
+
+### Project
+
+Folder: [`lab/07-littlelemon-api-project/`](./lab/07-littlelemon-api-project/), instructions: [`Instructions.md`](./lab/07-littlelemon-api-project/Instructions.md).
+
+- Built the full Little Lemon capstone API (Django project `LittleLemon`, app `LittleLemonAPI`, dependencies managed with `pipenv` as required by the submission rules) covering categories, menu items, group management, cart, and orders, wired for token-based authentication via Djoser.
+- Data model (`models.py`): `Category`, `MenuItem` (FK to `Category`, `on_delete=PROTECT`), `Cart` (unique on `user` + `menuitem`), `Order` (`delivery_crew` as a second, nullable FK to `User` with its own `related_name`), and `OrderItem` (unique on `order` + `menuitem`) -- the same design worked out earlier in [Creating Models](#creating-models).
+- Serializers (`serializers.py`): `CategorySerializer`; `MenuItemSerializer` (read/write split on `category`/`category_id`, as in earlier exercises); `UserSerializer` (id/username/email, used by the group-management endpoints); `CartSerializer` (`unit_price`/`price` are read-only -- always computed server-side from the menu item, never trusted from the client); `OrderItemSerializer`; and `OrderSerializer` (`delivery_crew_id` write-only, restricted to users already in the Delivery crew group).
+- Permissions (`permissions.py`): an `is_manager()`/`is_delivery_crew()` helper pair plus `IsManager`/`IsDeliveryCrew` permission classes -- `is_manager()` treats the Django superuser as a manager too, since the grading criteria require the admin token to be able to add menu items/categories without also joining the `Manager` group.
+- Views (`views.py`):
+  - `CategoriesView`/`MenuItemsView` (`ListCreateAPIView`) and `MenuItemDetailView` (`RetrieveUpdateDestroyAPIView`): `GET` open to any authenticated user, writes restricted to managers via `get_permissions()`. Menu items add `DjangoFilterBackend` (`?category=`, `?featured=`), `OrderingFilter` (`?ordering=price`), and `SearchFilter` (`?search=`).
+  - Group management (`manager_users`/`manager_user`, `delivery_crew_users`/`delivery_crew_user`): function-based views mirroring the pattern from [User Account Management](#user-account-management) -- `POST`/`DELETE` a `username` in the payload to add/remove someone from a group. The `Manager` group is admin-only (`IsAdminUser`); the `Delivery crew` group can also be managed by managers (`IsManager`).
+  - `CartView` (`ListCreateAPIView` with an added `delete()`): scoped to `request.user`'s own cart; `perform_create()` computes `unit_price`/`price` from the `MenuItem` rather than trusting client input.
+  - `OrdersView`: `get_queryset()` branches by role (all orders for managers, assigned orders for delivery crew, own orders for everyone else); `create()` is fully overridden to turn the customer's current cart into an `Order` plus its `OrderItem`s, then empty the cart, and rejects managers/delivery crew from placing orders.
+  - `OrderDetailView`: `get_object()` returns a 404 for anyone who isn't the order's owner, a manager, or its assigned delivery crew member; `update()` lets a manager change `delivery_crew`/`status` but restricts a delivery crew member to `status` only (resolving the source table's "Customer" vs. "manager" inconsistency flagged in `Instructions.md`, in favor of the documented capabilities); `destroy()` is manager-only.
+- Routing (`urls.py`): app-level routes for all of the above under `/api/`; the project-level `urls.py` mounts `LittleLemonAPI.urls` under `/api/`, plus Djoser's `djoser.urls` under `/api/` and `djoser.urls.authtoken` at the root, matching the endpoint table's `/api/users` and `/token/login/` paths (Djoser's own routes still need a trailing slash in practice, e.g. `/api/users/`, `/token/login/`).
+- Settings (`settings.py`): `rest_framework`, `rest_framework.authtoken`, `django_filters`, and `djoser` added to `INSTALLED_APPS`; `REST_FRAMEWORK` sets `TokenAuthentication` (plus `SessionAuthentication`, to drop before final submission), `PageNumberPagination` with `PAGE_SIZE = 5`, and `DEFAULT_THROTTLE_RATES` of `2/minute` (anonymous) / `5/minute` (authenticated).
+- Verified the full grading-criteria checklist end-to-end with `curl` against the dev server: admin adding categories/menu items, a manager updating the featured item, admin- and manager-driven group membership (the admin-only `Manager` group vs. the manager-manageable `Delivery crew` group), filtering/ordering/pagination on `/api/menu-items`, the cart -> order -> empty-cart flow, a manager assigning delivery crew to an order, the delivery crew member updating only `status` (a second field in the same request was silently ignored), an order's owner being correctly blocked (`403`) from updating their own order, and registration/login through Djoser.
+- The throttle also fired mid-testing (`429` after 5 authenticated calls inside a minute), confirming `DEFAULT_THROTTLE_RATES` is active.
+- Reset `db.sqlite3` back to a freshly migrated, empty database afterward, so the ad hoc data used for this verification doesn't end up in the submitted project -- see "How to Run, Seed Data, and Capture Screenshots" below for creating the real submission data.
+
+Shell commands, run from inside `lab/07-littlelemon-api-project/LittleLemon/`:
+
+```bash
+# One-time setup: create the project's own virtual environment and install dependencies
+pipenv install
+
+# Create and apply migrations for Category, MenuItem, Cart, Order, and OrderItem
+pipenv run python manage.py makemigrations
+pipenv run python manage.py migrate
+
+# Start the dev server
+pipenv run python manage.py runserver 8080
+# Browsable API: http://127.0.0.1:8080/api/menu-items, admin panel: http://127.0.0.1:8080/admin
+```
+
+`models.py`:
+
+```python
+from django.contrib.auth.models import User
+from django.db import models
+
+
+class Category(models.Model):
+    slug = models.SlugField()
+    # db_index=True: client apps search/filter menu items by this title
+    title = models.CharField(max_length=255, db_index=True)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class MenuItem(models.Model):
+    title = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    featured = models.BooleanField(default=False)
+    # PROTECT: a category can't be deleted while menu items still reference it
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='menuitems')
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class Cart(models.Model):
+    # CASCADE: deleting a user also clears their cart
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    menuitem = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
+    quantity = models.SmallIntegerField()
+    unit_price = models.DecimalField(max_digits=6, decimal_places=2)
+    price = models.DecimalField(max_digits=6, decimal_places=2)  # quantity * unit_price, computed on save
+
+    class Meta:
+        # one row per user per menu item; adding the same item again just updates quantity
+        unique_together = ('user', 'menuitem')
+
+
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # second FK to User: needs its own related_name so Django doesn't clash
+    # with the reverse accessor already created by `user` above; null/blank
+    # because an order has no delivery crew assigned until a manager sets one
+    delivery_crew = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='delivery_crew'
+    )
+    status = models.BooleanField(default=False)  # False = not yet delivered
+    total = models.DecimalField(max_digits=6, decimal_places=2)
+    date = models.DateField(auto_now_add=True)
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    menuitem = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
+    quantity = models.SmallIntegerField()
+    unit_price = models.DecimalField(max_digits=6, decimal_places=2)
+    price = models.DecimalField(max_digits=6, decimal_places=2)  # quantity * unit_price, computed on save
+
+    class Meta:
+        # one row per menu item per order; quantity can still vary
+        unique_together = ('order', 'menuitem')
+```
+
+`serializers.py`:
+
+```python
+from django.contrib.auth.models import User
+from rest_framework import serializers
+
+from .models import Cart, Category, MenuItem, Order, OrderItem
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'slug', 'title']
+
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    # Split read/write: `category` nests the full object for GET responses,
+    # `category_id` is the plain FK id accepted on POST/PUT/PATCH.
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), source='category', write_only=True
+    )
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'title', 'price', 'featured', 'category', 'category_id']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
+
+
+class CartSerializer(serializers.ModelSerializer):
+    menuitem = MenuItemSerializer(read_only=True)
+    menuitem_id = serializers.PrimaryKeyRelatedField(
+        queryset=MenuItem.objects.all(), source='menuitem', write_only=True
+    )
+    # unit_price/price are computed from the menu item's price in the view, not sent by the client
+    unit_price = serializers.DecimalField(max_digits=6, decimal_places=2, read_only=True)
+    price = serializers.DecimalField(max_digits=6, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'menuitem', 'menuitem_id', 'quantity', 'unit_price', 'price']
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    menuitem = MenuItemSerializer(read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'menuitem', 'quantity', 'unit_price', 'price']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    delivery_crew = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Managers assign delivery crew by id; only users in the Delivery crew group are valid targets
+    delivery_crew_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(groups__name='Delivery crew'),
+        source='delivery_crew',
+        write_only=True,
+        required=False,
+    )
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'delivery_crew', 'delivery_crew_id', 'status', 'total', 'date', 'items']
+        read_only_fields = ['total', 'date']
+```
+
+`permissions.py`:
+
+```python
+from rest_framework.permissions import BasePermission
+
+
+def is_manager(user) -> bool:
+    # The admin/superuser counts as a manager too (grading criteria: "the
+    # admin can add menu items"/"...categories"), without needing to also
+    # be added to the Manager group.
+    return user.is_superuser or user.groups.filter(name='Manager').exists()
+
+
+def is_delivery_crew(user) -> bool:
+    return user.groups.filter(name='Delivery crew').exists()
+
+
+class IsManager(BasePermission):
+    def has_permission(self, request, view) -> bool:
+        return request.user.is_authenticated and is_manager(request.user)
+
+
+class IsDeliveryCrew(BasePermission):
+    def has_permission(self, request, view) -> bool:
+        return request.user.is_authenticated and is_delivery_crew(request.user)
+```
+
+`views.py`:
+
+```python
+from django.contrib.auth.models import Group, User
+from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import NotFound
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
+
+from .models import Cart, Category, MenuItem, Order, OrderItem
+from .permissions import IsManager, is_manager
+from .serializers import CartSerializer, CategorySerializer, MenuItemSerializer, OrderSerializer, UserSerializer
+
+
+class CategoriesView(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def get_permissions(self):
+        # Anyone with a token can browse categories; only managers can add one.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsManager()]
+
+
+class MenuItemsView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = ['category', 'featured']  # ?category=<id>&featured=true
+    ordering_fields = ['price', 'title']  # ?ordering=price / ?ordering=-price
+    search_fields = ['title']  # ?search=<text>
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsManager()]
+
+
+class MenuItemDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsManager()]
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def manager_users(request):
+    # Only an admin/superuser token can populate the Manager group (grading
+    # criteria: "the admin can assign users to the manager group").
+    if request.method == 'GET':
+        managers = User.objects.filter(groups__name='Manager')
+        return Response(UserSerializer(managers, many=True).data)
+
+    username = request.data.get('username')
+    if not username:
+        return Response({'message': 'username is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = get_object_or_404(User, username=username)
+    manager_group, _ = Group.objects.get_or_create(name='Manager')
+    user.groups.add(manager_group)
+    return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def manager_user(request, userId):
+    user = get_object_or_404(User, pk=userId)
+    if not user.groups.filter(name='Manager').exists():
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    user.groups.remove(Group.objects.get(name='Manager'))
+    return Response({'message': 'user removed from the manager group'})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated, IsManager])
+def delivery_crew_users(request):
+    # Managers (not just admins) can populate the Delivery crew group.
+    if request.method == 'GET':
+        crew = User.objects.filter(groups__name='Delivery crew')
+        return Response(UserSerializer(crew, many=True).data)
+
+    username = request.data.get('username')
+    if not username:
+        return Response({'message': 'username is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = get_object_or_404(User, username=username)
+    delivery_crew_group, _ = Group.objects.get_or_create(name='Delivery crew')
+    user.groups.add(delivery_crew_group)
+    return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, IsManager])
+def delivery_crew_user(request, userId):
+    user = get_object_or_404(User, pk=userId)
+    if not user.groups.filter(name='Delivery crew').exists():
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    user.groups.remove(Group.objects.get(name='Delivery crew'))
+    return Response({'message': 'user removed from the delivery crew group'})
+
+
+class CartView(generics.ListCreateAPIView):
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Cart.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        menuitem = serializer.validated_data['menuitem']
+        quantity = serializer.validated_data['quantity']
+        # unit_price/price are derived server-side from the menu item, never trusted from the client
+        serializer.save(user=self.request.user, unit_price=menuitem.price, price=menuitem.price * quantity)
+
+    def delete(self, request, *args, **kwargs):
+        Cart.objects.filter(user=request.user).delete()
+        return Response(status=status.HTTP_200_OK)
+
+
+class OrdersView(generics.ListCreateAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['status']  # ?status=true / ?status=false
+    ordering_fields = ['date', 'total']
+
+    def get_queryset(self):
+        user = self.request.user
+        if is_manager(user):
+            return Order.objects.all()
+        if user.groups.filter(name='Delivery crew').exists():
+            return Order.objects.filter(delivery_crew=user)
+        return Order.objects.filter(user=user)
+
+    def create(self, request, *args, **kwargs):
+        # Only customers place orders; they're built from that customer's current cart.
+        if is_manager(request.user) or request.user.groups.filter(name='Delivery crew').exists():
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        cart_items = Cart.objects.filter(user=request.user)
+        if not cart_items.exists():
+            return Response({'message': 'cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total = sum(item.price for item in cart_items)
+        order = Order.objects.create(user=request.user, total=total)
+        for item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                menuitem=item.menuitem,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                price=item.price,
+            )
+        cart_items.delete()  # empty the cart now that its items have moved to the order
+        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+
+class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        order = get_object_or_404(Order, pk=self.kwargs['pk'])
+        user = self.request.user
+        is_assigned_crew = order.delivery_crew_id == user.id
+
+        # Owner, any manager, or the delivery crew member assigned to it can see the order;
+        # everyone else gets a 404 instead of confirming the order exists.
+        if order.user_id == user.id or is_manager(user) or is_assigned_crew:
+            return order
+        raise NotFound()
+
+    def update(self, request, *args, **kwargs):
+        order = self.get_object()
+        user = request.user
+        is_assigned_crew = order.delivery_crew_id == user.id
+
+        if is_manager(user):
+            # A manager can reassign the delivery crew and/or flip the delivered status.
+            serializer = self.get_serializer(order, data=request.data, partial=True)
+        elif is_assigned_crew:
+            # Delivery crew may only update `status`, nothing else on the order.
+            serializer = self.get_serializer(order, data={'status': request.data.get('status')}, partial=True)
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        if not is_manager(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+```
+
+`urls.py` (app-level):
+
+```python
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path('categories', views.CategoriesView.as_view()),
+    path('menu-items', views.MenuItemsView.as_view()),
+    path('menu-items/<int:pk>', views.MenuItemDetailView.as_view()),
+    path('groups/manager/users', views.manager_users),
+    path('groups/manager/users/<int:userId>', views.manager_user),
+    path('groups/delivery-crew/users', views.delivery_crew_users),
+    path('groups/delivery-crew/users/<int:userId>', views.delivery_crew_user),
+    path('cart/menu-items', views.CartView.as_view()),
+    path('orders', views.OrdersView.as_view()),
+    path('orders/<int:pk>', views.OrderDetailView.as_view()),
+]
+```
+
+`urls.py` (project-level):
+
+```python
+from django.contrib import admin
+from django.urls import include, path
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/", include("LittleLemonAPI.urls")),
+    # Mounted to match the endpoint table exactly: /api/users, /api/users/me/,
+    # and /token/login/ (token-based auth only, per the submission constraint).
+    path("api/", include("djoser.urls")),
+    path("", include("djoser.urls.authtoken")),
+]
+```
+
+`settings.py` (relevant parts):
+
+```python
+INSTALLED_APPS = [
+    # ...
+    "rest_framework",
+    "rest_framework.authtoken",
+    "django_filters",
+    "djoser",
+    "LittleLemonAPI",
+]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework.authentication.TokenAuthentication",
+        # SessionAuthentication lets the browsable API and /admin session work
+        # side by side during development -- drop this before final submission,
+        # which must support token-based authentication only.
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 5,
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "2/minute",
+        "user": "5/minute",
+    },
+}
+
+DJOSER = {
+    "USER_ID_FIELD": "username",
+}
+```
+
+#### How to Run, Seed Data, and Capture Screenshots
+
+1. **Start the server**, from inside `lab/07-littlelemon-api-project/LittleLemon/`:
+
+   ```bash
+   pipenv install
+   pipenv run python manage.py runserver 8080
+   ```
+
+2. **Create your own superuser** (the credentials go in `notes.txt` for the submission, so pick something you're fine sharing with reviewers):
+
+   ```bash
+   pipenv run python manage.py createsuperuser
+   # prompts for username, email, password
+   ```
+
+3. **Log into `/admin`** at `http://127.0.0.1:8080/admin` with that superuser.
+   - Under **Groups**, add two groups named exactly `Manager` and `Delivery crew`.
+   - Under **Users**, create a few more users (e.g. one manager, one delivery crew member, one plain customer) and note their usernames/passwords -- these also go in `notes.txt`.
+   - Add each user to the right group from their user detail page (**except** the customer, who should be left in no group).
+
+4. **Get a token for each user** -- no need to create tokens by hand in the admin panel here, since Djoser's login endpoint issues one automatically:
+
+   ```bash
+   curl -X POST http://127.0.0.1:8080/token/login/ -d "username=<username>" -d "password=<password>"
+   # {"auth_token": "<token>"}
+   ```
+
+   Do this once per user (superuser, manager, delivery crew, customer) and keep the tokens handy for Insomnia.
+
+5. **As the superuser or manager, seed a category and a menu item** (this is also your first required screenshot -- capture the Insomnia request/response):
+
+   ```bash
+   curl -X POST http://127.0.0.1:8080/api/categories -H "Authorization: Token <admin token>" -d "slug=main" -d "title=Main"
+   curl -X POST http://127.0.0.1:8080/api/menu-items -H "Authorization: Token <admin token>" \
+     -d "title=Bruschetta" -d "price=8.00" -d "featured=true" -d "category_id=1"
+   ```
+
+6. **Capture the four example screenshots** described in `Instructions.md`, using Insomnia instead of `curl` for these:
+   - Browsing `http://127.0.0.1:8080/api/menu-items` in a regular browser tab (the DRF browsable API).
+   - An Insomnia `GET` request to `http://127.0.0.1:8080/api/menu-items`, showing the JSON response.
+   - An Insomnia `POST` request to `http://127.0.0.1:8080/api/groups/manager/users` with the admin token in the **Auth** tab (Bearer/Token, prefix `Token`), showing it succeeds.
+   - The same request's **Body** tab, showing the `username` field being sent.
+
+7. **Exercise the rest of the grading criteria** through Insomnia with the tokens from step 4, mirroring the flow already verified with `curl` during development:
+   - Manager adds another user to the `Delivery crew` group (`POST /api/groups/delivery-crew/users`).
+   - Customer adds a menu item to their cart (`POST /api/cart/menu-items`), views it (`GET`), then places an order (`POST /api/orders`) -- confirm the cart is empty afterward.
+   - Manager assigns the delivery crew member to that order (`PATCH /api/orders/<id>` with `delivery_crew_id`).
+   - Delivery crew member marks it delivered (`PATCH /api/orders/<id>` with `status=true`).
+   - Customer confirms the update by browsing their own orders (`GET /api/orders`).
+   - Try `?category=`, `?ordering=price`, and `?search=` on `/api/menu-items` to confirm filtering/ordering/searching, and page through `/api/menu-items` or `/api/orders` to confirm pagination.
+8. Stop the server (`Ctrl+C`) once you're done capturing screenshots.
+
+#### How to Prepare the Submission
+
+1. In `settings.py`, remove `"rest_framework.authentication.SessionAuthentication"` from `DEFAULT_AUTHENTICATION_CLASSES` -- the final submission must support token-based authentication only.
+2. Create `notes.txt` inside the `LittleLemon` project directory (next to `manage.py`), listing the superuser's username/password and those of every other user you created, so reviewers can log in and test each role.
+3. Make sure `db.sqlite3` exists and contains that seed data -- it must be included in the submission (do **not** delete it or run `migrate` again after seeding).
+4. Zip the `LittleLemon` project directory, excluding the `.venv`/virtualenv folder (reviewers create their own via `pipenv install`) and any `__pycache__` directories -- keep `Pipfile`, `Pipfile.lock`, `manage.py`, `db.sqlite3`, `notes.txt`, and the `LittleLemon`/`LittleLemonAPI` source folders.
+5. Upload the zipped folder as your assignment submission.
+
