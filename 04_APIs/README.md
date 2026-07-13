@@ -4389,6 +4389,190 @@ curl -X DELETE http://127.0.0.1:8000/api/groups/manager/users \
 
 #### Exercise: User Account Management
 
+Folder: [`lab/06-user-account-management/`](./lab/06-user-account-management/), instructions: [`Instructions.md`](./lab/06-user-account-management/Instructions.md).
+
+- Added a `Rating` model (`user` FK to `User` with `on_delete=models.CASCADE`, `menuitem_id`, `rating`), storing one review per user/menu-item pair.
+- Added `serializers.py` with `RatingSerializer`: `user` defaults to the requesting user via `PrimaryKeyRelatedField(default=serializers.CurrentUserDefault())`, so clients can't post ratings on someone else's behalf; a `UniqueTogetherValidator` on (`user`, `menuitem_id`) rejects a second rating for the same item by the same user, and `extra_kwargs` clamps `rating` to `0`-`5`.
+- Added `views.py`'s `RatingsView` (`ListCreateAPIView`) with a `get_permissions()` override: `GET` (the ratings list) stays public (`[]`), while `POST` requires `IsAuthenticated()` -- the split-by-method pattern needed since `permission_classes` alone can't distinguish HTTP methods.
+- Uncommented the `ratings` route in the app-level `urls.py`.
+- In `settings.py`: added `'rest_framework'`, `'rest_framework.authtoken'`, and `'djoser'` to `INSTALLED_APPS`, and set `DEFAULT_AUTHENTICATION_CLASSES` to `TokenAuthentication` + `SessionAuthentication` in `REST_FRAMEWORK` -- token auth is what lets Insomnia/curl authenticate with `Authorization: Token <key>` instead of a session cookie.
+- Replaced the project's `Pipfile`/`Pipfile.lock` with a standalone `uv` project (`pyproject.toml`/`uv.lock`), same as the previous two exercises.
+- Created the `admin` superuser plus three regular users (Adrian, Mario, Sana) and an auth token per user (`rest_framework.authtoken.models.Token`), reproducing the admin-panel steps from the walkthrough non-interactively via `manage.py createsuperuser --noinput` and a `manage.py shell` script.
+- Verified end to end with `uv run python manage.py runserver 8080` and `curl` in place of Insomnia:
+  - `GET /api/ratings` succeeds with no `Authorization` header (empty list).
+  - `POST /api/ratings` with no token is rejected: `401 {"detail":"Authentication credentials were not provided."}`.
+  - `POST /api/ratings` as Adrian with `menuitem_id=3`, `rating=4` succeeds (`201`).
+  - The same request repeated (same user, same `menuitem_id`) fails with `400 {"non_field_errors":["The fields user, menuitem_id must make a unique set."]}` -- the `UniqueTogetherValidator` at work.
+  - The same `menuitem_id=3` posted as Sana (a different user) succeeds (`201`) -- the uniqueness constraint is per user, not global.
+  - `rating=6` is rejected with `400 {"rating":["Ensure this value is less than or equal to 5."]}`, confirming the `extra_kwargs` bound.
+
+Shell commands, run from inside `lab/06-user-account-management/LittleLemon/`:
+
+```bash
+# One-time setup: create the project's own virtual environment and install dependencies
+uv sync
+
+# Create and apply the migration for the new Rating model
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+
+# Create the admin superuser non-interactively
+DJANGO_SUPERUSER_PASSWORD='lemon@789!' uv run python manage.py createsuperuser \
+  --noinput --username admin --email admin@littlelemon.com
+
+# Start the dev server
+uv run python manage.py runserver 8080
+# Browsable API: http://127.0.0.1:8080/api/ratings, admin panel: http://127.0.0.1:8080/admin
+```
+
+`models.py`:
+
+```python
+from django.db import models
+from django.contrib.auth.models import User
+
+
+class Rating(models.Model):
+    # CASCADE: deleting a user also deletes their ratings
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    menuitem_id = models.SmallIntegerField()
+    rating = models.SmallIntegerField()
+
+    def __str__(self) -> str:
+        return f"{self.user} -> menuitem {self.menuitem_id}: {self.rating}"
+```
+
+`admin.py`:
+
+```python
+from django.contrib import admin
+
+from .models import Rating
+
+admin.site.register(Rating)
+```
+
+`serializers.py`:
+
+```python
+from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
+from django.contrib.auth.models import User
+
+from .models import Rating
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    # Defaults to the authenticated user issuing the request, so clients
+    # never have to (and can't) submit a user id themselves.
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        default=serializers.CurrentUserDefault()
+    )
+
+    class Meta:
+        model = Rating
+        fields = ['user', 'menuitem_id', 'rating']
+
+        validators = [
+            # One rating per user per menu item; a second POST with the
+            # same pair is rejected instead of creating a duplicate.
+            UniqueTogetherValidator(
+                queryset=Rating.objects.all(),
+                fields=['user', 'menuitem_id']
+            )
+        ]
+
+        extra_kwargs = {
+            'rating': {'min_value': 0, 'max_value': 5},
+        }
+```
+
+`views.py`:
+
+```python
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Rating
+from .serializers import RatingSerializer
+
+
+class RatingsView(generics.ListCreateAPIView):
+    queryset = Rating.objects.all()
+    serializer_class = RatingSerializer
+
+    def get_permissions(self):
+        # Anyone can read the ratings list; only authenticated users can post one.
+        if self.request.method == 'GET':
+            return []
+
+        return [IsAuthenticated()]
+```
+
+`urls.py` (app-level):
+
+```python
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path('ratings', views.RatingsView.as_view()),
+]
+```
+
+`settings.py`:
+
+```python
+INSTALLED_APPS = [
+    # ...
+    'rest_framework',
+    'rest_framework.authtoken',
+    'djoser',
+    'LittleLemonDRF',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+}
+```
+
+Testing with `curl` (token values are per-run, generated for Adrian/Mario/Sana as in the walkthrough):
+
+```bash
+# GET is public: no Authorization header needed
+curl http://127.0.0.1:8080/api/ratings
+# []
+
+# POST without a token is rejected
+curl -X POST http://127.0.0.1:8080/api/ratings -d "menuitem_id=3" -d "rating=4"
+# 401 {"detail":"Authentication credentials were not provided."}
+
+# POST as Adrian succeeds
+curl -X POST http://127.0.0.1:8080/api/ratings \
+  -H "Authorization: Token <adrian-token>" -d "menuitem_id=3" -d "rating=4"
+# 201 {"user":2,"menuitem_id":3,"rating":4}
+
+# Adrian rating the same menu item again fails: unique_together on (user, menuitem_id)
+curl -X POST http://127.0.0.1:8080/api/ratings \
+  -H "Authorization: Token <adrian-token>" -d "menuitem_id=3" -d "rating=5"
+# 400 {"non_field_errors":["The fields user, menuitem_id must make a unique set."]}
+
+# Sana rating the same menu item succeeds: the constraint is per user, not global
+curl -X POST http://127.0.0.1:8080/api/ratings \
+  -H "Authorization: Token <sana-token>" -d "menuitem_id=3" -d "rating=5"
+# 201 {"user":4,"menuitem_id":3,"rating":5}
+
+# rating out of the 0-5 range is rejected
+curl -X POST http://127.0.0.1:8080/api/ratings \
+  -H "Authorization: Token <mario-token>" -d "menuitem_id=7" -d "rating=6"
+# 400 {"rating":["Ensure this value is less than or equal to 5."]}
+```
+
 
 
 ## 4. Final Project
