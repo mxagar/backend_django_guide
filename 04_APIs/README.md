@@ -147,6 +147,7 @@ Table of Contents:
       - [Introduction to Djoser library for Better Authentication](#introduction-to-djoser-library-for-better-authentication)
       - [Registration and Authentication Endpoints with JWT](#registration-and-authentication-endpoints-with-jwt)
       - [User Account Management](#user-account-management)
+      - [Exercise: User Account Management](#exercise-user-account-management)
   - [4. Final Project](#4-final-project)
 
 ## 1. REST APIs
@@ -4385,5 +4386,9 @@ curl -X POST http://127.0.0.1:8000/api/groups/manager/users \
 curl -X DELETE http://127.0.0.1:8000/api/groups/manager/users \
   -H "Authorization: Token <super admin token>" -d "username=johndoe"
 ```
+
+#### Exercise: User Account Management
+
+
 
 ## 4. Final Project
