@@ -5341,10 +5341,11 @@ DJOSER = {
 
 5. **As the superuser or manager, seed a category and a menu item** (this is also your first required screenshot -- capture the Insomnia request/response):
 
-   ```bash
-   curl -X POST http://127.0.0.1:8080/api/categories -H "Authorization: Token <admin token>" -d "slug=main" -d "title=Main"
-   curl -X POST http://127.0.0.1:8080/api/menu-items -H "Authorization: Token <admin token>" \
-     -d "title=Bruschetta" -d "price=8.00" -d "featured=true" -d "category_id=1"
+   ```powershell
+   curl.exe -X POST http://127.0.0.1:8080/api/categories -H "Authorization: Token <admin token>" -d "slug=main" -d "title=Main"
+   # {"id":1,"slug":"main","title":"Main"}
+   curl.exe -X POST http://127.0.0.1:8080/api/menu-items -H "Authorization: Token <admin token>" -d "title=Bruschetta" -d "price=8.00" -d "featured=true" -d "category_id=1"
+   # {"id":1,"title":"Bruschetta","price":"8.00","featured":true,"category":{"id":1,"slug":"main","title":"Main"}}
    ```
 
 6. **Capture the four example screenshots** described in `Instructions.md`, using Insomnia instead of `curl` for these:
@@ -5353,13 +5354,71 @@ DJOSER = {
    - An Insomnia `POST` request to `http://127.0.0.1:8080/api/groups/manager/users` with the admin token in the **Auth** tab (Bearer/Token, prefix `Token`), showing it succeeds.
    - The same request's **Body** tab, showing the `username` field being sent.
 
-7. **Exercise the rest of the grading criteria** through Insomnia with the tokens from step 4, mirroring the flow already verified with `curl` during development:
-   - Manager adds another user to the `Delivery crew` group (`POST /api/groups/delivery-crew/users`).
-   - Customer adds a menu item to their cart (`POST /api/cart/menu-items`), views it (`GET`), then places an order (`POST /api/orders`) -- confirm the cart is empty afterward.
-   - Manager assigns the delivery crew member to that order (`PATCH /api/orders/<id>` with `delivery_crew_id`).
-   - Delivery crew member marks it delivered (`PATCH /api/orders/<id>` with `status=true`).
-   - Customer confirms the update by browsing their own orders (`GET /api/orders`).
-   - Try `?category=`, `?ordering=price`, and `?search=` on `/api/menu-items` to confirm filtering/ordering/searching, and page through `/api/menu-items` or `/api/orders` to confirm pagination.
+![Results: Screenshot 1](./lab/07-littlelemon-api-project/assets/results_screenshot_1.png)
+
+![Results: Screenshot 2](./lab/07-littlelemon-api-project/assets/results_screenshot_2.png)
+
+![Results: Screenshot 3](./lab/07-littlelemon-api-project/assets/results_screenshot_3.png)
+
+![Results: Screenshot 4](./lab/07-littlelemon-api-project/assets/results_screenshot_4.png)
+
+
+7. **Exercise the rest of the grading criteria** through Insomnia with the tokens from step 4, mirroring the flow already verified with `curl` during development. The same calls in `curl.exe` form, using the example users from step 3 (swap in the real tokens from step 4):
+
+   ```powershell
+   # Manager adds another user to the Delivery crew group
+   # 1) Create new user
+   curl.exe -X POST http://127.0.0.1:8080/api/users -H "Authorization: Token <mario token>" -d "username=noelia" -d "email=noelia@littlelemon.com" -d "password=<***>"
+   # 2) Add it to the Delivery crew group
+   curl.exe -X POST http://127.0.0.1:8080/api/groups/delivery-crew/users -H "Authorization: Token <mario token>" -d "username=noelia"
+
+   # Look up the delivery crew's user id (needed for the PATCH below)
+   curl.exe http://127.0.0.1:8080/api/groups/delivery-crew/users -H "Authorization: Token <mario token>"
+   # [{"id":3,"username":"adrian","email":"adrian@littlelemon.com"}, {"id":5,"username":"noelia","email":"noelia@littlelemon.com"}]
+
+   # Customer adds a menu item to their cart, views it, then places an order
+   curl.exe -X POST http://127.0.0.1:8080/api/cart/menu-items -H "Authorization: Token <sana token>" -d "menuitem_id=1" -d "quantity=2"
+   # {"id":1,"menuitem":{"id":1,"title":"Bruschetta","price":"8.00","featured":true,"category":{"id":1,"slug":"main","title":"Main"}},"quantity":2,"unit_price":"8.00","price":"16.00"}
+   curl.exe http://127.0.0.1:8080/api/cart/menu-items -H "Authorization: Token <sana token>"
+   # {"count":1,"next":null,"previous":null,"results":[{"id":1,"menuitem":{"id":1,"title":"Bruschetta","price":"8.00","featured":true,"category":{"id":1,"slug":"main","title":"Main"}},"quantity":2,"unit_price":"8.00","price":"16.00"}]}
+   curl.exe -X POST http://127.0.0.1:8080/api/orders -H "Authorization: Token <sana token>"
+   # {"id":1,"user":4,"delivery_crew":null,"status":false,"total":"16.00","date":"2026-07-14","items":[{"id":1,"menuitem":{"id":1,"title":"Bruschetta","price":"8.00","featured":true,"category":{"id":1,"slug":"main","title":"Main"}},"quantity":2,"unit_price":"8.00","price":"16.00"}]
+
+   # Confirm the cart is now empty
+   curl.exe http://127.0.0.1:8080/api/cart/menu-items -H "Authorization: Token <sana token>"
+   # []
+
+   # Manager assigns the delivery crew member (id from the lookup above) to order 1
+   curl.exe -X PATCH http://127.0.0.1:8080/api/orders/1 -H "Authorization: Token <mario token>" -d "delivery_crew_id=3"
+
+   # Delivery crew member marks order 1 as delivered
+   curl.exe -X PATCH http://127.0.0.1:8080/api/orders/1 -H "Authorization: Token <adrian token>" -d "status=true"
+
+   # Customer confirms the update by browsing their own orders
+   curl.exe http://127.0.0.1:8080/api/orders -H "Authorization: Token <sana token>"
+
+   # Filtering, ordering, searching, and pagination on menu-items
+   curl.exe "http://127.0.0.1:8080/api/menu-items?category=1" -H "Authorization: Token <sana token>"
+   curl.exe "http://127.0.0.1:8080/api/menu-items?ordering=price" -H "Authorization: Token <sana token>"
+   curl.exe "http://127.0.0.1:8080/api/menu-items?search=Bruschetta" -H "Authorization: Token <sana token>"
+   curl.exe "http://127.0.0.1:8080/api/menu-items?page=2" -H "Authorization: Token <sana token>"
+   ```
+
+![Results: Screenshot 5](./lab/07-littlelemon-api-project/assets/results_screenshot_5.png)
+
+![Results: Screenshot 6](./lab/07-littlelemon-api-project/assets/results_screenshot_6.png)
+
+![Results: Screenshot 7](./lab/07-littlelemon-api-project/assets/results_screenshot_7.png)
+
+![Results: Screenshot 8](./lab/07-littlelemon-api-project/assets/results_screenshot_8.png)
+
+![Results: Screenshot 9](./lab/07-littlelemon-api-project/assets/results_screenshot_9.png)
+
+![Results: Screenshot 10](./lab/07-littlelemon-api-project/assets/results_screenshot_10.png)
+
+![Results: Screenshot 11](./lab/07-littlelemon-api-project/assets/results_screenshot_11.png)
+
+
 8. Stop the server (`Ctrl+C`) once you're done capturing screenshots.
 
 #### How to Prepare the Submission

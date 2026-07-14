@@ -132,7 +132,7 @@ REST_FRAMEWORK = {
         # SessionAuthentication lets the browsable API and /admin session work
         # side by side during development -- drop this before final submission,
         # which must support token-based authentication only.
-        "rest_framework.authentication.SessionAuthentication",
+        #"rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 5,
