@@ -13,7 +13,7 @@ From these specializations, I have selected the following topics/courses:
 5. [The Full Stack](https://www.coursera.org/programs/deutsche-telekom-learning-program-ddjuh/learn/the-full-stack?authProvider=deutschetelekom)
 6. [Flask SQLAlchemy Data Modelling](https://www.udacity.com/course/sql-and-data-modeling-for-the-web--cd0046)
 7. [Software Architecture Patterns](https://www.udacity.com/course/software-architecture-patterns--cd14601)
-8. [Identity and Access Management](https://www.udacity.com/course/identity-access-management--cd0039)
+8. [Implement NGINX Web Servers and Reverse Proxy Solutions](https://www.coursera.org/learn/implement-nginx-web-servers-and-reverse-proxy-solutions)
 
 This module deals with the third topic/course: **Django Web Framework**.
 
