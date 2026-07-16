@@ -26,7 +26,8 @@ Table of Contents:
       - [N-tier architecture](#n-tier-architecture)
       - [Client-server architecture](#client-server-architecture)
   - [2. Front-End Technologies](#2-front-end-technologies)
-    - [How are HTML and CSS used in the real world?](#how-are-html-and-css-used-in-the-real-world)
+    - [HTML](#html)
+      - [How are HTML and CSS used in the real world?](#how-are-html-and-css-used-in-the-real-world)
       - [Semantic tags and why we need them](#semantic-tags-and-why-we-need-them)
       - [Semantic HTML cheat sheet](#semantic-html-cheat-sheet)
         - [Sectioning Tags](#sectioning-tags)
@@ -34,6 +35,34 @@ Table of Contents:
         - [Inline Tags](#inline-tags)
         - [Embedded Content and Media Tags](#embedded-content-and-media-tags)
         - [Table Tags](#table-tags)
+      - [Semantic tags in action](#semantic-tags-in-action)
+      - [Forms and validation](#forms-and-validation)
+      - [Input types](#input-types)
+        - [Button](#button)
+        - [Checkbox](#checkbox)
+        - [Radio](#radio)
+        - [Submit](#submit)
+        - [Text](#text)
+        - [Password](#password)
+        - [Date](#date)
+        - [Datetime-local](#datetime-local)
+        - [Email](#email)
+        - [File](#file)
+        - [Hidden](#hidden)
+        - [Image](#image)
+        - [Number](#number)
+        - [Range](#range)
+        - [Reset](#reset)
+        - [Search](#search)
+        - [Time](#time)
+        - [Tel](#tel)
+        - [Url](#url)
+        - [Week](#week)
+        - [Month](#month)
+      - [Form submission](#form-submission)
+      - [Submit](#submit-1)
+    - [CSS](#css)
+    - [Javascript](#javascript)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
   - [4. Production Environments](#4-production-environments)
   - [5. Final Project](#5-final-project)
@@ -112,7 +141,9 @@ Table of Contents:
 
 ## 2. Front-End Technologies
 
-### How are HTML and CSS used in the real world?
+### HTML
+
+#### How are HTML and CSS used in the real world?
 
 - HTML (HyperText Markup Language) is the most basic and fundamental markup language for creating webpages, in use since 1990, originally designed to share information (basic images and text) over the internet.
 - CSS (Cascading Style Sheets) is a stylesheet language that describes the look and layout of an HTML document.
@@ -252,6 +283,333 @@ Use the following tags to organize your HTML document into structured sections.
   - `<td>`: represents a cell in a table, containing the text content of the cell.
   - `<th>`: defines a header cell of a table, containing the text content of the header.
 
+#### Semantic tags in action
+
+- Worked example: Little Lemon Restaurant needs a new blog page (`blog.html`) with several blog posts, built with semantic HTML so search engines and accessibility software (e.g., screen readers) can understand the page's content.
+- Step 1: lay out the top-level semantic structure inside the existing basic HTML document, in order:
+  - `header`: will hold the Little Lemon logo.
+  - `nav`: will describe the site's navigational structure.
+  - `main`: will hold the page's main content.
+  - `footer`: will hold copyright information.
+- Step 2: fill in the details of each element.
+  - `header`: add the logo with an `img` tag.
+  - `nav`: add a `ul` with three `li` items, each wrapping an `a` tag linking to `index.html`, `location.html`, and `blog.html`.
+  - `main`: add an `h1` for the blog heading, then one `article` per blog post (two posts, since the restaurant requested two).
+    - Each `article` gets an `h2` title and a `p` with the post text.
+    - First post: "20% off this weekend".
+    - Second post: "Our new menu".
+  - `footer`: add a `p` with the copyright notice.
+- Step 3: save the file (Ctrl+S / Cmd+S), then right-click `blog.html` and select Live Preview to check the result.
+- Outcome: the semantic structure makes the page accessible to assistive technology and optimized for search engines (SEO), helping both the restaurant's visibility and customers with disabilities.
+
+```html
+<body>
+  <header>
+    <img src="logo.png" alt="Little Lemon logo" />
+  </header>
+  <nav>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="location.html">Location</a></li>
+      <li><a href="blog.html">Blog</a></li>
+    </ul>
+  </nav>
+  <main>
+    <h1>Little Lemon Blog</h1>
+    <article>
+      <h2>20% off this weekend</h2>
+      <p>Blog post text...</p>
+    </article>
+    <article>
+      <h2>Our new menu</h2>
+      <p>Blog post text...</p>
+    </article>
+  </main>
+  <footer>
+    <p>&copy; 2026 Little Lemon Restaurant</p>
+  </footer>
+</body>
+```
+
+#### Forms and validation
+
+- HTML forms capture user input, e.g., account registration or a delivery address at checkout.
+- Capturing input isn't enough; the data must also be usable. Example: a food delivery site that accepts a mistyped, nonexistent address causes a bad user experience when the order never arrives.
+- Form validation solves this: it's the process of ensuring user-entered data is valid and conforms to rules defined by the developer, via two methods.
+  - Client-side validation:
+    - Checks for errors as soon as they're typed, performed by the web browser or JavaScript, giving immediate feedback.
+    - Flow: on submission, the browser checks the form; if there are no errors, it submits to the server; if there are errors, it shows a message explaining what's invalid and how to fix it.
+    - Achieved with HTML input types the browser validates natively: `email`, `tel` (telephone number), `url`, `date`, `time`, `number`, `range` (numeric with a minimum and maximum), and `color`.
+      - Example: an `input` with `type="email"` triggers a browser error message if the entered value isn't a valid email address.
+    - The `required` attribute forces a field to have a value; the browser alerts the user if a required field is left empty.
+  - Server-side validation:
+    - Checks for errors after the data has been submitted to the web server.
+    - More secure than client-side validation, since it prevents malicious users from tampering with the site's client-side code to submit invalid data.
+    - Can run more complex checks, such as validating against a database or business requirements.
+  - Most websites combine both methods: client-side validation for immediate user feedback, server-side validation to guard against malicious submissions and ensure data integrity.
+
+```html
+<form>
+  <input type="email" name="email" required />
+  <input type="tel" name="phone" />
+  <input type="url" name="website" />
+  <input type="date" name="delivery-date" />
+  <input type="time" name="delivery-time" />
+  <input type="number" name="quantity" />
+  <input type="range" name="rating" min="1" max="10" />
+  <input type="color" name="favorite-color" />
+</form>
+```
+
+#### Input types
+
+##### Button
+
+Displays a clickable button, mostly used in HTML forms to activate a script when clicked.
+
+```html
+<input type="button" value="Click me" onclick="msg()" />
+```
+
+You can also define buttons with the `<button>` tag, which has the added benefit of letting you place content like text or images inside the tag.
+
+```html
+<button onclick="alert('Are you sure you want to continue?')">
+  <img src="https://yourserver.com/button_img.jpg" alt="Submit the form" height="64" width="64">
+</button>
+```
+
+##### Checkbox
+
+Defines a checkbox, letting a user select or deselect a single value. Checkboxes let a user select one or more options from a limited set of choices.
+
+```html
+<input type="checkbox" id="dog" name="dog" value="Dog">
+<label for="dog">I like dogs</label>
+<input type="checkbox" id="cat" name="cat" value="Cat">
+<label for="cat">I like cats</label>
+```
+
+##### Radio
+
+Displays a radio button, allowing only a single value to be selected out of multiple choices. Radio buttons are normally presented in radio groups: collections of related options that share the same `name` attribute.
+
+```html
+<input type="radio" id="light" name="theme" value="Light">
+<label for="light">Light</label>
+<input type="radio" id="dark" name="theme" value="Dark">
+<label for="dark">Dark</label>
+```
+
+##### Submit
+
+Displays a submit button for submitting all values from an HTML form to a form-handler, typically a server. The form-handler is specified in the form's `action` attribute.
+
+```html
+<form action="myserver.com" method="POST">
+  <!-- other form fields -->
+  <input type="submit" value="Submit" />
+</form>
+```
+
+##### Text
+
+Defines a basic single-line text field that a user can enter text into.
+
+```html
+<label for="fname">First name:</label>
+<input type="text" id="fname" name="fname">
+```
+
+##### Password
+
+Defines a single-line text field whose value is obscured, suited for sensitive information like passwords.
+
+```html
+<label for="pwd">Password:</label>
+<input type="password" id="pwd" name="pwd">
+```
+
+##### Date
+
+Displays a control for entering a date (year, month, and day), with no time.
+
+```html
+<label for="dob">Date of birth:</label>
+<input type="date" id="dob" name="date-of-birth">
+```
+
+##### Datetime-local
+
+Defines a control for entering a date and time, including the year, month, and day, as well as the time in hours and minutes.
+
+```html
+<label for="birthdaytime">Birthday (date and time):</label>
+<input type="datetime-local" id="birthdaytime" name="birthdaytime">
+```
+
+##### Email
+
+Defines a field for an email address. It behaves like a plain text input, with the addition that the browser validates it automatically before submission.
+
+```html
+<label for="email">Enter your email:</label>
+<input type="email" id="email" name="email">
+```
+
+##### File
+
+Displays a control that lets the user select and upload a file from their computer.
+
+- Use the `accept` attribute to define the permissible file types.
+- Add the `multiple` attribute to allow selecting more than one file.
+
+```html
+<label for="myfile">Select a file:</label>
+<input type="file" id="myfile" name="myfile">
+```
+
+##### Hidden
+
+Defines a control that is not displayed but whose value is still submitted to the server.
+
+```html
+<input type="hidden" id="custId" name="custId" value="3487">
+```
+
+##### Image
+
+Defines an image as a graphical submit button. Use the `src` attribute to point to the location of the image file.
+
+```html
+<input type="image" src="submit_img.png" alt="Submit" width="48" height="48">
+```
+
+##### Number
+
+Defines a control for entering a number. Attributes can specify restrictions, such as `min`/`max` values allowed, number intervals, or a default value.
+
+```html
+<input type="number" id="quantity" name="quantity" min="1" max="5">
+```
+
+##### Range
+
+Displays a range widget for specifying a number between two values, typically represented using a slider or dial control; the precise value is not considered important. Use the `min` and `max` attributes to define the range of acceptable values.
+
+```html
+<label for="volume">Volume:</label>
+<input type="range" id="volume" name="volume" min="0" max="10">
+```
+
+##### Reset
+
+Displays a button that resets the contents of the form to their default values.
+
+```html
+<input type="reset">
+```
+
+##### Search
+
+Defines a text field for entering a search query. These are functionally identical to text inputs, but may be styled differently depending on the browser.
+
+```html
+<label for="gsearch">Search in Google:</label>
+<input type="search" id="gsearch" name="gsearch">
+```
+
+##### Time
+
+Displays a control for entering a time value in hours and minutes, with no time zone.
+
+```html
+<label for="appt">Select a time:</label>
+<input type="time" id="appt" name="appt">
+```
+
+##### Tel
+
+Defines a control for entering a telephone number. Browsers that do not support `tel` fall back to a standard text input. Optionally use the `pattern` attribute to perform validation.
+
+```html
+<label for="phone">Enter your phone number:</label>
+<input type="tel" id="phone" name="phone" pattern="[+]{1}[0-9]{11,14}">
+```
+
+##### Url
+
+Displays a field for entering a text URL. It works similarly to a text input, but performs automatic validation before being submitted to the server.
+
+```html
+<label for="homepage">Add your homepage:</label>
+<input type="url" id="homepage" name="homepage">
+```
+
+##### Week
+
+Defines a control for entering a date consisting of a week number and a year, with no time zone. This is a newer type that is not supported by all browsers.
+
+```html
+<label for="week">Select a week:</label>
+<input type="week" id="week" name="week">
+```
+
+##### Month
+
+Displays a control for entering a month and year, with no time zone. This is a newer type that is not supported by all browsers.
+
+```html
+<label for="bdaymonth">Birthday (month and year):</label>
+<input type="month" id="bdaymonth" name="bdaymonth" min="1930-01" value="2000-01">
+```
+
+#### Form submission
+
+- Forms send data to the web server as part of the browser-server HTTP (HyperText Transfer Protocol) request-response cycle: the browser sends a request, and the server sends back a response.
+- Besides requesting resources (HTML documents, images, CSS files, JavaScript files), a request can also carry data -- this is how a submitted form sends its data to the server.
+- A form can send its data with either the HTTP GET or POST method, chosen via the form element's `method` attribute.
+- GET method:
+  - On submission, the form data is appended to the end of the request URL, visible in the browser's address bar; the server receives the GET request and extracts the form data from the URL.
+  - Easy to use, but has three problems:
+    - Browsers limit URL length to around 2,000 characters (varies by browser), so a large form's data may be lost.
+    - Servers also limit URL length; popular server software like Apache and Nginx defaults to around 4,096 characters, risking the same data loss.
+    - Security: since the data sits in the URL, it's stored in the browser history and possibly in server request logs, a major privacy/security risk for personal data such as addresses or credit card numbers.
+- POST method:
+  - The form data is inserted into the body of the HTTP request instead of the URL.
+  - More secure than GET, since the data isn't exposed in the URL, browser history, or logs.
+  - Still not fully secure on its own: a third party listening to the request could still read the data. HTTPS (HTTP Secure) encrypts the request so only the sender and receiver can understand it.
+- Once the server processes the request, it sends back an HTTP response: on success, the response directs the browser to a new webpage; errors are handled by the webpage itself, as covered in a previous video.
+
+```html
+<form action="/login" method="get">
+  <!-- Submitted data is appended to the URL, e.g. /login?username=...&password=... -->
+</form>
+
+<form action="/login" method="post">
+  <!-- Submitted data is sent in the request body, not visible in the URL -->
+</form>
+```
+
+#### Submit
+
+- A `form` tag's submission is controlled by two attributes: `action` (where to send it) and `method` (how to send it).
+
+```html
+<form action="/login" method="post">
+</form>
+```
+
+- `action`: the target address for the server-side handler. Can be a full URL, an absolute path (resolved against the site's root, e.g., `/login` on `meta.com/company-info/` --> `meta.com/login`), or a relative path (resolved against the current page, e.g., `login` on `meta.com/company-info/` --> `meta.com/company-info/login`).
+- `method`: GET or POST; defaults to GET if omitted.
+  - GET encodes the data into the URL.
+  - POST puts it in the request body.
+- The server processes the request and responds with success or failure (e.g., invalid data).
+- Forms aren't the only way to send data -- JavaScript can submit HTTP requests directly, typically with a JSON (JavaScript Object Notation) body.
+
+### CSS
+
+### Javascript
 
 ## 3. The Full Stack Using Django
 
