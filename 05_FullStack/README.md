@@ -27,6 +27,13 @@ Table of Contents:
       - [Client-server architecture](#client-server-architecture)
   - [2. Front-End Technologies](#2-front-end-technologies)
     - [How are HTML and CSS used in the real world?](#how-are-html-and-css-used-in-the-real-world)
+      - [Semantic tags and why we need them](#semantic-tags-and-why-we-need-them)
+      - [Semantic HTML cheat sheet](#semantic-html-cheat-sheet)
+        - [Sectioning Tags](#sectioning-tags)
+        - [Content Tags](#content-tags)
+        - [Inline Tags](#inline-tags)
+        - [Embedded Content and Media Tags](#embedded-content-and-media-tags)
+        - [Table Tags](#table-tags)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
   - [4. Production Environments](#4-production-environments)
   - [5. Final Project](#5-final-project)
@@ -106,6 +113,145 @@ Table of Contents:
 ## 2. Front-End Technologies
 
 ### How are HTML and CSS used in the real world?
+
+- HTML (HyperText Markup Language) is the most basic and fundamental markup language for creating webpages, in use since 1990, originally designed to share information (basic images and text) over the internet.
+- CSS (Cascading Style Sheets) is a stylesheet language that describes the look and layout of an HTML document.
+  - Not a programming language, but supports some programming-like features, such as variables and nested rules.
+  - Controls color, size, spacing, fonts, positioning, and more.
+  - Enables a key principle: separation of content (HTML) and style (CSS), so a webpage's appearance can change without editing its underlying HTML.
+- W3C (World Wide Web Consortium), the organization responsible for web standards, manages both the HTML and CSS specifications and continually updates them to meet current requirements.
+  - Newer HTML features: better multimedia support (audio, video), responsive design (adapting layout to the viewing device), new form input types (sliders, range inputs, date/color pickers), new form validation, and improved text handling (spell checking, text editing).
+  - Major CSS additions since 2011: media queries (different styles per device), box sizing (control over content sizing/padding), multiple backgrounds per element, border images, text shadows, and transformations/transitions (animating elements).
+- Together, HTML and CSS let websites adapt their design and layout to the device they're viewed on. What started as support for phones and tablets has expanded to video game consoles and smart TVs, extending the web browser well beyond traditional desktop devices.
+
+#### Semantic tags and why we need them
+
+- Semantic tags describe the meaning of content, not just its appearance, similar to how numbers on elevator buttons convey which floor a button leads to, beyond their mere vertical arrangement.
+  - Writing HTML semantically lets search engines and accessibility software (e.g., screen readers) understand a page's content.
+  - Basic examples: heading tags (e.g., `H1`) mark headings; `UL`/`OL` mark lists.
+- A typical HTML page can be semantically structured, inside the `body`, using these top-level elements:
+  - `header`: usually holds the company logo and navigation links.
+  - `nav`: the main navigation, typically placed after `header`; its links are commonly wrapped in an unordered list.
+  - `main`: holds the page's main content, made up of `section` and `article` elements.
+  - `footer`: holds contact information, social media links, or other closing content.
+- `article`: per the W3C (World Wide Web Consortium) specification, represents a complete, self-contained, independently distributable piece of content, like an article on a newspaper page you could cut out with scissors.
+  - Examples: a forum post, a magazine/newspaper article, a blog entry, a user comment, or an interactive widget.
+  - Best practice: place `article` elements inside `main`; a page can contain multiple `article` elements, e.g., for a blog post list.
+  - Semantic elements can nest, since their purpose is only to describe the semantics of their content: an `article` can contain its own `header` (e.g., a heading with the blog title and a paragraph with date/author).
+- `section`: semantically divides an `article`, or a webpage more generally, into individual sections; a `section` should contain its own heading element and doesn't require an `article` to be used.
+
+```html
+<body>
+  <header>
+    <!-- Company logo -->
+    <nav>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/about">About</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main>
+    <article>
+      <header>
+        <h1>My Summer Holiday</h1>
+        <p>Posted on 2026-07-16 by Author Name</p>
+      </header>
+      <section>
+        <h2>Day One</h2>
+        <p>Blog post content...</p>
+      </section>
+    </article>
+  </main>
+  <footer>
+    <!-- Contact info, social media links -->
+  </footer>
+</body>
+```
+
+#### Semantic HTML cheat sheet
+
+##### Sectioning Tags
+
+Use the following tags to organize your HTML document into structured sections.
+
+- `<header>`: the header of a content section or the web page; the page header often contains the website branding or logo.
+- `<nav>`: the navigation links of a section or the web page.
+- `<footer>`: the footer of a content section or the web page; on a web page, it often contains secondary links, the copyright notice, and the privacy/cookie policy links.
+- `<main>`: specifies the main content of a section or the web page.
+- `<aside>`: a secondary set of content that is not required to understand the main content.
+- `<article>`: an independent, self-contained block of content, such as a blog post or a product.
+- `<section>`: a standalone section of the document, often used within `<body>` and `<article>` elements.
+- `<details>`: a collapsed section of content that can be expanded if the user wishes to view it.
+- `<summary>`: specifies the summary or caption of a `<details>` element.
+- `<h1>`-`<h6>`: headings on the web page; `<h1>` indicates the most important heading, `<h6>` the least important.
+
+##### Content Tags
+
+- `<blockquote>`: used to describe a quotation.
+- `<dl>`: used to define a description list.
+  - `<dt>`: describes terms inside `<dl>` elements.
+  - `<dd>`: defines a description for the preceding `<dt>` element.
+- `<figure>`: applies markup to a photo image.
+  - `<figcaption>`: defines a caption for a photo image.
+- `<hr>`: adds a horizontal line to the parent element.
+- `<ul>`: unordered list.
+  - `<ol>`: defines an ordered list.
+  - `<menu>`: a semantic alternative to the `<ul>` tag.
+  - `<li>`: used to define an item within a list.
+- `<p>`: defines a paragraph.
+- `<pre>`: used to represent preformatted text, typically rendered in the web browser using a monospace font.
+
+##### Inline Tags
+
+- `<a>`: an anchor link to another HTML document.
+- `<abbr>`: specifies that the containing text is an abbreviation or acronym.
+- `<b>`: bolds the containing text; use `<strong>` instead when indicating importance.
+- `<strong>`: displays the containing text in bold, used to indicate importance.
+- `<br>`: a line break; moves the subsequent text to a new line.
+- `<cite>`: defines the title of a creative work (e.g., a book, poem, song, movie, painting, or sculpture); the text is usually rendered in italics.
+- `<code>`: indicates that the containing text is a block of computer code.
+- `<data>`: indicates machine-readable data.
+- `<em>`: emphasizes the containing text.
+- `<i>`: displays the containing text in italics; used to indicate idiomatic text or technical terms.
+- `<mark>`: the containing text should be marked or highlighted.
+- `<q>`: the containing text is a short quotation.
+- `<s>`: displays the containing text with a strikethrough or line through it.
+- `<samp>`: the containing text represents a sample.
+- `<small>`: used to represent small text, such as copyright and legal text.
+- `<span>`: a generic element for grouping content for CSS styling.
+- `<sub>`: the containing text is subscript text, displayed with a lowered baseline.
+- `<sup>`: the containing text is superscript text, displayed with a raised baseline.
+- `<time>`: a semantic tag used to display both dates and times.
+- `<u>`: displays the containing text with a solid underline.
+- `<var>`: the containing text is a variable in a mathematical expression.
+
+##### Embedded Content and Media Tags
+
+- `<audio>`: used to embed audio in web pages.
+- `<video>`: embeds a video on a web page.
+- `<source>`: specifies media resources for `<picture>`, `<audio>`, and `<video>` elements.
+- `<picture>`: contains one `<img>` element and one or more `<source>` elements to offer alternative images for different displays/devices.
+- `<img>`: embeds an image on a web page.
+- `<canvas>`: used to render 2D and 3D graphics on web pages.
+- `<svg>`: used to define Scalable Vector Graphics (SVG) within a web page.
+- `<embed>`: a containing element for external content provided by an external application, such as a media player or plug-in application.
+- `<object>`: similar to `<embed>`, but the content is provided by a web browser plug-in.
+- `<iframe>`: used to embed a nested web page.
+
+##### Table Tags
+
+- `<table>`: defines a table element to display table data within a web page.
+- `<caption>`: defines the caption of a table element.
+- `<colgroup>`: defines a semantic group of one or more columns in a table for formatting.
+  - `<col>`: defines a semantic column in a table.
+- `<thead>`: represents the header content of a table; typically contains one `<tr>` element.
+- `<tbody>`: represents the main content of a table; contains one or more `<tr>` elements.
+- `<tfoot>`: represents the footer content of a table; typically contains one `<tr>` element.
+- `<tr>`: represents a row in a table; contains one or more `<td>` elements when used within `<tbody>` or `<tfoot>`, or one or more `<th>` elements when used within `<thead>`.
+  - `<td>`: represents a cell in a table, containing the text content of the cell.
+  - `<th>`: defines a header cell of a table, containing the text content of the header.
+
 
 ## 3. The Full Stack Using Django
 
