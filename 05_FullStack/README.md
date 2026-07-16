@@ -62,6 +62,12 @@ Table of Contents:
       - [Form submission](#form-submission)
       - [Submit](#submit-1)
     - [CSS](#css)
+      - [CSS web layout](#css-web-layout)
+      - [Widely used selectors](#widely-used-selectors)
+      - [CSS units of measurement](#css-units-of-measurement)
+        - [Absolute units](#absolute-units)
+        - [Relative units](#relative-units)
+      - [Document flow - Block vs. In-line](#document-flow---block-vs-in-line)
     - [Javascript](#javascript)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
   - [4. Production Environments](#4-production-environments)
@@ -608,6 +614,188 @@ Displays a control for entering a month and year, with no time zone. This is a n
 - Forms aren't the only way to send data -- JavaScript can submit HTTP requests directly, typically with a JSON (JavaScript Object Notation) body.
 
 ### CSS
+
+#### CSS web layout
+
+- CSS (Cascading Style Sheets) is a set of rules for enhancing a web page's appearance: fonts, colors, layout, size, and other style formatting.
+- Browsers adopted CSS early on for better visual design and creativity; as browsers grew beyond traditional devices, CSS capabilities grew with them, including responsive design and layout options like flexbox, grid, and box models.
+- Layout is one of the most important parts of web design, since it divides a page into sections and makes it more presentable.
+- The viewport is the browser window area visible to the user; the goal of any CSS layout is a well-designed page with a good viewport at any size.
+- The `display` property specifies the box type used to render an HTML element, determining whether it's rendered as an inline or block box and how rectangles/boxes are allocated to elements.
+  - Example: setting `display: block` on an element renders it as a block-type box.
+- Evolving requirements led beyond basic block layouts to CSS layout modules such as flexbox and grid, which define rules across multiple elements for more flexible, finely tuned page sections.
+  - Flexbox (flexible box model): introduced before grid; one-dimensional, arranging items along a single axis (a row or a column) within a flex container. The container can shrink or expand its items, producing a flexible, responsive design.
+  - Grid: two-dimensional, arranging items along both the row and column axes at once. It adds more layout power but can add complexity if element rules aren't defined systematically.
+- No strict rule governs which to use: flexbox suits flexible elements in smaller spaces, while grid suits large-scale layouts; in practice, a single page often combines more than one layout type.
+- CSS layout rules are standardized, but that doesn't limit creativity, aesthetics, or optimization when designing a page.
+
+```css
+#sample {
+  display: block; /* Renders the element as a block box */
+}
+
+#sample {
+  display: flex; /* One-dimensional: arranges items along a row or column */
+}
+
+#sample {
+  display: grid; /* Two-dimensional: arranges items across rows and columns */
+}
+```
+
+#### Widely used selectors
+
+- Recap of previously covered selectors:
+  - Element (type) selectors: select HTML elements based on their element type.
+  - ID selectors: select a specific element via its `id` attribute, which is unique within the page.
+  - Class selectors: select all elements sharing a given `class` attribute.
+
+```html
+<p>A plain paragraph.</p>
+<p id="intro">The introduction paragraph.</p>
+<p class="highlight">A highlighted paragraph.</p>
+<span class="highlight">A highlighted span.</span>
+```
+
+```css
+/* Element (type) selector */
+p { color: black; }
+
+/* ID selector */
+#intro { font-weight: bold; }
+
+/* Class selector */
+.highlight { background-color: yellow; }
+```
+
+- Attribute selectors match an element based on the presence or value of one of its attributes (e.g., an `img` tag's `src` and `alt` are attributes; `first.jpeg` would be a value). They have several syntax variations, demonstrated here on three `a` tags linking to different pages on the Meta website, where the second link has `class="home"` and the third has `class="about"`:
+  - `[class]` selects every element that has a `class` attribute defined, e.g., turns the second and third links green.
+  - `[href*="meta"]` selects elements whose `href` contains a given substring, e.g., turns all three links green since each `href` contains "meta".
+  - `[href="..."]` with a full value selects only the element whose attribute exactly matches that value, e.g., targets only the first link.
+  - Attribute selectors work on any attribute present on the page, making them a flexible styling tool.
+- `nth-of-type` and `nth-child` selectors have very similar syntax and target the nth child (or nth element of a given type) of a parent element.
+  - Example: in an unordered list (the parent) containing list items (the children), both selectors can style just the second list item the same way, e.g., coloring it aqua.
+  - The two differ in what they count: `nth-child(n)` counts an element's position among *all* siblings regardless of tag, then checks whether that positioned element matches the selector; `nth-of-type(n)` counts an element's position only among siblings of the *same tag type*, ignoring other tags mixed in.
+    - They only diverge when siblings are of mixed types. With a heading followed by two paragraphs, `p:nth-child(2)` matches the first paragraph (it's the 2nd child overall, and it happens to be a `p`), while `p:nth-of-type(2)` matches the second paragraph (it's the 2nd `p` among `p` siblings).
+    - In the list example above, every child of the `ul` is an `li`, so child-position and type-position coincide -- that's why both selectors produce the same result there.
+- The star selector (`*`) is the universal selector: it selects every element in the document, which is especially useful for resetting a browser's default styles before applying custom styling.
+- Group selectors, also called selector stacking, apply the same styling rule to multiple element types at once by listing them comma-separated (e.g., targeting both `h1` and `p` elements) instead of writing a separate rule for each, saving time.
+
+```html
+<a href="https://meta.com">Meta</a>
+<a href="https://meta.com/home" class="home">Home</a>
+<a href="https://meta.com/about" class="about">About</a>
+
+<ul>
+  <li>First item</li>
+  <li>Second item</li>
+  <li>Third item</li>
+</ul>
+
+<!-- Mixed siblings: nth-child and nth-of-type diverge here -->
+<div>
+  <h2>Title</h2>
+  <p>First paragraph</p>
+  <p>Second paragraph</p>
+</div>
+
+<h1>Heading</h1>
+<p>Paragraph</p>
+```
+
+```css
+/* Attribute selectors */
+a[class] { color: green; }                          /* any <a> with a class attribute */
+a[href*="meta"] { color: green; }                    /* any <a> whose href contains "meta" */
+a[href="https://meta.com/about"] { color: green; }   /* exact href match */
+
+/* nth-child / nth-of-type: same result when siblings are all the same type */
+li:nth-child(2) { color: aqua; }
+li:nth-of-type(2) { color: aqua; }
+
+/* nth-child / nth-of-type: different result with mixed sibling types */
+div p:nth-child(2) { color: red; }    /* matches "First paragraph" (2nd child overall) */
+div p:nth-of-type(2) { color: blue; } /* matches "Second paragraph" (2nd <p> among <p> siblings) */
+
+/* Universal selector, commonly used for resets */
+* { margin: 0; padding: 0; }
+
+/* Group selector (selector stacking) */
+h1, p { color: navy; }
+```
+
+#### CSS units of measurement
+
+A web page is two-dimensional (width and height), and its size can be static or dynamic. CSS property values reflect this: the same property can be set using different units of measurement, broadly grouped into absolute and relative units.
+
+##### Absolute units
+
+Fixed and constant across devices -- useful when a page's size is known and won't change (e.g., print), but less suited to today's wide range of viewport sizes.
+
+| Unit | Name | Comparison |
+|---|---|---|
+| `Q` | Quarter-millimeters | 1Q = 1/40th of 1cm |
+| `mm` | Millimeters | 1mm = 1/10th of 1cm |
+| `cm` | Centimeters | 1cm = 37.8px = 25.2/64in |
+| `in` | Inches | 1in = 2.54cm = 96px |
+| `pc` | Picas | 1pc = 1/6th of 1in |
+| `pt` | Points | 1pt = 1/72nd of 1in |
+| `px` | Pixels | 1px = 1/96th of 1in |
+
+`px` and `cm` are the most frequently used absolute units.
+
+##### Relative units
+
+Defined relative to another element -- typically a parent element or the viewport -- rather than a fixed size. This makes them the go-to choice for today's dynamic, multi-device web pages.
+
+| Unit | Relative to |
+|---|---|
+| `em` | Font size of the parent element. |
+| `ex` | x-coordinate or height of the font element. |
+| `ch` | Width of the font character. |
+| `rem` | Font size of the root element. |
+| `lh` | Computed line height of the parent element. |
+| `rlh` | Computed line height of the root (`<html>`) element. |
+| `vw` | 1% of the viewport width. |
+| `vh` | 1% of the viewport height. |
+| `vmin` | 1% of the viewport's smaller dimension. |
+| `vmax` | 1% of the viewport's larger dimension. |
+| `%` | A percentage relative to the parent element. |
+
+The most commonly used relative units are `%`, `em`, `rem`, `vw`, and `vh`; `vw`/`vh` are especially useful when viewport dimensions matter.
+
+Beyond length units, other CSS properties accept their own value types -- e.g., color properties like `background-color` accept hex codes, `rgb()`, `rgba()`, `hsl()`, or `hsla()`. Each property is worth exploring individually; practice helps in choosing the most suitable unit.
+
+#### Document flow - Block vs. In-line
+
+- Document flow is the browser's default way of calculating where to place HTML elements on the screen. By default, nearly every HTML element falls into one of two categories: block-level or inline.
+
+| | Block-level | Inline |
+|---|---|---|
+| Width | Full horizontal width of its parent element | Only the width of its own content |
+| Line breaks | Forces a new line before and after itself | Stays within the surrounding flow, no line break |
+| Stacking | Multiple block elements stack vertically | Multiple inline elements form a row |
+| Examples | `div`, `form`, headings (`h1`-`h6`) | `a`, `img`, `input`, `label`, `b`, `i`, `em`, `span` |
+
+- The `display` CSS property can convert an element from one category to the other (e.g., `display: inline;` or `display: block;`).
+- Worked example: a `div` holds three Lorem ipsum sentences, with `span` elements wrapping some of them. Changing the middle sentence's wrapper from `span` to `div` breaks it onto its own line, since `div` is block-level by default. Giving that `div` an `id` and setting `display: inline;` on it via CSS turns it back into an inline element within the flow; removing the rule (or setting `display: block;` explicitly) restores block behavior.
+
+```html
+<div>
+  Lorem ipsum sentence one.
+  <span>Lorem ipsum sentence two.</span>
+  <div id="middle">Lorem ipsum sentence three.</div>
+</div>
+```
+
+```css
+#middle {
+  display: inline; /* Converts the block-level div into an inline element */
+}
+```
+
+![Block vs Inline](./assets/block_inline.png)
+
 
 ### Javascript
 
