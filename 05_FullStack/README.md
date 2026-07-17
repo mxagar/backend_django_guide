@@ -1475,7 +1475,31 @@ The `content` property holds the text for `::before`/`::after`. "Tip:" is added 
 
 #### Why Javascript?
 
+- JavaScript (JS) is the language that builds interactivity into web pages -- "the language of the web" -- and almost every website runs some form of it.
+- Since its inception in 1995, JS has been the main way to interact with a web page's client side (the front end), driving real-time updates such as interactive maps and client-side form validation.
+- Alternatives have existed over the years (e.g., VBScript, more recently TypeScript), but even TypeScript compiles down to JS so browsers can understand it.
+- JS is the only language that lets you directly and dynamically interact with web pages on the client side -- it's baked into the browser -- which is a large part of why it's one of the most popular programming languages in developer surveys.
+- Backwards compatibility -- the rule that websites built in the past must keep working today -- is central to JS's enduring role: removing it from browsers would break millions of existing sites, making JS one of the central pillars of web development ("browsers speak JavaScript").
+- Beyond that, several practical reasons make JS worth learning:
+  - Ease of use: every browser ships a built-in JS engine, reachable via the developer tools' console, so a newcomer can start experimenting without heavy setup (a proper workflow later adds a code editor and tools like Node.js and NPM (Node Package Manager)).
+  - Ubiquity: it runs almost everywhere -- as plain ("vanilla") JavaScript on the client side, through frameworks like React, Vue, and D3, and on the server via Node.js and, more recently, Deno.
+  - Accessibility: it's considered one of the more approachable languages, backed by a large community, making it a good entry point into programming and a stepping stone to other languages and technologies.
+  - Demand: JS skills are consistently in demand, with a steady stream of job postings for JS developers.
+
 #### Programming in Javascript
+
+- JavaScript is used across many environments, each solving a different problem:
+  - Browser: adds behaviors and interactivity, e.g. adding an item to a shopping cart on a button click.
+  - Server: powers websites, communicates with databases, and gives web apps a native feel.
+  - Mobile apps: via technologies like React Native.
+  - IoT (Internet of Things) devices.
+- This breadth of use cases led to many different implementations of JavaScript, each geared toward solving a particular problem, which in turn drove a history of fragmentation and consolidation:
+  - In the early 2000s, different browser vendors built browsers with inconsistent behavior, forcing developers to write separate code per browser -- wasted effort and a frustrating experience for end-users.
+  - jQuery emerged to solve this: import the library, write code once using its features, and it works across all browsers -- it became the most popular JavaScript library for well over a decade.
+  - As the web kept evolving, new problems emerged; React, released in 2011, was a major solution, changing how developers think about building, updating, and maintaining complex websites.
+  - Many further frameworks followed the same idea, including Knockout, Backbone, Angular, Ember, Vue, and Alpine.
+- With millions of websites running JavaScript from different versions and libraries, a lot of old code -- legacy code -- is still out there; you likely won't use jQuery to build something new today, but you may still encounter it in an actively running project.
+- Beginners don't need to learn or master every JavaScript technology. The essential foundation is plain JavaScript without frameworks; once mastered, it becomes much easier to pick up a framework built on top of it, such as React.
 
 #### Variables
 
