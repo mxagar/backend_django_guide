@@ -68,6 +68,18 @@ Table of Contents:
         - [Absolute units](#absolute-units)
         - [Relative units](#relative-units)
       - [Document flow - Block vs. In-line](#document-flow---block-vs-in-line)
+      - [Basic flexbox](#basic-flexbox)
+      - [CSS grids](#css-grids)
+      - [Grids and flexbox cheat sheet](#grids-and-flexbox-cheat-sheet)
+        - [Grid](#grid)
+        - [Flexbox](#flexbox)
+      - [Exercise: Create a Grid Layout](#exercise-create-a-grid-layout)
+      - [All selectors and their specificity](#all-selectors-and-their-specificity)
+        - [Specificity hierarchy](#specificity-hierarchy)
+        - [Calculating scores](#calculating-scores)
+      - [Pseudo-classes](#pseudo-classes)
+      - [Pseudo-elements](#pseudo-elements)
+      - [Additional Resources](#additional-resources)
     - [Javascript](#javascript)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
   - [4. Production Environments](#4-production-environments)
@@ -795,6 +807,634 @@ Beyond length units, other CSS properties accept their own value types -- e.g., 
 ```
 
 ![Block vs Inline](./assets/block_inline.png)
+
+#### Basic flexbox
+
+- Three of the most common practical uses of flexbox: a search bar, a navigation menu, and an image gallery -- flexbox suits simple layouts and binding elements together.
+- Search bar:
+  - HTML: a `container` div wrapping three elements -- a search icon, the search input, and a submit button.
+  - CSS: the container uses `display: inline-flex` rather than `flex`, so the flex container itself behaves like an inline element; `overflow` clips content that overflows the input (e.g., long typed queries). The icon, input, and button each get their own alignment rules.
+  - Result: a compact search bar whose size stays fixed as the window is resized.
+- Navigation menu:
+  - HTML: an unordered list of four items.
+  - CSS: the universal selector (`*`) resets browser-specific default spacing before other rules apply. The container uses the `flex-flow` shorthand (sets both direction and wrap behavior) and `justify-content: stretch` to align items along the main axis; rules are applied to both the container and its children (`li`, `a`, etc.).
+  - Result: a responsive nav bar -- items stack vertically in a narrow window and lay out horizontally once the window is wide enough.
+- Image gallery:
+  - HTML: a `container` div holding six images.
+  - CSS: the universal selector again resets margin, padding, and border to zero. The container then sets `display: flex`, `flex-wrap` (whether items must stay on one line or can wrap across multiple lines), `justify-content: space-between` (spaces images along the main axis), and some padding.
+  - Result: a responsive gallery -- images stack when the window is narrow and spread out as it widens.
+
+```html
+<!-- Search bar -->
+<div class="container">
+  <span class="search-icon">🔍</span>
+  <input type="search" class="search-box" placeholder="Search…">
+  <button type="submit">Go</button>
+</div>
+```
+
+```css
+.container {
+  display: inline-flex; /* flex container that behaves like an inline element */
+  overflow: hidden;     /* clips overflowing search text */
+}
+```
+
+```html
+<!-- Navigation menu -->
+<ul class="container">
+  <li><a href="/">Home</a></li>
+  <li><a href="/about">About</a></li>
+  <li><a href="/services">Services</a></li>
+  <li><a href="/contact">Contact</a></li>
+</ul>
+```
+
+```css
+* {
+  margin: 0;
+  padding: 0; /* reset browser-specific defaults */
+}
+.container {
+  display: flex;
+  flex-flow: row wrap;      /* shorthand: direction + wrap behavior */
+  justify-content: stretch; /* aligns items along the main axis */
+}
+```
+
+```html
+<!-- Image gallery -->
+<div class="container">
+  <img src="photo1.jpg" alt="">
+  <img src="photo2.jpg" alt="">
+  <img src="photo3.jpg" alt="">
+  <img src="photo4.jpg" alt="">
+  <img src="photo5.jpg" alt="">
+  <img src="photo6.jpg" alt="">
+</div>
+```
+
+```css
+* {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.container {
+  display: flex;
+  flex-wrap: wrap;                 /* allow images to wrap onto multiple lines */
+  justify-content: space-between;  /* spaces images along the main axis */
+  padding: 1rem;
+}
+```
+
+#### CSS grids
+
+- CSS Grid is a two-dimensional, responsive layout system, compatible across browsers -- an alternative to flexbox or tables, especially for larger-scale layouts.
+- Terminology:
+  - Columns are the vertical tracks; rows are the horizontal tracks.
+  - Gutters (or gaps) are the space between tracks.
+  - A cell is where a row and a column intersect.
+- Worked example (five lettered boxes, A-E):
+  - Starting point: a plain HTML page listing the letters with no styling, so they stack in a vertical, unstyled list.
+  - Adding basic CSS to the box classes improves their look but doesn't change their arrangement -- it isn't an actual grid yet, just default layout with styling applied.
+  - Turning the container into a real grid:
+    - Set `display: grid` on the container (the same `display` property used for `flex`, `block`, `inline`, etc.).
+    - `grid-template-columns` sets each column's size; combined with two rows, this produces 5 cells arranged in 3 columns by 2 rows.
+    - The `fr` (fraction) unit divides the available track space proportionally, e.g., two rows sized in a 2:1 ratio; `fr` and pixel sizes can be mixed freely for both rows and columns.
+    - `grid-gap` (the gutter) sets spacing between cells; giving the container a `background-color` makes the grid area itself visible. The grid stretches to the page's full width by default.
+    - The implicit grid (`grid-auto-rows` / `grid-auto-columns`) auto-sizes tracks that aren't explicitly defined, e.g., replacing `grid-template-rows` with `grid-auto-rows` auto-sizes every row to a fixed size.
+  - Helper functions for configuring tracks:
+    - `repeat()`: specifies how many times a row/column definition repeats, reducing repetitive code without changing the resulting layout.
+    - `minmax()`: sets a minimum and maximum size for a track, e.g., applied to `grid-auto-rows` to guarantee a minimum row height.
+  - Grid frameworks: common conventions like 12-column and 16-column grids divide the page into that many vertical tracks, letting rules target a specific track.
+
+```html
+<div class="container">
+  <div class="box">A</div>
+  <div class="box">B</div>
+  <div class="box">C</div>
+  <div class="box">D</div>
+  <div class="box">E</div>
+</div>
+```
+
+```css
+.container {
+  display: grid;
+  grid-template-columns: 100px 100px 100px; /* three fixed-size columns */
+  grid-template-rows: 2fr 1fr;              /* two rows in a 2:1 ratio, using fr units */
+  grid-gap: 10px;                           /* gutter between cells */
+  background-color: red;                    /* visualizes the grid area */
+}
+
+/* Implicit grid: auto-size rows that aren't explicitly defined */
+.container {
+  grid-auto-rows: 100px;
+}
+
+/* repeat(): avoid writing the same track definition multiple times */
+.container {
+  grid-template-columns: repeat(3, 100px); /* same as: 100px 100px 100px */
+}
+
+/* minmax(): set a minimum and maximum track size */
+.container {
+  grid-auto-rows: minmax(150px, auto); /* rows are at least 150px tall */
+}
+```
+
+#### Grids and flexbox cheat sheet
+
+##### Grid
+
+```css
+selector {
+  display: grid; /* or inline-grid */
+}
+```
+
+Grid shorthand properties and their defaults:
+
+| Property | Default | Description |
+|---|---|---|
+| `grid-template-rows` | `none` | Configures elements like rows in a table. |
+| `grid-template-columns` | `none` | Configures elements like columns in a table. |
+| `grid-template-areas` | `none` | Names grid areas and how they relate to one another. |
+| `grid-auto-rows` | `auto` | Default size for rows not explicitly configured. |
+| `grid-auto-columns` | `auto` | Default size for columns not explicitly configured. |
+| `grid-auto-flow` | `row` | Default placement direction for items not explicitly allocated. |
+| `column-gap` | `normal` | Gap between columns. |
+| `row-gap` | `normal` | Gap between rows. |
+
+Container properties:
+
+| Property | Accepted values | Description |
+|---|---|---|
+| `grid-template-columns` / `grid-template-rows` | measurement units, `%`, `repeat()` | Defines line names and keeps column/row sizes constant. |
+| `grid-auto-columns` / `grid-auto-rows` | a fixed measurement unit | Default size for columns/rows created without explicit sizing. |
+| `grid-template` | named areas + sizing | Defines and sizes named grid cells, e.g. `"header header" auto`, `"main right" 75vh` (two cells named `main` and `right`, sized to 75% of the viewport height), `"footer footer" 20rem` (two cells named `footer`, sized to 20 root em -- relative to the HTML root font size). |
+| `grid-gap` | measurement units | Gap between both rows and columns. |
+| `grid-column-gap` / `grid-row-gap` | measurement units | Gap between columns / between rows. |
+| `justify-items` / `align-items` | `start \| center \| end \| stretch` | Default space allotted to each item along the inline / block axis. |
+| `place-items` | shorthand | Shorthand for `justify-items` + `align-items`. |
+| `justify-content` / `align-content` | `start \| center \| end \| stretch \| space-between \| space-evenly \| space-around` | Browser's allocation of space to content items along the main axis / cross axis. |
+| `place-content` | shorthand | Shorthand for `justify-content` + `align-content`. |
+| `grid-auto-flow` | `row \| column \| dense` | How items are placed automatically within the grid. |
+
+Item (child) properties:
+
+| Property | Example | Description |
+|---|---|---|
+| `grid-column` / `grid-row` | `1 / 2` | Specifies where the item starts (and ends) on the grid. |
+| `grid-column-start` / `grid-column-end` | column position | Starting / ending column position for the item. |
+| `grid-row-start` / `grid-row-end` | row position | Starting / ending row position for the item. |
+| `justify-self` / `align-self` | `start \| center \| end \| stretch` | Positions an item within its grid area along the inline / block axis. |
+| `place-self` | shorthand | Shorthand for `justify-self` + `align-self`. |
+
+##### Flexbox
+
+```css
+selector {
+  display: flex; /* or inline-flex */
+}
+```
+
+The selector can be any attribute, class, ID, type, or universal selector. `flex` makes the selector a flex container; `inline-flex` makes it a flex container that is itself an inline element.
+
+Container properties:
+
+| Property | Values | Description |
+|---|---|---|
+| `flex-direction` | `row \| row-reverse \| column \| column-reverse` | Direction items flow in: left-to-right, right-to-left, top-to-bottom, or bottom-to-top. `row` is the default. |
+| `flex-wrap` | `wrap \| nowrap` | `wrap` lets items wrap onto new lines as the window shrinks; `nowrap` (default) keeps items rigid regardless of window size. |
+| `align-items` | `flex-start \| flex-end \| center \| stretch` | Positions items on the cross axis: top-left corner (`flex-start`), bottom-right corner (`flex-end`), centered (`center`), or stretched to fill the container (`stretch`). |
+| `justify-content` | `flex-start \| flex-end \| center \| space-between \| space-evenly` | Aligns items along the main axis: anchored to the axis start (`flex-start`) or end (`flex-end`), centered and expanding outward (`center`), first/last items flush with the edges with the rest evenly spaced (`space-between`), or every item and the edges equally spaced (`space-evenly`). |
+
+Item (child) properties:
+
+| Property | Values | Description |
+|---|---|---|
+| `flex-grow` | factor | How much an item grows relative to its siblings. |
+| `flex-shrink` | factor | How much an item shrinks relative to its siblings. |
+| `flex-basis` | `auto \| factor \| measurement unit` | Sets an item's initial main size; can be overridden by other styling. |
+| `order` | position | Overrides the default source-order positioning of items (ascending by default). |
+| `align-self` | `start \| center \| end \| stretch` | Positions an individual item, overriding the container's `align-items` for that item. |
+
+#### Exercise: Create a Grid Layout
+
+Folder: [`lab/01-grid-layout/`](./lab/01-grid-layout/).
+
+- Goal: build the "Holy Grail" layout (header, footer, main content, and two sidebars) using `grid-template-areas`, with `index.html` and the layout-area rules (`.header`, `.main`, `.left`, `.right`, `.footer`) already provided; the task was to style the `.container` class itself.
+- Default rules (small screens): a single-column grid, five rows tall, with each area (`header`, `left`, `main`, `right`, `footer`) stacked on its own row -- the middle (`main`) row set to `1fr` so it absorbs any extra space, the rest sized to `auto`.
+- Media query rules (`min-width: 440px`): a three-column grid, three rows tall -- the header spans the full top row, the footer spans the full bottom row, and the middle row holds `left`, `main`, and `right` side by side (sidebars fixed at 150px, `main` filling the remaining space with `1fr`).
+- Verified in the browser: below 440px the sections stack vertically in source order; at 440px and above the layout switches to the fixed-sidebar/fluid-center three-column arrangement.
+- Notes on `grid-template-areas`:
+  - Each quoted string is one row; the words in it name which area occupies each column of that row. `"header header header"` repeats `header` across all 3 columns of row 1, so it spans the full row; `"left main right"` gives `left`, `main`, and `right` one column each in row 2; `"footer footer footer"` spans `footer` across all 3 columns of row 3.
+  - `grid-template-rows` changes together with `grid-template-columns` inside the media query, since both must match the row/column dimensions implied by `grid-template-areas`.
+  - The number of rows in `grid-template-rows` and columns in `grid-template-columns` must match the dimensions of `grid-template-areas`.
+  - A named grid area with no matching rule renders empty (not an issue here, since `header`, `left`, `main`, `right`, and `footer` are all styled).
+  - Each rule declares which grid area it occupies via the `grid-area` property.
+  - The selectors used here are classes (`.header`, `.main`, etc.), though `grid-area` works the same on element-tag or ID selectors.
+
+```html
+<div class="container">
+    <header class="header"> Header </header>
+    <main class="main"> Content </main>
+    <div class="sidebar left"> Sidebar </div>
+    <div class="sidebar right"> Sidebar </div>
+    <footer class="footer"> Footer </footer>
+</div>
+```
+
+```css
+.container {
+    display: grid;
+    max-width: 900px;
+    min-height: 50vh;
+    grid-template-columns: 100%;
+    grid-template-rows: auto auto 1fr auto auto;
+    grid-template-areas:
+        "header"
+        "left"
+        "main"
+        "right"
+        "footer";
+}
+
+@media (min-width: 440px) {
+    .container {
+        grid-template-columns: 150px 1fr 150px;
+        grid-template-rows: auto 1fr auto;
+        grid-template-areas:
+            "header header header"
+            "left main right"
+            "footer footer footer";
+    }
+}
+```
+
+```css
+.container {
+  display: grid;
+  max-width: 900px;
+  min-height: 50vh;
+  grid-template-columns: 100%;
+  grid-template-rows: auto auto 1fr auto auto;
+  grid-template-areas: "header" "left" "main" "right" "footer";
+}
+
+@media (min-width: 440px) {
+  .container {
+    grid-template-columns: 150px 1fr 150px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "header header header" "left main right" "footer footer footer";
+  }
+}
+
+.header {
+  grid-area: header;
+  padding: 10px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+}
+
+.main {
+  grid-area: main;
+  padding: 25px;
+}
+
+.left {
+  grid-area: left;
+  background-color: peachpuff;
+}
+
+.right {
+  grid-area: right;
+}
+
+.footer {
+  grid-area: footer;
+  padding: 10px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+}
+
+.sidebar {
+  padding: 25px;
+  background-color: darkcyan;
+}
+
+```
+
+#### All selectors and their specificity
+
+As a website's CSS grows, more than one rule can end up targeting the same element -- either intentionally, as the code gets more complex, or by accident. This creates a conflict, since only one rule can apply to a given property: a `p` tag's color can be blue or white, but not both. CSS engines resolve these conflicts using specificity: a ranking, or score, that determines which rule wins. These rules only come into play when a conflict actually exists between properties.
+
+##### Specificity hierarchy
+
+CSS scores, or weights, each selector, creating a specificity hierarchy with four categories, from highest to lowest:
+
+| Category | Example | Weight |
+|---|---|---|
+| Inline styles | `style="..."` | 1000 |
+| IDs | `#div` | 100 |
+| Classes, attributes, and pseudo-classes | `.my-class`, `p[attribute]`, `div:hover` | 10 |
+| Elements and pseudo-elements | `p`, `::before` | 1 |
+
+- Inline styles: attached directly to an element via the `style` attribute; they have the highest specificity, so they apply regardless of any other rule. For example, given a conflict between:
+
+  ```html
+  <p style="color: white;"></p>
+  ```
+
+  ```css
+  p { color: blue; }
+  ```
+
+  the `p` tag renders white, since the inline style wins.
+- IDs: next in the hierarchy, represented with `#`, e.g. `#div`.
+- Classes, attributes, and pseudo-classes: come next, e.g. `.my-class`, `p[attribute]`, `div:hover` (pseudo-classes are covered in more detail later in this lesson).
+- Elements and pseudo-elements: the lowest position in the hierarchy (pseudo-elements are also covered later in this lesson).
+
+##### Calculating scores
+
+CSS uses this hierarchical model internally to calculate each selector's specificity. As CSS code grows, developers unavoidably run into rule conflicts; the specificity hierarchy is what lets them calculate precedence and control the outcome.
+
+Each of the four categories contributes its weight (1000, 100, 10, or 1) once per matching element inside the selector, and the total is what's compared:
+
+```css
+#hello {}    /* 1 ID                    -> score: 0100 */
+div {}       /* 1 element               -> score: 0001 */
+div p.foo {} /* 2 elements, 1 class     -> score: 0012 */
+```
+
+**Example 1** (properties and values are omitted here to keep the focus on the selectors):
+
+```css
+p {}         /* 1 element                -> 0 0 0 1 -> score: 1  */
+div p {}     /* 2 elements               -> 0 0 0 2 -> score: 2  */
+div p.foo {} /* 2 elements, 1 class      -> 0 0 1 2 -> score: 12 */
+```
+
+The third rule scores 12, the highest of the three, so its rules are applied and the other two are overridden.
+
+**Example 2**:
+
+```css
+p#bar {}     /* 1 element, 1 ID         -> 0 1 0 1 -> score: 101 */
+p.foo {}     /* 1 element, 1 class      -> 0 0 1 1 -> score: 11  */
+p.foo.bar {} /* 1 element, 2 classes    -> 0 0 2 1 -> score: 21  */
+```
+
+The rule with an ID scores far higher than the others, so its rules are applied.
+
+The wide range of selectors covered earlier, together with the pseudo-classes and pseudo-elements covered later in this lesson, are what make specificity worth understanding.
+
+A few additional guidelines matter once the hierarchy's weights alone don't decide a conflict, e.g. when two selectors tie on specificity:
+
+- Every selector has a score and a place in the hierarchy.
+- When selectors have equal specificity, the last-written rule is the one applied.
+- In general, use an ID selector when a rule needs to be certain to apply.
+- Universal selectors have zero specificity.
+
+Specificity is a much broader topic than this overview covers, and it's the underlying basis on which CSS engines work -- this is what "cascading" in CSS means: the way engines evaluate and apply specificity rules is called the cascade, much like a waterfall that falls in stages. CSS specificity calculators are available online to help work out the styling outcome of a page, so there's no need to compute every score by hand.
+
+#### Pseudo-classes
+
+- Pseudo-classes (pseudo-class selectors) give fine-grained control over what gets selected and styled: they are state-based selectors, matching an element based on its current state (e.g., hovered) rather than its type, class, or ID.
+  - Using them improves a page's interactivity and adds advanced styling with little extra effort, by styling elements in response to user input.
+  - Syntax: selector, a colon, the pseudo-class name, then the properties, e.g. `selector:pseudo-class { property: value; }`.
+- There's no single broadly accepted classification for pseudo-classes, but they can be grouped by general similarity and purpose:
+  - User action states: apply while a user is actively engaging with an element.
+    - `:hover` -- styles an element while the cursor is over it.
+    - `:active` -- styles an element only while the user presses and holds the mouse button on it.
+    - `:focus` -- styles the currently focused element.
+  - Form states: specific to HTML forms, usually come in pairs targeting opposite states of the same kind of element.
+    - `:disabled` / `:enabled` -- generally used for buttons.
+    - `:checked` / `:indeterminate` -- used for checkboxes.
+    - `:valid` / `:invalid` -- used for fields like emails and phone numbers (`:invalid` was already introduced earlier, when covering form validation).
+  - Position-based states: target a specific item among a set, e.g. a specific list item.
+    - `:first-of-type`, `:last-of-type`, `:nth-of-type`, `:nth-last-of-type`.
+- There are plenty of other pseudo-classes beyond these groups, some more popular than others -- worth exploring further and finding your own style with them.
+
+```html
+<p class="mypage">
+  <a href="#">Link</a>
+</p>
+<div>
+  <button class="mybutton">Click me</button>
+</div>
+```
+
+```css
+.mypage {
+  /* base styling for the paragraph */
+}
+
+.mybutton {
+  /* base styling for the button */
+}
+
+/* User action states */
+.mypage a:hover {
+  color: red; /* changes the link's appearance on hover */
+}
+
+.mybutton:active {
+  background-color: darkblue; /* applied only while pressed and held */
+}
+```
+
+```html
+<ul>
+  <li>Adrian</li>
+  <li>Mario</li>
+</ul>
+```
+
+```css
+/* Position-based state: styles only the first list item */
+li:first-of-type {
+  font-weight: bold;
+}
+```
+
+#### Pseudo-elements
+
+Pseudo-elements let you style a specific part of an element, e.g., only the first word or line of its content.
+
+##### Syntax
+
+```css
+selector::pseudo-element {
+  property: value;
+}
+```
+
+Pseudo-elements use two colons (`::`) instead of one.
+
+##### Setting up the HTML and CSS files
+
+To practice the pseudo-element examples below:
+
+- Reference the CSS file from the HTML file with a `link` tag, e.g.:
+
+  ```html
+  <link rel="stylesheet" href="style.css">
+  ```
+
+  where `style.css` is your CSS file's name.
+- Add the HTML code inside the `<body>` tag. A minimal starting file:
+
+  ```html
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <!-- Add your HTML code here -->
+  </body>
+  </html>
+  ```
+
+- Once both files are in place, right-click the HTML file in VSCode's Explorer and select "Show Preview" to open a built-in VSCode browser preview.
+
+##### `::first-letter`
+
+Changes the color (and other styling) of just the first letter of each block, illustrated here by coloring the first letter of each of three list items.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="pseudo4.css">
+</head>
+<body>
+  <ul>
+    <li>Based in Chicago, Illinois, Little Lemon is a family-owned Mediterranean restaurant, focused on traditional recipes served with a modern twist.</li>
+    <li>The chefs draw inspiration from Italian, Greek, and Turkish culture and have a menu of 12-15 items that they rotate seasonally. The restaurant has a rustic and relaxed atmosphere with moderate prices, making it a popular place for a meal any time of the day.</li>
+    <li>Little Lemon is owned by two Italian brothers, Mario and Adrian, who moved to the United States to pursue their shared dream of owning a restaurant. To craft the menu, Mario relies on family recipes and his experience as a chef in Italy.</li>
+  </ul>
+</body>
+</html>
+```
+
+```css
+li::first-letter {
+  color: coral;
+  font-size: 1.3em;
+  font-weight: bold;
+  line-height: 1;
+}
+```
+
+![The output when the pseudo-element first-letter are used to change the size and color of the first letter of list items.](./assets/pseudo_elements_1.png)
+
+Although the change only affects the first letter of each bullet point, it makes a noticeable difference in presentation.
+
+##### `::first-line`
+
+Changes the color (and other styling) of the complete first line of each bullet point -- here, to light sea green.
+
+```css
+ul {
+  list-style-type: none;
+}
+
+li::first-line {
+  color: lightseagreen;
+  text-decoration: underline;
+  line-height: 1;
+}
+```
+
+![Display of underlined first line of each bulleted item item](./assets/pseudo_elements_2.png)
+
+Since it's only the first line of each point, it ends up functioning almost like a divider between the three points, rather than relying on bullets.
+
+The content covered by `::first-line` isn't fixed -- it changes as the viewport is resized, since it always covers whatever text currently wraps onto the first line.
+
+![Output for the first underlined line in the increased size format of the text](./assets/pseudo_elements_3.png)
+
+##### `::selection`
+
+Styles the text a user selects or highlights, e.g. when copying notes -- the effect is only visible once the user actually selects some content. By default, browsers typically invert the selected text's colors (e.g. white-on-black to black-on-white).
+
+```css
+ul {
+  list-style-type: none;
+}
+
+li::selection {
+  color: brown;
+  background-color: antiquewhite;
+  line-height: 1;
+}
+```
+
+![Output for selection of text display](./assets/pseudo_elements_4.png)
+
+Different segments of the text are highlighted depending on which part is selected at any given point.
+
+![Selection of different part of text display](./assets/pseudo_elements_5.png)
+
+##### `::marker`
+
+Styles a list's marker (bullet or number), e.g. to change a bullet point's color.
+
+```css
+li::marker {
+  color: cornflowerblue;
+  content: '<> ';
+  font-size: 1.1em;
+}
+```
+
+![Output for the demonstration of markers](./assets/pseudo_elements_6.png)
+
+The bullet points are now cornflower blue, using the shape specified by `content`.
+
+##### `::before` and `::after`
+
+Add content immediately before or after an element's own content, without needing to add that content in the HTML -- and that generated content can be styled like any other. Example: adding "Tip:" before, and "!!" after, selected cooking guidelines to flag them as important.
+
+```html
+<body>
+  <p id="tips">Don't rinse your pasta after it is drained.</p>
+  <p>Slice the tomatoes. Take the extra efforts to seed them.</p>
+  <p id="tips">Peel and seed large tomatoes.</p>
+</body>
+```
+
+```css
+#tips::before {
+  background: darkkhaki;
+  color: darkslategray;
+  content: "Tip:";
+  padding-left: 3px;
+  padding-right: 5px;
+  border-radius: 10%;
+}
+
+#tips::after {
+  background: darkkhaki;
+  color: darkslategray;
+  content: "!!";
+  padding-right: 5px;
+  border-radius: 20%;
+}
+```
+
+![Selection of texts preceding and following a statement](./assets/pseudo_elements_7.png)
+
+The `content` property holds the text for `::before`/`::after`. "Tip:" is added before each `#tips` paragraph via the `::before` rule, and two exclamation marks are added after each via the `::after` rule; the second `<p>` (without `id="tips"`) is unaffected. `::before` and `::after` don't have to be used together, but combining them is often useful.
+
+#### Additional Resources
+
 
 
 ### Javascript
