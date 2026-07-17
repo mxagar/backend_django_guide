@@ -79,8 +79,33 @@ Table of Contents:
         - [Calculating scores](#calculating-scores)
       - [Pseudo-classes](#pseudo-classes)
       - [Pseudo-elements](#pseudo-elements)
+        - [Syntax](#syntax)
+        - [Setting up the HTML and CSS files](#setting-up-the-html-and-css-files)
+        - [`::first-letter`](#first-letter)
+        - [`::first-line`](#first-line)
+        - [`::selection`](#selection)
+        - [`::marker`](#marker)
+        - [`::before` and `::after`](#before-and-after)
       - [Additional Resources](#additional-resources)
     - [Javascript](#javascript)
+      - [Why Javascript?](#why-javascript)
+      - [Programming in Javascript](#programming-in-javascript)
+      - [Variables](#variables)
+      - [Exercise: Variables](#exercise-variables)
+      - [Data Types](#data-types)
+      - [Operators](#operators)
+      - [Numbers](#numbers)
+      - [Strings](#strings)
+      - [Booleans](#booleans)
+      - [Javascript Interactivity](#javascript-interactivity)
+      - [Javascript Selectors](#javascript-selectors)
+      - [Scoping](#scoping)
+      - [Functions](#functions)
+      - [Javascript DOM Manipulation](#javascript-dom-manipulation)
+      - [Event Handling](#event-handling)
+      - [Exercise: Web Page Content Update](#exercise-web-page-content-update)
+      - [Frameworks and Libraries](#frameworks-and-libraries)
+      - [Additional Resources](#additional-resources-1)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
   - [4. Production Environments](#4-production-environments)
   - [5. Final Project](#5-final-project)
@@ -1435,9 +1460,54 @@ The `content` property holds the text for `::before`/`::after`. "Tip:" is added 
 
 #### Additional Resources
 
+- [Broad overview of layouts in CSS](https://developer.mozilla.org/en-US/docs/Learn/CSS/CSS_layout)
+- [Detailed overview of flexboxes](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
+- [Detailed overview of grids (1)](https://learncssgrid.com/)
+- [Detailed overview of grids (2)](https://web.dev/learn/css/grid/)
+- [Commonly used selectors](https://www.geeksforgeeks.org/10-css-selectors-every-developer-should-know/)
+- [Combinator selectors](https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Selectors/Combinators)
+- [Comprehensive list of selectors](https://www.w3schools.com/cssref/css_selectors.asp)
+- [Comprehensive list of pseudo-classes](https://developer.mozilla.org/en-US/docs/Web/CSS/Pseudo-classes)
+- [Comprehensive list of pseudo-elements](https://developer.mozilla.org/en-US/docs/Web/CSS/Pseudo-elements)
 
 
 ### Javascript
+
+#### Why Javascript?
+
+#### Programming in Javascript
+
+#### Variables
+
+#### Exercise: Variables
+
+#### Data Types
+
+#### Operators
+
+#### Numbers
+
+#### Strings
+
+#### Booleans
+
+#### Javascript Interactivity
+
+#### Javascript Selectors
+
+#### Scoping
+
+#### Functions
+
+#### Javascript DOM Manipulation
+
+#### Event Handling
+
+#### Exercise: Web Page Content Update
+
+#### Frameworks and Libraries
+
+#### Additional Resources
 
 ## 3. The Full Stack Using Django
 
