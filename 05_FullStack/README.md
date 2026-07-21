@@ -90,8 +90,8 @@ Table of Contents:
     - [Javascript](#javascript)
       - [Why Javascript?](#why-javascript)
       - [Programming in Javascript](#programming-in-javascript)
+      - [Attaching JavaScript to HTML](#attaching-javascript-to-html)
       - [Variables](#variables)
-      - [Exercise: Variables](#exercise-variables)
       - [Data Types](#data-types)
       - [Operators](#operators)
       - [Numbers](#numbers)
@@ -99,16 +99,26 @@ Table of Contents:
       - [Booleans](#booleans)
       - [Javascript Interactivity](#javascript-interactivity)
       - [Javascript Selectors](#javascript-selectors)
-      - [Scoping](#scoping)
+      - [Scoping: var, let, const](#scoping-var-let-const)
+      - [Arrays](#arrays)
+      - [Objects and Maps](#objects-and-maps)
+      - [Conditional Statements and Loops](#conditional-statements-and-loops)
       - [Functions](#functions)
+      - [Classes](#classes)
       - [Javascript DOM Manipulation](#javascript-dom-manipulation)
       - [Event Handling](#event-handling)
       - [Exercise: Web Page Content Update](#exercise-web-page-content-update)
+        - [Capturing Input with `prompt()`](#capturing-input-with-prompt)
+        - [Using an HTML Form Input Instead](#using-an-html-form-input-instead)
+        - [Listening for Input Changes](#listening-for-input-changes)
       - [Frameworks and Libraries](#frameworks-and-libraries)
       - [Additional Resources](#additional-resources-1)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
   - [4. Production Environments](#4-production-environments)
   - [5. Final Project](#5-final-project)
+  - [6. Extra: HTMX](#6-extra-htmx)
+  - [7. Extra: Bootstrap](#7-extra-bootstrap)
+  - [8. Extra: UX](#8-extra-ux)
 
 ## 1. Introduction to the Full Stack
 
@@ -1501,33 +1511,660 @@ The `content` property holds the text for `::before`/`::after`. "Tip:" is added 
 - With millions of websites running JavaScript from different versions and libraries, a lot of old code -- legacy code -- is still out there; you likely won't use jQuery to build something new today, but you may still encounter it in an actively running project.
 - Beginners don't need to learn or master every JavaScript technology. The essential foundation is plain JavaScript without frameworks; once mastered, it becomes much easier to pick up a framework built on top of it, such as React.
 
+#### Attaching JavaScript to HTML
+
+- A `<script>` tag attaches JavaScript to an HTML document, either by pointing to an external file (`src`) or by holding inline code directly.
+- A plain `<script>` blocks HTML parsing while it downloads and runs, so it's traditionally placed just before `</body>` so the page content loads first.
+- `defer` and `async` let an external script live in `<head>` without blocking parsing, but they behave differently:
+  - `defer`: downloads in parallel, runs after the HTML is fully parsed, in document order -- the modern default for most scripts.
+  - `async`: downloads in parallel and runs as soon as it's ready, which can be before parsing finishes and out of order relative to other scripts -- suited to independent scripts (e.g. analytics) that don't touch the DOM.
+
+```html
+<!-- External file (most common) -->
+<script src="script.js"></script>
+
+<!-- Inline, directly in the HTML -->
+<script>
+  console.log('Hello from inline JS');
+</script>
+
+<!-- defer: runs after parsing, in order -- safe to place in <head> -->
+<script defer src="script.js"></script>
+
+<!-- async: runs as soon as it's downloaded, order not guaranteed -->
+<script async src="analytics.js"></script>
+```
+
+A `<script>` tag always lives inside `<html>`, either in `<head>` or in `<body>` -- never outside it:
+
+```html
+<!doctype html>
+<html>
+<head>
+  <!-- Common with defer: doesn't block parsing, so <head> is fine -->
+  <script defer src="script.js"></script>
+</head>
+<body>
+  <h1>Page content</h1>
+
+  <!-- Common without defer/async: placed at the end of <body>,
+       so the page content is already parsed and visible before the script runs -->
+  <script src="script.js"></script>
+</body>
+</html>
+```
+
 #### Variables
 
-#### Exercise: Variables
+The demo runs in the browser's Developer Tools console (open it with F12 on Windows/Linux or Cmd+Option+I on Mac, then select the Console tab; this works in any browser, demoed here in Google Chrome).
+
+```js
+// Declaration: introduces the variable "person" (currently undefined)
+var person;
+
+// Assignment: stores "John" in person via the assignment operator (=)
+person = "John";
+person; // "John"
+
+// Declaration and assignment combined
+var greeting = "Hello";
+
+// console.log accepts multiple comma-separated values
+console.log(greeting, person); // Hello John
+
+// Reassignment: no `var` needed, JavaScript already knows these variables exist
+greeting = "Hi";
+person = "James";
+
+console.log(greeting, person); // Hi James
+```
+
+- There are three keywords for declaring a variable -- `var`, `let`, and `const` -- differing in scope and whether they can be reassigned:
+  - `var`: function-scoped (or global if declared outside a function), not confined to a `{ }` block; can be redeclared and reassigned. It's the original, legacy way to declare variables.
+  - `let`: block-scoped, confined to the nearest enclosing `{ }`; can be reassigned but not redeclared in the same scope. Use it for variables whose value will change, like `discount` and `quantity` in the [Data Types](#data-types) example below.
+  - `const`: also block-scoped, but must be initialized at declaration and can never be reassigned afterward. Use it as the default choice for values that don't change, like `guitarName` and `guitarPrice` in the [Data Types](#data-types) example below. Note: for objects and arrays, `const` only locks the variable binding -- the contents can still be mutated.
+- Modern JavaScript style: default to `const`; reach for `let` only when the variable needs to be reassigned; avoid `var`.
 
 #### Data Types
 
+- JavaScript has seven primitive data types: string, number, Boolean, null, undefined, BigInt, and symbol -- each with its own use case.
+- `string`: holds text values (e.g., a name or description); characters must be wrapped in single or double quotes, and it can practically hold an unlimited number of character combinations.
+- `number`: holds numerical values (e.g., a price, or any value meant to be calculated), typed directly with no quotes; it has a very wide range, sufficient for most common use cases, but is limited by JavaScript's calculation capabilities. There's no separate integer type -- `number` represents both whole numbers and decimals (e.g., `375` and `3.14`) using the same IEEE 754 double-precision floating-point format.
+- `Boolean`: has only two possible values, `true` and `false`, making it useful for decisions.
+- Two data types express the absence of a value:
+  - `null`: only holds the value `null`, representing an intentionally absent value.
+  - `undefined`: only holds the value `undefined`, usually referring to a variable that hasn't been assigned a value yet.
+- ES6 (ECMAScript 2015) introduced two further primitive data types for more complex tasks:
+  - `BigInt`: like an oversized number box, it accommodates a much greater range of numbers than `number`.
+  - `symbol`: a unique identifier, useful when you need multiple values that would otherwise look identical (like several same-labeled boxes distinguished only by serial number).
+
+```js
+const guitarName = "Fender Stratocaster";  // string
+const guitarDescription = "The best guitar around";  // string
+const guitarPrice = 375;  // number
+const inStock = true;  // boolean
+let discount = null;  // null: intentionally no value
+let quantity;  // undefined: not yet assigned
+const totalUnitsSold = 9007199254740993n;  // BigInt: beyond number's safe range
+const guitarId = Symbol("guitar");  // symbol: unique identifier
+```
+
 #### Operators
+
+- An operator manipulates variables/values and returns a result; JavaScript groups them into arithmetic, comparison, and logical operators.
+- Comparison operators need `==` (double equals), since a single `=` is the assignment operator.
+- Logical operators (`&&`, `||`, `!`) combine or invert boolean conditions to control program flow.
+
+```js
+// Arithmetic operators: +, -, *, /
+console.log(2 + 2);        // 4
+console.log(2 + 5 + 8);    // 15 -- can chain the same operator across multiple values
+console.log(20 - 18);      // 2
+console.log(2 * 3);        // 6
+console.log(8 / 1);        // 8
+
+// Comparison operators: >, <, == (return true/false)
+console.log(3 > 2);        // true
+console.log(2 > 3);        // false
+console.log(10 == 10);     // true -- note the double `=`, single `=` would be an assignment
+
+// Logical operators: && (AND), || (OR), ! (NOT)
+let a = 7;
+console.log(a > 5 && a < 10);  // true  -- AND: both conditions must be true
+console.log(a > 5 || a > 10);  // true  -- OR: at least one condition must be true
+console.log(!(a > 10));        // true  -- NOT: inverts the boolean result
+```
 
 #### Numbers
 
+- The `number` data type represents both integers and decimals, e.g. `123` and `123.456`.
+- Beyond `+`, `-`, `*`, `/`, JavaScript supports exponentiation (`**`) and modulus/remainder (`%`).
+- Without parentheses, JavaScript follows standard operator precedence (multiplication/division before addition/subtraction); parentheses override that order.
+
+```js
+// Basic arithmetic
+console.log(2 + 2);    // 4
+console.log(4 - 2);    // 2
+console.log(4 * 4);    // 16
+console.log(16 / 4);   // 4
+
+// Exponentiation: base ** exponent
+console.log(10 ** 2);  // 100 -- 10 to the power of 2
+
+// Modulus (%): remainder after division
+console.log(9 % 8);    // 1  -- 8 fits once into 9, remainder 1
+console.log(16 % 8);   // 0  -- 8 divides evenly into 16, no remainder
+
+// Operator precedence: multiplication runs before addition
+console.log(2 * 4 + 8);    // 16 -- (2 * 4) + 8
+console.log(2 * (4 + 8));  // 24 -- parentheses force addition first
+```
+
 #### Strings
+
+- A string is a sequence of characters enclosed by single or double quotes, called delimiters; an empty string has no characters between them.
+- Strings can hold letters, numbers, and punctuation, but can't span multiple lines -- pressing Enter before the closing quote causes an error.
+- An unescaped quote of the same type inside a string ends it early; nest one quote type inside the other to fix it, and stay consistent with one style throughout a project.
+
+```js
+// Empty strings
+let emptySingle = '';
+let emptyDouble = "";
+
+// Non-empty strings can hold letters, numbers, and symbols
+let greeting = 'Hello there! 123';
+
+// Strings can't break onto a new line -- this throws a SyntaxError:
+// let broken = 'hello
+// there';
+
+// An apostrophe closes a single-quoted string early -- this throws a SyntaxError:
+// let phrase = 'It's a lovely day';
+
+// Fix: nest the single quote inside double quotes
+let phrase = "It's a lovely day";
+```
 
 #### Booleans
 
+- A Boolean has only two possible values, `true` or `false`, most often produced by comparing two values.
+- `==` (equality) and `!=` (inequality) compare value only, ignoring type differences; so strings are equal to numbers if they represent the same value (e.g., `"100"` and `100` are equal), but not if they don't (e.g., `"100"` and `101` are not equal).
+- `===` (strict equality) and `!==` (strict inequality) compare both value and type; so `"100"` and `100` are not strictly equal, since one is a string and the other is a number.
+
+```js
+// Basic comparisons
+console.log(1 < 2);   // true
+console.log(1 > 2);   // false
+
+// == compares value only -- a single `=` is the assignment operator, not comparison
+var score = 100;
+console.log(1 == 2);      // false
+console.log(100 == "100"); // true -- same value, different type (number vs string), == ignores type
+
+// === compares value AND type
+console.log(100 === "100"); // false -- same value but different type
+
+// != and !== mirror the same value-only vs value-and-type distinction
+console.log(1 != 1);        // false -- same value
+console.log(1 !== "1");     // true -- same value, different type
+```
+
 #### Javascript Interactivity
+
+- JavaScript's initial purpose was to provide browser interactivity -- controlling webpage and browser behavior -- and this is still the case today.
+- Ecosystem timeline:
+  - Late 1990s: plain JavaScript, tweaked per browser.
+  - Mid-2000s: jQuery, a single codebase across browsers with less code.
+  - Later: frameworks like React, Vue, Angular, and D3, plus npm (Node Package Manager) and Node.js.
+- Despite CSS's growth, JavaScript still lets users:
+  - Get their geolocation.
+  - Interact with maps.
+  - Play games in the browser.
+  - Handle user-triggered events across devices.
+  - Verify form input before sending it to the backend.
 
 #### Javascript Selectors
 
-#### Scoping
+- DOM (Document Object Model) manipulation dynamically updates HTML in real time, e.g. changing text color or showing a popup on a button click; selectors locate the elements to manipulate.
+- The `document` keyword gives access to the DOM, the webpage as stored in the browser's memory.
+- `getElementById` is singular (an ID is unique) and returns `null` if no match is found; `getElementsByClassName` is plural and returns an empty collection if no match is found.
+
+```js
+// document.querySelector(selector): returns the FIRST matching element
+document.querySelector('p');   // first <p> element
+document.querySelector('a');   // first <a> element
+
+// document.querySelectorAll(selector): returns ALL matching elements
+document.querySelectorAll('p');  // e.g. all <p> elements on the page
+
+// document.getElementById(id): returns the element with that ID, or null
+document.getElementById('heading');  // e.g. an <h1> with id="heading"
+
+// document.getElementsByClassName(className): returns all elements with that class
+document.getElementsByClassName('txt');  // e.g. all elements with class="txt"
+```
+
+#### Scoping: var, let, const
+
+- Scope determines which parts of the code can access a given variable.
+  - Global scope: code outside any function, accessible everywhere.
+  - Local (function) scope: code inside a function, only accessible there -- the only local scope ES5 (`var`) provides.
+  - Block scope (ES6): code inside a `{ }` block, only accessible there -- built by `let` and `const`.
+- `var` is lenient: usable before its declaration, redeclarable, and ignores block scope (only function/global scope apply).
+- `let`/`const` are stricter: cannot be used before declaration, cannot be redeclared in the same scope, and are always block-scoped, even inside `if` statements and loops.
+- Rule of thumb: use `let` when the value might change, `const` when it never will.
+
+```js
+// Global scope: accessible everywhere
+var globalVar = "global";
+
+function myFunc() {
+  // Local (function) scope: only accessible inside the function
+  var localVar = "local";
+}
+// localVar is not accessible here
+
+// var ignores block scope -- it "leaks" out of if/for/while blocks
+if (true) {
+  var leaked = "I escape the block";
+}
+console.log(leaked); // "I escape the block"
+
+// let/const are block-scoped -- confined to the nearest { }
+if (true) {
+  let blockScoped = "confined to this block";
+  const alsoBlockScoped = "confined to this block";
+}
+// blockScoped and alsoBlockScoped are not accessible here
+
+// var is lenient: usable before declaration (hoisted as undefined), redeclarable
+console.log(hoisted); // undefined, not an error
+var hoisted = "value";
+var hoisted = "redeclared"; // no error
+
+// let/const are strict: using them before declaration throws
+console.log(notHoisted); // ReferenceError
+let notHoisted = "value";
+```
+
+#### Arrays
+
+- An array is an ordered list of values, written between square brackets and accessed by a zero-based index.
+- Arrays can mix data types and be nested; `.length` gives the number of elements.
+- Common methods: `push`/`pop` add/remove at the end, `shift`/`unshift` add/remove at the start, `map` transforms each element into a new array, `filter` keeps only matching elements, and `forEach` runs code for each element without returning a new array.
+
+```js
+// Declaring and indexing an array (index starts at 0)
+const fruits = ["apple", "banana", "cherry"];
+console.log(fruits[0]);     // "apple"
+console.log(fruits.length); // 3
+
+// push/pop: add/remove at the end
+fruits.push("date");  // ["apple", "banana", "cherry", "date"]
+fruits.pop();          // removes "date" -> ["apple", "banana", "cherry"]
+
+// shift/unshift: add/remove at the start
+fruits.unshift("apricot"); // ["apricot", "apple", "banana", "cherry"]
+fruits.shift();             // removes "apricot" -> ["apple", "banana", "cherry"]
+
+// map: builds a NEW array by transforming each element
+const upperFruits = fruits.map((fruit) => fruit.toUpperCase());
+console.log(upperFruits); // ["APPLE", "BANANA", "CHERRY"]
+
+// filter: builds a NEW array with only the elements that pass a test
+const longNames = fruits.filter((fruit) => fruit.length > 5);
+console.log(longNames); // ["banana", "cherry"]
+
+// forEach: runs code for each element, returns nothing
+fruits.forEach((fruit) => console.log(fruit)); // logs "apple", "banana", "cherry"
+```
+
+#### Objects and Maps
+
+- An object is JavaScript's dictionary/hash map: an unordered collection of key-value pairs, written between curly braces.
+- Values are read and written with dot notation (`obj.key`) or bracket notation (`obj["key"]`); bracket notation is required when the key is dynamic (stored in a variable) or not a valid identifier.
+- Keys can be added, updated, or removed at any time -- objects are mutable even when declared with `const`.
+- ES6 also added `Map` (any type of key, not just strings, and remembers insertion order) and `Set` (a collection of unique values) as more specialized dictionary/collection types built on the same idea.
+
+```js
+// object: key-value pairs
+const guitar = {
+  name: "Fender Stratocaster",
+  price: 375,
+  inStock: true,
+};
+
+console.log(guitar.name);      // "Fender Stratocaster" -- dot notation
+console.log(guitar["price"]);  // 375 -- bracket notation
+
+const key = "price";
+console.log(guitar[key]); // 375 -- bracket notation needed for a dynamic key
+
+guitar.discount = 10;   // add a new key
+guitar.price = 350;     // update an existing key
+delete guitar.inStock;  // remove a key
+console.log(guitar); // { name: "Fender Stratocaster", price: 350, discount: 10 }
+
+// Iterate over an object's keys
+for (const key in guitar) {
+  console.log(key, guitar[key]);
+}
+
+// Map: dictionary-like, but keys can be any type
+const scores = new Map();
+scores.set("Alice", 90);
+scores.set(42, "numeric key works too");
+console.log(scores.get("Alice")); // 90
+
+// Set: a collection of unique values, duplicates are ignored
+const uniqueNumbers = new Set([1, 2, 2, 3]);
+console.log(uniqueNumbers); // Set(3) {1, 2, 3}
+```
+
+#### Conditional Statements and Loops
+
+- Conditional statements run different code depending on whether a condition is true: `if`/`else if`/`else`, `switch`, and the ternary operator.
+- Loops repeat a block of code: `for` (fixed count), `while` (condition checked before each run), `do...while` (condition checked after each run, so it always runs at least once), and `for...of`/`for...in` for iterating over collections.
+
+```js
+// if / else if / else
+const temperature = 18;
+if (temperature > 25) {
+  console.log("It's hot");
+} else if (temperature > 15) {
+  console.log("It's mild"); // this branch runs
+} else {
+  console.log("It's cold");
+}
+
+// switch: compares a value against multiple exact cases
+const day = "Tue";
+switch (day) {
+  case "Mon":
+    console.log("Start of the week");
+    break;
+  case "Tue":
+  case "Wed":
+    console.log("Midweek"); // matches "Tue" here, falls through from "Tue" to "Wed"
+    break;
+  default:
+    console.log("Some other day"); // runs when no case matches
+}
+
+// Ternary operator: compact if/else that returns a value
+const age = 20;
+const canVote = age >= 18 ? "yes" : "no"; // "yes"
+
+// for: repeat a fixed number of times
+for (let i = 0; i < 3; i++) {
+  console.log(i); // 0, 1, 2
+}
+
+// while: check the condition before each iteration
+let count = 0;
+while (count < 3) {
+  console.log(count); // 0, 1, 2
+  count++;
+}
+
+// do...while: run the body once, then check the condition
+let attempts = 0;
+do {
+  console.log(attempts); // runs at least once, even if the condition is already false
+  attempts++;
+} while (attempts < 0);
+
+// for...of: iterate over the VALUES of an iterable (e.g. an array)
+const fruits = ["apple", "banana", "cherry"];
+for (const fruit of fruits) {
+  console.log(fruit); // "apple", "banana", "cherry"
+}
+
+// for...in: iterate over the KEYS of an object
+const guitar = { name: "Stratocaster", price: 375 };
+for (const key in guitar) {
+  console.log(key, guitar[key]); // "name Stratocaster", "price 375"
+}
+```
 
 #### Functions
 
+- Functions group reusable code under a name, following the DRY (don't repeat yourself) principle: write the logic once, then run it as many times as needed.
+- Declaring a function (`function name() { ... }`) only defines its body; it doesn't execute the code.
+- Calling, invoking, or running a function -- all the same thing -- executes its body, done by writing the function name with parentheses: `name()`.
+- Parameters (placeholders in the function definition) and arguments (the actual values passed when calling) make a function flexible, since it can produce different results without changing its code.
+
+```js
+// Declaring a function without parameters: fixed values baked into the body
+function addTwoNums() {
+  const a = 10;
+  const b = 20;
+  const c = a + b;
+  console.log(c);
+}
+addTwoNums(); // 30 -- calling/invoking runs the body; always the same result
+
+// Declaring a function with parameters: a and b are placeholders
+function addTwoNumsFlexible(a, b) {
+  const c = a + b;
+  console.log(c);
+}
+
+// Calling it with different arguments reuses the same code for different results
+addTwoNumsFlexible(10, 20); // 30
+addTwoNumsFlexible(1, 2);   // 3
+```
+
+- `return` sends a value back to the caller and immediately ends the function; without it, a function returns `undefined`.
+- A default parameter value is used when the caller omits that argument.
+- Arrow functions (`(params) => { ... }`) are a shorter syntax for function expressions, often used for short, throw-away functions.
+- A function can accept or return another function -- this is a "higher-order function," useful for reusing behavior like an array callback.
+
+```js
+// return: sends a value back instead of just logging it
+function addTwoNumsReturn(a, b) {
+  return a + b; // ends the function here, nothing after this line runs
+}
+const sum = addTwoNumsReturn(10, 20); // sum is 30, ready to use elsewhere
+console.log(sum * 2); // 60
+
+// Default parameters: used when an argument is omitted
+function greet(name = "there") {
+  return `Hello, ${name}!`;
+}
+console.log(greet("Miranda")); // "Hello, Miranda!"
+console.log(greet());          // "Hello, there!" -- default kicks in
+
+// Arrow function: shorter syntax for the same addTwoNumsReturn function
+const addArrow = (a, b) => a + b; // implicit return for a single expression
+console.log(addArrow(4, 5)); // 9
+
+// Higher-order function: a function passed as an argument to another
+const numbers = [1, 2, 3];
+const doubled = numbers.map((n) => n * 2); // map calls this arrow function for each element
+console.log(doubled); // [2, 4, 6]
+```
+
+#### Classes
+
+- ES6 introduced `class` syntax as a cleaner way to write JavaScript's underlying prototype-based object model -- classes are a blueprint for creating objects that share the same structure and behavior.
+- The `constructor` method runs when a new instance is created (`new ClassName(...)`) and sets up its initial properties via `this`.
+- Regular methods defined in a class are shared by all instances, rather than being copied onto each object individually.
+- `extends` lets one class inherit from another; `super(...)` calls the parent class's constructor from the child class.
+
+```js
+class Guitar {
+  constructor(name, price) {
+    this.name = name;
+    this.price = price;
+  }
+
+  describe() {
+    return `${this.name} costs $${this.price}`;
+  }
+}
+
+const strat = new Guitar("Fender Stratocaster", 375);
+console.log(strat.describe()); // "Fender Stratocaster costs $375"
+
+// Inheritance: BassGuitar reuses everything from Guitar and adds its own property
+class BassGuitar extends Guitar {
+  constructor(name, price, strings) {
+    super(name, price); // calls Guitar's constructor
+    this.strings = strings;
+  }
+}
+
+const bass = new BassGuitar("Fender Precision Bass", 450, 4);
+console.log(bass.describe());      // inherited method: "Fender Precision Bass costs $450"
+console.log(bass.strings);         // 4 -- BassGuitar's own property
+console.log(bass instanceof Guitar); // true -- BassGuitar is still a Guitar
+```
+
 #### Javascript DOM Manipulation
+
+- The DOM (Document Object Model) is a JavaScript object representing the HTML page as a tree of nested objects; the browser builds it automatically from the downloaded HTML and stores it in the `document` variable.
+- DOM changes made via DevTools (the Elements tab's GUI, or JavaScript in the Console tab) only affect the browser's local copy of the page -- reloading resets it to what the server sent.
+- Creating and inserting a new element takes three steps: build it with `createElement`, give it content/attributes, then attach it to the page with `appendChild` -- until that last step, it only exists in JavaScript's memory and isn't visible.
+
+```js
+// 1. Create an element (not yet part of the page)
+const h2 = document.createElement('h2');
+
+// 2. Give it text content and HTML attributes
+h2.innerText = 'This is an h2 heading';
+h2.setAttribute('id', 'sub-heading');
+h2.setAttribute('class', 'secondary');
+
+// 3. Attach it to the DOM so it renders on the page
+document.body.appendChild(h2);
+```
+
+![JavaScript DOM Manipulation](./assets/js_dom_manipulation.png)
 
 #### Event Handling
 
+- Events are user-triggered actions (a click, a tap, etc.) that JavaScript can listen for on a specific part of the page.
+- An event handler is the function that runs when a listened-for event fires.
+- Two ways to attach a handler: the `addEventListener` method, or an inline HTML event attribute like `onclick`.
+- Events bubble up from a child element to its parents -- clicking a heading inside the body triggers both the heading's own handler and the body's handler; clicking elsewhere in the body only triggers the body's handler.
+
+```js
+// addEventListener: get a reference to the element, then listen on it
+const target = document.querySelector('body');
+
+function handleClick() {
+  console.log('clicked the body');
+}
+target.addEventListener('click', handleClick);
+
+// Alternative: an inline HTML event attribute achieves the same thing
+// <h1 onclick="handleClick2()">Heading</h1>
+function handleClick2() {
+  console.log('clicked the heading');
+}
+
+// Clicking the <h1> logs both messages (event bubbles from h1 up to body):
+// "clicked the heading"
+// "clicked the body"
+// Clicking elsewhere in <body> only logs "clicked the body"
+```
+
+![JavaScript Event Handling](./assets/js_event_handling.png)
+
 #### Exercise: Web Page Content Update
+
+In this exercise, you'll learn how to capture user input and process it, through a simple example that manipulates displayed information based on what the user provides.
+
+##### Capturing Input with `prompt()`
+
+The built-in `prompt()` method captures user input:
+
+```js
+let answer = prompt('What is your name?');
+```
+
+Once the user-provided input is inside the `answer` variable, you can manipulate it however you need. For example, you can output the typed-in information on the screen as an `<h1>` HTML element:
+
+```js
+let answer = prompt('What is your name?');
+if (typeof(answer) === 'string') {
+    var h1 = document.createElement('h1')
+    h1.innerText = answer;
+    document.body.innerText = '';
+    document.body.appendChild(h1);
+}
+```
+
+This is probably the quickest and easiest way to capture user input on a website, but it's not the most efficient approach, especially in more complex scenarios. This is where HTML forms come in.
+
+##### Using an HTML Form Input Instead
+
+You can code a script that takes input from an HTML form and displays the text a user types on the screen. Start by coding a test solution:
+
+```js
+var h1 = document.createElement('h1')
+h1.innerText = "Type into the input to make this text change"
+
+var input = document.createElement('input')
+input.setAttribute('type', 'text')
+
+document.body.innerText = '';
+document.body.appendChild(h1);
+document.body.appendChild(input);
+```
+
+This does essentially the same thing as before, except it also dynamically adds the input element and sets its HTML `type` attribute to `text`. That way, when you start typing in it, the letters will show in the `h1` element above.
+
+You're not quite there yet, though: at this point, the code above -- when run on a live website -- adds the `h1` element with the text "Type into the input to make this text change" and an empty input form field under it. Try it yourself by pointing your browser to the example.com website and running the code above in the console.
+
+> Tip: you can access the console from the developer tools in your browser.
+
+The code above also sets variables using the `var` keyword. Although it's better to use `let` or `const`, this is just a quick experiment on a live website, so `var` -- the most lenient variable keyword -- is used so it won't complain about the `h1` or `input` variables already being set. If you had a complete project with a modern JavaScript tooling setup, you'd use `let` or `const` instead.
+
+##### Listening for Input Changes
+
+Next, set up an event listener for the `change` event. This event fires after you've typed in the input and pressed the ENTER key:
+
+```js
+var h1 = document.createElement('h1')
+h1.innerText = "Type into the input to make this text change"
+
+var input = document.createElement('input')
+input.setAttribute('type', 'text')
+
+document.body.innerText = '';
+document.body.appendChild(h1);
+document.body.appendChild(input);
+
+input.addEventListener('change', function() {
+    console.log(input.value)
+})
+```
+
+Running this on example.com, then typing text into the input field and pressing ENTER, logs the value of the typed-in text to the console.
+
+The only thing left to complete the exercise is updating the text content of the `h1` element with the value from the input field. Here's the complete, updated code:
+
+```js
+var h1 = document.createElement('h1')
+h1.innerText = "Type into the input to make this text change"
+
+var input = document.createElement('input')
+input.setAttribute('type', 'text')
+
+document.body.innerText = '';
+document.body.appendChild(h1);
+document.body.appendChild(input);
+
+input.addEventListener('change', function() {
+    h1.innerText = input.value
+})
+```
+
+After this update, whatever you type into the input and confirm with ENTER is shown as the text inside the `h1` element. Combining DOM manipulation and event handling like this allows for some truly remarkable interactive websites.
+
+
 
 #### Frameworks and Libraries
 
@@ -1540,3 +2177,14 @@ The `content` property holds the text for `::before`/`::after`. "Tip:" is added 
 ## 5. Final Project
 
 
+## 6. Extra: HTMX
+
+[Udemy: HTMX - The Practical Guide](https://www.udemy.com/course/htmx-the-practical-guide/)
+
+## 7. Extra: Bootstrap
+
+[Udemy: Web Design Modern SinglePage Website from Scratch Bootstrap](https://www.udemy.com/course/build-a-responsive-singlepage-website-from-scratch-bootstrap)
+
+## 8. Extra: UX
+
+[Udemy: UX - Leyes y Fundamentos Explicados con Ejemplos Practicos](https://www.udemy.com/course/ux-leyes-y-fundamentos-explicados-con-ejemplos-practicos)
