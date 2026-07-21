@@ -25,6 +25,7 @@ Check also my following guides on related topics:
 - [Web-App Front-End Development Guide](https://github.com/mxagar/frontend_react_guide)
 - [Web-App Deployment Guide](https://github.com/mxagar/webapp_deployment_guide)
 - [DevOps and Software Engineering Guide](https://github.com/mxagar/software_devops_ibm)
+- [Flask Guide](https://github.com/mxagar/flask_guide/)
 
 ## Setup
 
