@@ -114,6 +114,16 @@ Table of Contents:
       - [Frameworks and Libraries](#frameworks-and-libraries)
       - [Additional Resources](#additional-resources-1)
   - [3. The Full Stack Using Django](#3-the-full-stack-using-django)
+    - [Django Architecture](#django-architecture)
+      - [Recap: What you know about Django](#recap-what-you-know-about-django)
+      - [Recap: What you know about APIs](#recap-what-you-know-about-apis)
+      - [Environment check](#environment-check)
+      - [Creating a Django project (steps and code)](#creating-a-django-project-steps-and-code)
+        - [App-level `urls.py`](#app-level-urlspy)
+        - [Project-level `urls.py`](#project-level-urlspy)
+    - [Django and MySQL](#django-and-mysql)
+      - [Recap: What you know about Databases and MySQL](#recap-what-you-know-about-databases-and-mysql)
+    - [Django and the Front End](#django-and-the-front-end)
   - [4. Production Environments](#4-production-environments)
   - [5. Final Project](#5-final-project)
   - [6. Extra: HTMX](#6-extra-htmx)
@@ -2157,6 +2167,152 @@ input.addEventListener('change', function() {
 - [MDN: Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
 
 ## 3. The Full Stack Using Django
+
+### Django Architecture
+
+#### Recap: What you know about Django
+
+- Django is a back-end framework that can connect to a front-end framework, covering projects, applications, the admin site, and overall structure; it follows the DRY (don't repeat yourself) principle -- write logic once, reuse it many times.
+- `django-admin` and `manage.py` are command-line utilities for administration tasks, including creating projects and apps.
+- Framework benefits recap: a clean, ordered structure for building web apps, plus speed, feature-rich classes, security, and scalability.
+- Django implements the MVT (model, view, template) architecture, splitting data, logic, and display to rapidly build large-scale, data-driven web applications:
+  - Model: migrations evolve the database schema; the QuerySet API queries the database; the Form API binds data to objects and builds model forms and HTML forms; the Django Admin panel manages users/groups and their permissions; an external MySQL database can be configured for the app.
+  - View: handles HTTP requests and returns responses.
+    - A view function is mapped to a URL through routing to connect the request-response cycle.
+    - View functions can also process/retrieve database data, transform data, and render templates.
+    - `urls.py` is the URL configuration file, present by default at the project level and addable at the app level too.
+    - The HTTP request object maps to URLs and common CRUD operations, and retrieves client information.
+    - URL namespacing maps a URL to a name and its corresponding view.
+    - URL parameters and query parameters relate to GET, PUT, POST, and DELETE operations; URLs can also use regular expressions.
+    - Error handling covers HTTP status responses and server error responses.
+    - Class-based views apply object-oriented inheritance to create reusable, simplified views.
+  - Template: the Django Template Language (DTL) provides variables, tags, filters, and comments, including variable interpolation to build dynamic templates that map model objects.
+    - Template inheritance uses the `include` and `extends` tags to split content into reusable components and replace blocks from a parent template.
+- Debugging removes an application's errors and bugs; Django's debugger shows a yellow-page error when the `DEBUG = True` flag is set.
+- Testing measures quality, reliability, and performance; unit testing isolates a single function, class, or method for testing, and Django's unit test module uses a class-based approach where tests are added to a class inheriting from `TestCase` in Django's test package.
+
+#### Recap: What you know about APIs
+
+- APIs are the communication bridge between the different parts of an application, e.g. making a restaurant booking for a specific date and time.
+- HTTP/HTTPS fundamentals: HTTPS encrypts data on both client and server side; a client requests information and a server responds. HTTP methods instruct the back end how to handle resources, and HTTP status codes give the client more information about a request's outcome.
+- RESTfulness, naming, and tooling:
+  - A well-designed endpoint conveys its purpose; naming conventions include lowercase URIs, forward slashes for hierarchical relationships, nouns for resource names, and no file extensions.
+  - Insomnia is a free, cross-platform, user-friendly REST API client used for testing APIs.
+  - API development principles cover REST best practices, security, authentication, authorization, access control, project organization, and XML/JSON response types.
+- Debugging and mocking: Python scripts can be debugged from VS Code's built-in tools, and the Django debugging toolbar helps debug APIs specifically; API mocking imitates a real endpoint's responses to support testing and development.
+- Django REST Framework (DRF): a utility app bridging the Django framework and the ORM (object-relational mapping) library that talks to the database, used to serialize, convert, validate, and render data.
+  - Benefits include a built-in API view, human-readable HTTP status codes, and serializers -- DRF's most popular feature, converting Django models into formats like JSON/XML, and deserializing user-supplied data (e.g. parsed JSON) back into models for safe storage.
+  - Routers auto-configure URLs from class-based views; class-based views need less code, reduce duplication, and can be extended with new features over time.
+  - A built-in renderer object displays different content types.
+- Filtering, ordering, searching, and pagination:
+  - Filtering lets client applications access specific data via APIs, usually through query strings.
+  - Ordering sorts API results ascending/descending, including multiple-field ordering.
+  - Pagination chunks results (e.g. restaurant menu items) by page number and page size, letting the client choose both while reducing server resource use.
+  - Caching serves saved results instead of regenerating them, optimizing performance.
+- Security:
+  - Data sanitation prevents vulnerabilities from unsanitized input; API security matters because APIs give third-party clients access to your databases.
+  - Token-based authentication in DRF is built via a registration/login API that issues tokens for authenticating calls -- but authentication alone isn't enough.
+  - Access control adds authorization: checking user privileges and roles so only the right users can access data, including creating different user roles in DRF.
+  - The Djoser library adds authentication endpoints (registration, sign-in) as an alternative to DRF's built-in authentication system.
+  - Signed URLs limit access to a resource for a specific time period.
+  - API throttling uses DRF's two throttling classes to control how often authenticated and unauthenticated users can access APIs in a given time window.
+
+#### Environment check
+
+- Terminal: needed to run Django/build commands and talk to the server and database -- Terminal app on macOS/Linux, PowerShell on Windows.
+- Django-specific: Pipenv manages dependencies inside a virtual environment instead of a global one, avoiding package conflicts.
+- Database: Django works with SQLite (file-based, built in) and others like MySQL and MariaDB, two of the most widely used engines; MySQL installs via its official installer or an OS package manager.
+- Editor: Visual Studio Code (free) provides debuggers, quick refactoring, syntax highlighting, and extensions for added functionality.
+- API testing: a REST API client sends API calls with JSON/form-URL-encoded payloads and headers -- Postman, Insomnia, and HTTPie are free, cross-platform options; useful resources include the Postman platform, Postman Echo (sample API calls), Insomnia's homepage/getting-started guide, and Httpbin.
+- Version control: a system like Git tracks code versions and lets you roll back to any past state; commonly integrated directly into build tools.
+- Front-end tooling (e.g. for React): Node.js to run JavaScript tooling from the command line, a package manager (npm or Yarn) for dependencies, and a build tool (Vite or Webpack, with Vite the popular, fast, free choice today) to build the production version of your code.
+- Overall: the right environment and tools make development faster, more enjoyable, and help avoid common errors.
+
+#### Creating a Django project (steps and code)
+
+- Sets up a Django project in VS Code, using uv to manage the virtual environment and dependencies. The project structure can vary by preference; the one below is simple to follow.
+- `uv run` resolves the right Python interpreter for you, so unlike with pipenv there's no need for OS-specific tweaks like `python` vs `python3`.
+
+```bash
+# Open the project folder in VS Code, then open a terminal inside it (File > Open Folder, Terminal > New Terminal)
+
+# 1. Create and enter the project directory
+mkdir LittleLemon
+cd LittleLemon
+
+# 2. Initialize a uv-managed project -- creates pyproject.toml and .python-version
+uv init --python 3.9
+
+# 3. Add dependencies -- uv writes them to pyproject.toml/uv.lock and manages the .venv automatically
+uv add django djangorestframework djangorestframework-xml mysqlclient
+
+# 4. Create the Django project in the current directory (the trailing dot avoids an extra nested folder)
+uv run django-admin startproject myproject .
+
+# 5. Create a Django app
+uv run python manage.py startapp myapp
+
+# 6. Start the dev server to confirm the setup works (Ctrl+C to stop)
+uv run python manage.py runserver
+```
+
+- No manual dependency file to edit -- `uv add` updates `pyproject.toml` directly, replacing the Pipfile-editing step.
+- `uv init` also scaffolds a placeholder script (e.g. `main.py`), which isn't needed here since `manage.py` is the real entry point and can be deleted.
+
+##### App-level `urls.py`
+
+Create `urls.py` inside the app directory (e.g. `myapp/`) to map the app's own routes:
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('ratings', views.ratings),  # maps /ratings to the `ratings` view
+]
+```
+
+##### Project-level `urls.py`
+
+Update the project-level `urls.py` (next to `settings.py`) to include the app's routes under a prefix:
+
+```python
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('home/', include('myapp.urls')),  # delegates everything under /home/ to myapp's urls.py
+]
+```
+
+- Both URL configurations will vary depending on the views and app names actually used in a given project.
+
+### Django and MySQL
+
+#### Recap: What you know about Databases and MySQL
+
+- Databases persist data so applications can perform CRUD (create, read, update, delete) operations; they can be relational (PostgreSQL, MySQL) or non-relational (MongoDB, Neo4j). Relational databases are more common, thanks to referential identity -- keys and constraints that keep data consistent and accurate.
+- Django supports several databases with minimal, generic configuration: PostgreSQL, MariaDB, MySQL, Oracle, and SQLite (PostgreSQL and MySQL are the most used). A new project defaults to SQLite, auto-configured in `settings.py`.
+- SQLite is zero-configuration and serverless (no starting/stopping, no extra config files), great for small projects or prototyping -- but lacks a user management system, limiting it for production.
+- MySQL is a common production alternative: open source, more scalable, with authentication support. Connecting needs its address, port, and database name. Setup:
+  - Install the MySQL server (see Additional Resources for the download link).
+  - Create a database via the CLI:
+    ```bash
+    mysql -u root -p        # -u username, -p prompts for password
+    ```
+    ```sql
+    CREATE DATABASE my_database;
+    SHOW DATABASES;
+    ```
+  - Install a database driver -- Django recommends `mysqlclient` -- to translate Python queries into SQL.
+  - Configure the connection under `DATABASES` in `settings.py`: `CONN_MAX_AGE` sets how long a connection stays open, and credentials can live in a separate MySQL options file outside the project (e.g. `/etc/mysql/`) rather than hardcoded in `settings.py`, which is safer for production.
+  - Migrations create tables from models, but the database itself must be created manually first, with a connection that has sufficient permissions.
+- Security: use strong credentials and roles -- leaked database credentials are a major risk. Despite the setup effort, Django + MySQL is an industry-standard, scalable combination for full stack apps.
+
+### Django and the Front End
+
+
 
 ## 4. Production Environments
 
