@@ -2074,17 +2074,13 @@ function handleClick2() {
 
 #### Exercise: Web Page Content Update
 
-In this exercise, you'll learn how to capture user input and process it, through a simple example that manipulates displayed information based on what the user provides.
+- This exercise captures user input and manipulates displayed content based on it.
 
 ##### Capturing Input with `prompt()`
 
-The built-in `prompt()` method captures user input:
-
-```js
-let answer = prompt('What is your name?');
-```
-
-Once the user-provided input is inside the `answer` variable, you can manipulate it however you need. For example, you can output the typed-in information on the screen as an `<h1>` HTML element:
+- The built-in `prompt()` method captures user input into a variable, which you can then manipulate however you need.
+- Quickest way to show it on screen: create an `<h1>` and set its text to the captured input.
+- Simple, but not efficient for more complex scenarios -- that's where HTML forms come in.
 
 ```js
 let answer = prompt('What is your name?');
@@ -2096,11 +2092,12 @@ if (typeof(answer) === 'string') {
 }
 ```
 
-This is probably the quickest and easiest way to capture user input on a website, but it's not the most efficient approach, especially in more complex scenarios. This is where HTML forms come in.
-
 ##### Using an HTML Form Input Instead
 
-You can code a script that takes input from an HTML form and displays the text a user types on the screen. Start by coding a test solution:
+- Test solution: dynamically add an `<h1>` and an `<input type="text">`, so typing into the input will eventually update the `h1`'s text.
+  - At this stage the input doesn't do anything yet -- it just renders empty, next to the heading.
+  - Try it yourself: point the browser to example.com and run the code in the console (accessible via the browser's developer tools).
+- Note on `var`: `let`/`const` are generally preferred, but `var` is used here because it's the most lenient keyword -- it won't complain about `h1`/`input` already being declared during quick, repeated console experiments. In a real project with modern tooling, use `let` or `const` instead.
 
 ```js
 var h1 = document.createElement('h1')
@@ -2114,61 +2111,50 @@ document.body.appendChild(h1);
 document.body.appendChild(input);
 ```
 
-This does essentially the same thing as before, except it also dynamically adds the input element and sets its HTML `type` attribute to `text`. That way, when you start typing in it, the letters will show in the `h1` element above.
-
-You're not quite there yet, though: at this point, the code above -- when run on a live website -- adds the `h1` element with the text "Type into the input to make this text change" and an empty input form field under it. Try it yourself by pointing your browser to the example.com website and running the code above in the console.
-
-> Tip: you can access the console from the developer tools in your browser.
-
-The code above also sets variables using the `var` keyword. Although it's better to use `let` or `const`, this is just a quick experiment on a live website, so `var` -- the most lenient variable keyword -- is used so it won't complain about the `h1` or `input` variables already being set. If you had a complete project with a modern JavaScript tooling setup, you'd use `let` or `const` instead.
-
 ##### Listening for Input Changes
 
-Next, set up an event listener for the `change` event. This event fires after you've typed in the input and pressed the ENTER key:
+- Add an event listener for the `change` event, which fires once you type into the input and press ENTER.
+- First test it by just logging the typed value to the console.
 
 ```js
-var h1 = document.createElement('h1')
-h1.innerText = "Type into the input to make this text change"
-
-var input = document.createElement('input')
-input.setAttribute('type', 'text')
-
-document.body.innerText = '';
-document.body.appendChild(h1);
-document.body.appendChild(input);
-
 input.addEventListener('change', function() {
     console.log(input.value)
 })
 ```
 
-Running this on example.com, then typing text into the input field and pressing ENTER, logs the value of the typed-in text to the console.
-
-The only thing left to complete the exercise is updating the text content of the `h1` element with the value from the input field. Here's the complete, updated code:
+- Finish the exercise by using that same value to update the `h1`'s text instead of just logging it -- now, whatever you type and confirm with ENTER appears as the heading's text.
 
 ```js
-var h1 = document.createElement('h1')
-h1.innerText = "Type into the input to make this text change"
-
-var input = document.createElement('input')
-input.setAttribute('type', 'text')
-
-document.body.innerText = '';
-document.body.appendChild(h1);
-document.body.appendChild(input);
-
 input.addEventListener('change', function() {
     h1.innerText = input.value
 })
 ```
 
-After this update, whatever you type into the input and confirm with ENTER is shown as the text inside the `h1` element. Combining DOM manipulation and event handling like this allows for some truly remarkable interactive websites.
-
-
+- Combining DOM manipulation and event handling like this enables remarkable interactive websites.
 
 #### Frameworks and Libraries
 
+- Frameworks and libraries package up development problems that have already been solved, saving time instead of reinventing the wheel; they may be open source (source freely available to modify) or proprietary (licensed or built in-house).
+- Library: a reusable piece of code purpose-built for one specific functionality, e.g. validating an email address instead of implementing its technical specification from scratch. The developer calls the library whenever that functionality is needed.
+- Framework: provides the overall structure of an application, and the developer's code plugs into it -- e.g. a web framework handles receiving HTTP requests and sending responses, while the developer implements the request-processing logic in between.
+- Most frameworks use libraries internally, and an application built on a framework can still bring in its own libraries too.
+- Frameworks are opinionated (they dictate an application's flow and structure); libraries are unopinionated (implementation decisions are left to the developer). Opinionatedness varies between frameworks, but a framework is always more opinionated than a library.
+- Trade-offs:
+  - Framework: speeds up development and enforces best practices/structure, but your code may not always fit that structure, and a library the framework depends on can conflict with one you need.
+  - No framework (libraries only): full freedom to swap any individual library for a better one later, but the developer alone is responsible for choosing compatible libraries and making them work together.
+- Overall, reusing frameworks and libraries means faster development, fewer errors, and more time for the application's essential features.
+
 #### Additional Resources
+
+- [Mozilla Developer Network Expressions and Operators](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators)
+- [Mozilla Developer Network Operator Precedence and Associativity](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence)
+- [JavaScript Primitive Values](https://developer.mozilla.org/en-US/docs/Glossary/Primitive)
+- [ECMA262 Specification](https://tc39.es/ecma262/)
+- [jQuery Official Website](https://jquery.com/)
+- [React Official Website](https://reactjs.org/)
+- [StackOverflow Developer Survey 2021 Most Popular Technologies](https://insights.stackoverflow.com/survey/2021#technology-most-popular-technologies)
+- [Emojis](http://unicode.org/emoji/charts/full-emoji-list.html#1f600)
+- [MDN: Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
 
 ## 3. The Full Stack Using Django
 
