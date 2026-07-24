@@ -164,6 +164,7 @@ Table of Contents:
       - [Exercise: Connect the Little Lemon back-end to MySQL](#exercise-connect-the-little-lemon-back-end-to-mysql)
       - [Exercise: Set up a Little Lemon booking API](#exercise-set-up-a-little-lemon-booking-api)
       - [Exercise: Display the Little Lemon available booking times](#exercise-display-the-little-lemon-available-booking-times)
+      - [Peer-graded Assignment: Little Lemon booking system](#peer-graded-assignment-little-lemon-booking-system)
 
 ## 1. Introduction to the Full Stack
 
@@ -3520,5 +3521,8 @@ for (let i = 10; i < 20; i++) {
   }
 }
 ```
+
+#### Peer-graded Assignment: Little Lemon booking system
+
 
 
