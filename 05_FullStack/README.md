@@ -2584,7 +2584,6 @@ SHOW TABLES;
 
 Folder: [`lab/02-connect-django-mysql/`](./lab/02-connect-django-mysql/) ([Instructions.md](./lab/02-connect-django-mysql/Instructions.md)).
 
-What was done to complete the exercise:
 - Replaced the lab's pipenv setup (`Pipfile`/`Pipfile.lock`) with `uv` (`pyproject.toml` + `uv.lock`), pinning Django and `mysqlclient` as dependencies.
 - Updated `myproject/settings.py`: pointed `DATABASES` at MySQL (`menu_db`, via the `admindjango` user) instead of the SQLite default, and added `'myapp'` to `INSTALLED_APPS`.
 - Verified the setup with `uv run python manage.py check` and `uv run python manage.py makemigrations` -- both ran cleanly against the new configuration (the sample credentials below are placeholders; running `migrate` for real requires an actual MySQL server with that database/user created via the steps below).
@@ -2959,6 +2958,101 @@ fetch(endpoint,
 The same `Authorization` header approach works for authenticated GET calls too.
 
 #### Exercise: Submitting a form with JavaScript
+
+Folder: [`lab/03-javascript-form/`](./lab/03-javascript-form/) ([Instructions.md](./lab/03-javascript-form/Instructions.md)).
+
+- Replaced the lab's pipenv setup (`Pipfile`/`Pipfile.lock`) with `uv` (`pyproject.toml` + `uv.lock`), pinning Django and `mysqlclient` as dependencies.
+- Implemented `myapp/views.py`'s `form_view()`: on POST, validates `MenuForm`, saves a new `Menu` from its `cleaned_data`, and returns a `JsonResponse`; otherwise renders `menu_items.html` with the form (fixing the template name to match the one actually provided in the lab -- the original solution text referenced a nonexistent `booking.html`).
+- Implemented `myapp/templates/menu_items.html`: the Bootstrap-based form markup plus a `<script>` that submits it via `fetch` instead of a full page reload, and shows a success alert.
+- Verified with `uv run python manage.py check` -- Django's system check framework, which inspects models/settings/URLs/apps for configuration problems without touching the database (passed) -- and `makemigrations` (generated `0001_initial.py` for the `Menu` model cleanly).
+
+```bash
+# Install dependencies and create the project's virtual environment
+uv sync
+```
+
+```bash
+# Apply migrations and start the dev server
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+uv run python manage.py runserver
+```
+
+```python
+# myapp/views.py
+from django.shortcuts import render
+from myapp.forms import MenuForm
+from .models import Menu
+from django.http import JsonResponse
+
+
+def form_view(request):
+    form = MenuForm()
+
+    if request.method == 'POST':
+        form = MenuForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+
+            mf = Menu(
+                item_name=cd['item_name'],
+                category=cd['category'],
+                description=cd['description'],
+            )
+
+            mf.save()
+            return JsonResponse({'message': 'success'})
+
+    return render(request, 'menu_items.html', {'form': form})
+```
+
+```html
+<!-- myapp/templates/menu_items.html -->
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+    <title>Menu Items</title>
+</head>
+<body class="bg-light">
+<div class="container pt-4">
+    <h1>Menu Items</h1>
+    <form method="POST" id="form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+</div>
+
+<script>
+    const form = document.getElementById('form');
+    form.addEventListener('submit', submitHandler);
+
+    function submitHandler(e) {
+        e.preventDefault();
+
+        fetch(form.action, { method: 'POST', body: new FormData(form) })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'success') {
+                    alert('Success!');
+                    form.reset();
+                }
+            });
+    }
+</script>
+</body>
+</html>
+```
+
+
 
 ## 4. Production Environments
 
