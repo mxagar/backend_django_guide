@@ -161,9 +161,7 @@ Table of Contents:
       - [How a CDN improves scaling](#how-a-cdn-improves-scaling)
   - [5. Final Project](#5-final-project)
     - [Final project assessment](#final-project-assessment)
-  - [6. Extra: HTMX](#6-extra-htmx)
-  - [7. Extra: Bootstrap](#7-extra-bootstrap)
-  - [8. Extra: UX](#8-extra-ux)
+      - [Exercise: Connect the Little Lemon back-end to MySQL](#exercise-connect-the-little-lemon-back-end-to-mysql)
 
 ## 1. Introduction to the Full Stack
 
@@ -3203,21 +3201,90 @@ def form_view(request):
   - CDN providers typically charge for data transfer, and as traffic grows, the cumulative bandwidth cost can exceed what it would cost to serve files directly from your own infrastructure.
   - Even so, the advantages outweigh these disadvantages by far, so using a CDN is worthwhile whenever possible.
 
-
-
 ## 5. Final Project
 
 ### Final project assessment
 
+#### Exercise: Connect the Little Lemon back-end to MySQL
 
-## 6. Extra: HTMX
+Folder: [`lab/04-connect-littlelemon-db/`](./lab/04-connect-littlelemon-db/) ([Instructions.md](./lab/04-connect-littlelemon-db/Instructions.md)).
 
-[Udemy: HTMX - The Practical Guide](https://www.udemy.com/course/htmx-the-practical-guide/)
+- Replaced the lab's pipenv setup (`Pipfile`/`Pipfile.lock`) with `uv` (`pyproject.toml` + `uv.lock`), pinning Django and `mysqlclient` as dependencies.
+- Updated `myproject/settings.py`: added `'myapp'` to `INSTALLED_APPS`, and pointed `DATABASES` at MySQL (`reservations`, via the `admindjango` user) instead of the SQLite default.
+- The `Booking` model (`myapp/models.py`) and its `ModelForm` (`myapp/forms.py`) were already provided as starter code -- no changes needed there.
+- Verified with `uv run python manage.py check` (passed) and `makemigrations` (generated `0001_initial.py` for the `Booking` model cleanly; as with the earlier MySQL labs, I don't have this machine's MySQL root password, so I couldn't run `migrate` against a live database -- that step still needs your credentials).
 
-## 7. Extra: Bootstrap
+```bash
+# Install dependencies and create the project's virtual environment
+uv sync
+```
 
-[Udemy: Web Design Modern SinglePage Website from Scratch Bootstrap](https://www.udemy.com/course/build-a-responsive-singlepage-website-from-scratch-bootstrap)
+```bash
+# Log into the MySQL shell (add sudo if your OS requires admin privileges)
+mysql -u root -p
+```
 
-## 8. Extra: UX
+```sql
+-- Create the database and confirm it exists
+CREATE DATABASE reservations;
+SHOW DATABASES;
 
-[Udemy: UX - Leyes y Fundamentos Explicados con Ejemplos Practicos](https://www.udemy.com/course/ux-leyes-y-fundamentos-explicados-con-ejemplos-practicos)
+-- Create a dedicated user and grant it privileges (or just use root)
+CREATE USER 'admindjango'@'localhost' IDENTIFIED BY 'XXX';
+GRANT ALL ON *.* TO 'admindjango'@'localhost';
+FLUSH PRIVILEGES;
+exit
+```
+
+```python
+# myproject/settings.py
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'myapp',
+]
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'reservations',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        'USER': 'admindjango',
+        'PASSWORD': 'XXX',
+    }
+}
+```
+
+```python
+# myapp/models.py -- provided starter code
+from django.db import models
+
+
+class Booking(models.Model):
+    first_name = models.CharField(max_length=200)
+    reservation_date = models.DateField()
+    reservation_slot = models.SmallIntegerField(default=10)
+
+    def __str__(self):
+        return self.first_name
+```
+
+```bash
+# Generate and apply the migration for the Booking model
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+```
+
+```sql
+-- Inspect the generated table from the MySQL shell
+USE reservations;
+SHOW TABLES;
+DESCRIBE myapp_booking;
+```
+
+
