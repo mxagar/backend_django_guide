@@ -163,6 +163,7 @@ Table of Contents:
     - [Final project assessment](#final-project-assessment)
       - [Exercise: Connect the Little Lemon back-end to MySQL](#exercise-connect-the-little-lemon-back-end-to-mysql)
       - [Exercise: Set up a Little Lemon booking API](#exercise-set-up-a-little-lemon-booking-api)
+      - [Exercise: Display the Little Lemon available booking times](#exercise-display-the-little-lemon-available-booking-times)
 
 ## 1. Introduction to the Full Stack
 
@@ -3439,3 +3440,85 @@ uv run python manage.py migrate
 <li><a href="{% url 'book' %}">Book</a></li>
 <li><a href="{% url 'bookings' %}">Reservations</a></li>
 ```
+
+#### Exercise: Display the Little Lemon available booking times
+
+Folder: [`lab/06-littlelemon-display-booking/`](./lab/06-littlelemon-display-booking/) ([Instructions.md](./lab/06-littlelemon-display-booking/Instructions.md)).
+
+- Replaced the lab's pipenv setup (`Pipfile`/`Pipfile.lock`) with `uv` (`pyproject.toml` + `uv.lock`), pinning Django and `mysqlclient` as dependencies.
+- Added a `bookings()` API view in `restaurant/views.py` (below the pre-existing `@csrf_exempt` decorator): on POST, checks whether the requested date/slot combination is already booked and saves a new `Booking` if not (or returns an error JSON if it is); on GET, returns all bookings for the requested date (default today) as JSON.
+- Completed the four marked placeholders in `templates/book.html`: the reservation-date input field, a `change` listener on it that re-fetches bookings, the loop rendering existing bookings and collecting reserved slots from the fetched data, and the loop building the reservation-time `<select>` options (disabling already-reserved slots).
+  - The "greater than 10 and less than 20" slot range in the original pseudocode was interpreted inclusively of 10 (`for (let i = 10; i < 20; i++)`), since `reservation_slot`'s model default is `10` -- reading it as strictly exclusive would leave that default slot unreachable from the dropdown.
+- `templates/bookings.html` was already fully implemented in the provided starter code (despite being listed as needing changes in the lab's file list) -- no changes were needed there.
+- Verified with `uv run python manage.py check` (passed), `makemigrations` (correctly reported "No changes detected"), and by rendering `book.html` and `bookings.html` directly to confirm they resolve without template errors. As with the earlier MySQL labs, I don't have this machine's MySQL root password, so running the live server end-to-end and confirming bookings actually persist to MySQL still needs to be done with your credentials.
+
+```bash
+# Install dependencies and create the project's virtual environment
+uv sync
+```
+
+```bash
+# Generate and apply migrations (no-op here, since the model hasn't changed since part two)
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+```
+
+```python
+# restaurant/views.py -- new bookings() API view, added below the existing @csrf_exempt decorator
+@csrf_exempt
+def bookings(request):
+    if request.method == 'POST':
+        data = json.load(request)
+        exist = Booking.objects.filter(reservation_date=data['reservation_date']).filter(
+            reservation_slot=data['reservation_slot']).exists()
+        if not exist:
+            booking = Booking(
+                first_name=data['first_name'],
+                reservation_date=data['reservation_date'],
+                reservation_slot=data['reservation_slot'],
+            )
+            booking.save()
+        else:
+            return HttpResponse("{'error':1}", content_type='application/json')
+
+    date = request.GET.get('date', datetime.today().date())
+    bookings = Booking.objects.all().filter(reservation_date=date)
+    booking_json = serializers.serialize('json', bookings)
+    return HttpResponse(booking_json, content_type='application/json')
+```
+
+```html
+<!-- templates/book.html -->
+<p>
+  <label for="reservation_date">Reservation date:</label>
+  <input type="text" placeholder="Reservation Date" required="" id="reservation_date">
+</p>
+```
+
+```js
+// templates/book.html -- inside the main <script> block
+
+// Part 2: refresh the bookings list whenever the date changes
+document.getElementById('reservation_date').addEventListener('change', function () { getBookings() })
+
+// Part 3 (inside getBookings()'s fetch().then(data => {...})):
+// render each existing booking and track which time slots are already taken
+for (const item of data) {
+  console.log(item.fields)
+  reserved_slots.push(item.fields.reservation_slot)
+  bookings += `<p>${item.fields.first_name} - ${formatTime(item.fields.reservation_slot)}</p>`
+}
+
+// Part 4: build the <select> options for hours 10-19, disabling any already-reserved slot
+let slot_options = '<option value="0" disabled>Select time</option>'
+for (let i = 10; i < 20; i++) {
+  const label = formatTime(i)
+  if (reserved_slots.includes(i)) {
+    slot_options += `<option value=${i} disabled>${label}</option>`
+  } else {
+    slot_options += `<option value=${i}>${label}</option>`
+  }
+}
+```
+
+
