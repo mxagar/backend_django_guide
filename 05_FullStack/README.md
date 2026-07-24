@@ -147,7 +147,15 @@ Table of Contents:
         - [Making Authenticated Calls with Tokens](#making-authenticated-calls-with-tokens)
       - [Exercise: Submitting a form with JavaScript](#exercise-submitting-a-form-with-javascript)
   - [4. Production Environments](#4-production-environments)
+    - [Web server environments](#web-server-environments)
+      - [Server and serverless](#server-and-serverless)
+      - [Virtual machines and containerization](#virtual-machines-and-containerization)
+      - [What does self-hosted, PaaS, SaaS and DBaaS mean?](#what-does-self-hosted-paas-saas-and-dbaas-mean)
+    - [Introduction to cloud computing](#introduction-to-cloud-computing)
+      - [What is cloud computing?](#what-is-cloud-computing)
+    - [Scaling in the cloud](#scaling-in-the-cloud)
   - [5. Final Project](#5-final-project)
+    - [Final project assessment](#final-project-assessment)
   - [6. Extra: HTMX](#6-extra-htmx)
   - [7. Extra: Bootstrap](#7-extra-bootstrap)
   - [8. Extra: UX](#8-extra-ux)
@@ -3052,11 +3060,66 @@ def form_view(request):
 </html>
 ```
 
-
-
 ## 4. Production Environments
 
+### Web server environments
+
+#### Server and serverless
+
+- Deployment is uploading an application's code and data to one or more servers and linking them to a domain, so it can run in production in the cloud.
+  - Manual deployment: uploading everything by hand via FTP (File Transfer Protocol), SFTP (Secure File Transfer Protocol), or tools like `rsync`.
+  - Automated deployment: triggered by a push to a version-controlled repository; build tools then create a build environment matching production, run tests, and -- if everything passes -- connect to the server and upload the code.
+- CI/CD (continuous integration / continuous deployment) are the two halves of that automated process:
+  - CI: imitating the development environment and running tests to confirm the code works.
+  - CD (continuous deployment, or continuous delivery): the actual uploading step. Without a test runner, this half alone is just "continuous deployment," not full CI/CD.
+  - Typical workflow: code -> version control -> build -> test -> deploy, using tools like Jenkins, CircleCI, or GitHub Actions.
+- Hosting an application and database follows one of two approaches, server or serverless -- both actually rely on physical servers under the hood, but differ significantly in how deployment and management work.
+  - Server approach: hosting companies offer dedicated or virtual servers.
+    - Dedicated server: a computing unit for your exclusive use, with full access to add RAM/storage as needed -- but wasteful (and costly) if the application doesn't need that much power.
+    - Virtual server: hypervisor software splits a dedicated server into separate virtual machines, each assignable fixed resources or able to share idle capacity. Advantage: each VM can run a different OS/toolset without conflicts (e.g. one for app code, another for the database). Disadvantage: you manage everything yourself.
+  - Serverless approach: no manual configuration of storage, CPU, memory, or environment -- the provider handles it all.
+    - Tightly integrated with version control: a push triggers an automatic build, test, and deploy, ending with a URL to the hosted application and database.
+    - Billed by actual resource usage (compute, memory, storage, bandwidth) rather than fixed capacity.
+    - Downsides: unmonitored usage can spike monthly bills, and vendor lock-in -- serverless conventions aren't universal, so moving to another vendor requires code changes.
+
+#### Virtual machines and containerization
+
+- Virtual machines (VMs) and containers both host and isolate applications, but work very differently.
+- Hypervisors: virtualization software that splits a dedicated server into VMs, each running its own OS and applications like an individual computer, with its own IP address to communicate with the others. Two types:
+  - Type 1 (bare-metal): a software layer working directly with server hardware -- more efficient resource management and faster applications thanks to dedicated resources, but more complex to set up. Example: KVM (open source).
+  - Type 2: runs on top of an existing OS -- simpler to manage (a simpler console, no direct hardware handling), but slower than Type 1. Example: Oracle VirtualBox (open source, free).
+- Resource sharing between VMs on the same dedicated server:
+  - Dedicated allocation: resources split into fixed shares per VM (e.g. a 3 TB / 12 GB RAM / 6-core server split evenly across 3 VMs, each getting 1 TB / 4 GB / 2 cores). Guarantees availability, but any unused portion of a VM's share sits idle and can't be borrowed by other VMs, wasting capacity.
+  - Shared allocation: VMs use their assigned resources plus draw on extra shared capacity when available -- useful when a single machine's resources aren't quite enough. This is monitored, though: sustained over-usage counts as abuse and can get a server terminated on a public provider.
+- Containerization removes the hardware/OS setup step entirely: package an application and its dependencies into a container image, then run it via a container engine (e.g. Docker) on any OS or hardware.
+  - A container can hold one or multiple applications with their dependencies, or an application can be split across multiple containers coordinated by the container engine -- best practice is to keep containers lean, one process/application each.
+  - Since containers don't run their own OS, they're smaller, faster, more portable, and easier to manage than VMs.
+- Key container terms:
+  - Pod: a group of tightly coupled containers sharing resources to solve one problem together.
+  - Node: the physical or virtual machine running one or more pods.
+  - Cluster: multiple pods and nodes, whether related or fully independent.
+  - Container orchestration: managing, deploying, networking, and scaling containers -- Kubernetes (K8s) is the most widely used solution.
+
+#### What does self-hosted, PaaS, SaaS and DBaaS mean?
+
+- Self-hosted: creating and fully managing your own public or private cloud network yourself -- expensive, high-effort, and costly to set up, so not a popular default choice. Still necessary when dealing with sensitive data, needing extra security, or having custom requirements public cloud providers can't meet.
+- IaaS (infrastructure as a service): a provider offers on-demand infrastructure units -- load balancers, servers, compute units, storage, virtualization -- to build the infrastructure your application needs. You control everything, can scale up or down anytime, and pay only for what you use. Popular IaaS: AWS EC2, Google Compute Engine, DigitalOcean, Azure virtual machines.
+- PaaS (platform as a service): a managed solution providing everything needed to develop, build, host, and run an application, exposing services like databases, caching, and file storage as APIs. You don't manage servers, and since these common components are already built and managed for you, you can focus on the application's core logic and growth instead. Meta is one example (an API for building apps for Facebook users); other popular PaaS: AWS Elastic Beanstalk, Heroku, Cloudflare, Google App Engine, Microsoft Azure.
+- SaaS (software as a service): an application hosted on the cloud and used online under an on-demand or subscription pricing model -- most premium/freemium web applications fall into this category.
+- DBaaS (database as a service): a managed database solution (SQL, NoSQL, etc.) with on-demand pricing, handling setup, management, optimization, and scaling for you instead of doing it manually.
+
+### Introduction to cloud computing
+
+#### What is cloud computing?
+
+
+
+### Scaling in the cloud
+
+
 ## 5. Final Project
+
+### Final project assessment
 
 
 ## 6. Extra: HTMX
