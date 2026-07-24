@@ -153,6 +153,8 @@ Table of Contents:
       - [What does self-hosted, PaaS, SaaS and DBaaS mean?](#what-does-self-hosted-paas-saas-and-dbaas-mean)
     - [Introduction to cloud computing](#introduction-to-cloud-computing)
       - [What is cloud computing?](#what-is-cloud-computing)
+      - [Key elements of cloud computing](#key-elements-of-cloud-computing)
+      - [Networking in the cloud](#networking-in-the-cloud)
     - [Scaling in the cloud](#scaling-in-the-cloud)
   - [5. Final Project](#5-final-project)
     - [Final project assessment](#final-project-assessment)
@@ -3112,7 +3114,43 @@ def form_view(request):
 
 #### What is cloud computing?
 
+- Cloud computing is an on-demand solution that hosts applications on the internet, making them accessible to everyone, and lets people use a provider's computing resources to build solutions quickly.
+- Motivation: buying (or buying more) physical computers to speed up a task -- e.g. an 8-hour job spread across several machines -- leaves that hardware sitting idle once the job is done, an unrealistic expense. Cloud computing avoids this: rent powerful, on-demand computing units (the latest CPUs, GPUs, memory, storage) for only as long as needed, paying just for what's used, with no physical hardware to buy.
+- Three types of cloud infrastructure suit different problems:
+  - Public cloud: open to everyone, pay-as-you-go; the provider hosts and maintains the servers and network, and resources can be used and discarded anytime. Benefits: mostly managed (more time to focus on the application), on-demand pricing, quick availability, and scalability (adding nodes to balance load, with some providers auto-scaling -- deploying extra nodes under traffic spikes and removing them once load normalizes). Cheap to start, but costs grow as usage grows.
+  - Private cloud: privately hosted and not publicly accessible, restricted to authorized users -- suited to applications handling sensitive data that need more security. A tailored solution with fewer features than public providers, but with better security, control, scalability, and reliability; costly to start since everything is self-hosted and self-managed.
+  - Hybrid cloud: mixes private and public cloud, with the public portion connected to the private portion so the application works as a whole. Cheaper than a fully private cloud since it leverages the public cloud, but complex and time-consuming to set up.
 
+#### Key elements of cloud computing
+
+- Computing units: on-demand virtual machines to host a web application or run a program, chosen mainly by processor cores and memory, resizable up or down as needed.
+  - Complex workloads (data analysis, machine learning) can pick from a range of core/memory combinations, and some providers even offer GPUs.
+  - Billed only for actual usage: deploy a powerful unit when needed, run it as long as required, then delete it -- with your choice of OS and applications installed on it.
+  - Caveat: some computing units use volatile storage, wiped on reboot, so pair them with a permanent storage solution when persistence matters.
+- Storage:
+  - Regular purchasable storage (GB/TB) works like a hard disk, but with near-zero risk of data loss from hardware failure, since providers automatically back it up to redundant storage.
+  - Object storage offers just an API to upload/download files of any size, and can share a file via a unique URL with a timestamp signature that expires after a set duration.
+- Databases: most providers offer SQL, NoSQL, and time-series options.
+  - SQL examples: MySQL, MariaDB, PostgreSQL.
+  - NoSQL examples: MongoDB, Cassandra, DynamoDB.
+  - Time-series examples: InfluxDB, Prometheus.
+  - Fully managed database solutions, compatible with these popular engines (no application code changes needed), remove the burden of manual tuning and scaling -- they scale automatically to handle growing traffic.
+  - Some providers also offer in-memory databases (great for caching or very fast operations) and specialized solutions for big data; database nodes (single or multiple) can be deployed in seconds and linked to an application.
+- Machine learning normally needs powerful, expensive compute and GPUs for data modeling and training; cloud computing's on-demand pricing makes it much more affordable, with providers offering current hardware/software for machine learning, natural language processing (NLP), voice processing, and similar workloads.
+- Overall, cloud computing lets developers spend more time on application development instead of managing hardware and infrastructure.
+
+#### Networking in the cloud
+
+- Public vs. private network: computing units on a public network are reachable via IP address or URL; units on a private network are not publicly reachable, only accessible via the management console. Public communication can span different networks, but private communication requires being on the same network.
+  - Example: a load balancer sits in front of the infrastructure and is connected to multiple web servers -- it's connected to the public, while the web servers behind it can reach it either publicly or privately depending on whether they share a network with it.
+- IP address: a unique identifier locating a machine on the internet or a private network, using one of two systems:
+  - IPv4: four period-separated numbers from 0-255 (e.g. Meta's `69.63.176.13`), max 15 characters, ranging from `0.0.0.0` to `255.255.255.255` -- a maximum of ~4.29 billion addresses, which is running out as demand grows.
+  - IPv6: eight colon-separated groups of four hexadecimal digits (e.g. Facebook's `2a03:2880:2130:cf05:face:b00c:0:1`, where "face" and "b00c" are valid hex values) -- invented to solve IPv4's scarcity, offering roughly 3.4 x 10^38 addresses; still being adopted worldwide.
+  - Certain IPv4 ranges are reserved for private networks only: `10.0.0.0`-`10.255.255.255`, `172.16.0.0`-`172.31.255.255`, and `192.168.0.0`-`192.168.255.255`.
+  - A single device can hold multiple IP addresses, including both IPv4 and IPv6 at once.
+- DNS (Domain Name System): public servers that map domain names to IP addresses, so people don't have to remember the latter. A browser request to a domain queries the DNS server for its IP, then connects to that machine.
+- Bandwidth: data transferred to/from a server, split into incoming/ingress (e.g. form submissions, file uploads) and outgoing/egress (e.g. page or API responses, downloads).
+- Uplink and downlink: on a server, the uplink is the network path used to send data out, and the downlink is the network path used to receive incoming data.
 
 ### Scaling in the cloud
 
