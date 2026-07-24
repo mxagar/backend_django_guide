@@ -123,7 +123,29 @@ Table of Contents:
         - [Project-level `urls.py`](#project-level-urlspy)
     - [Django and MySQL](#django-and-mysql)
       - [Recap: What you know about Databases and MySQL](#recap-what-you-know-about-databases-and-mysql)
+      - [Recap: Models and migrations](#recap-models-and-migrations)
+        - [ORM and CRUD Operations in Models](#orm-and-crud-operations-in-models)
+        - [Using Raw SQL with `raw()`](#using-raw-sql-with-raw)
+        - [Model Relationships](#model-relationships)
+        - [Migrations](#migrations)
+        - [History of Changes](#history-of-changes)
+        - [Logic Behind Migrations](#logic-behind-migrations)
+      - [Configuring Django to connect to MySQL](#configuring-django-to-connect-to-mysql)
+      - [Exercise: Connect Django to MySQL](#exercise-connect-django-to-mysql)
     - [Django and the Front End](#django-and-the-front-end)
+      - [Recap: What you know about forms and ModelForms](#recap-what-you-know-about-forms-and-modelforms)
+        - [Plain HTML Form](#plain-html-form)
+        - [The Form Class](#the-form-class)
+        - [ModelForm](#modelform)
+        - [Form Field Types](#form-field-types)
+      - [Fetching data using JavaScript](#fetching-data-using-javascript)
+      - [Querying APIs using JavaScript](#querying-apis-using-javascript)
+        - [Native Solution vs. Third-Party Libraries](#native-solution-vs-third-party-libraries)
+        - [Making a GET Call](#making-a-get-call)
+        - [POST, PUT, and PATCH Calls](#post-put-and-patch-calls)
+        - [DELETE Calls](#delete-calls)
+        - [Making Authenticated Calls with Tokens](#making-authenticated-calls-with-tokens)
+      - [Exercise: Submitting a form with JavaScript](#exercise-submitting-a-form-with-javascript)
   - [4. Production Environments](#4-production-environments)
   - [5. Final Project](#5-final-project)
   - [6. Extra: HTMX](#6-extra-htmx)
@@ -2305,14 +2327,638 @@ urlpatterns = [
     CREATE DATABASE my_database;
     SHOW DATABASES;
     ```
-  - Install a database driver -- Django recommends `mysqlclient` -- to translate Python queries into SQL.
+  - Install a database driver -- Django recommends `mysqlclient` -- to translate Python queries into SQL. It's a C extension, so it needs MySQL's client dev headers installed first:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install default-libmysqlclient-dev pkg-config
+# macOS (Homebrew)
+brew install mysql-client pkg-config
+# Fedora/RHEL
+sudo dnf install mysql-devel pkg-config gcc
+
+# Then install the package (Windows usually has precompiled wheels, so headers aren't needed there)
+uv add mysqlclient
+```
+
   - Configure the connection under `DATABASES` in `settings.py`: `CONN_MAX_AGE` sets how long a connection stays open, and credentials can live in a separate MySQL options file outside the project (e.g. `/etc/mysql/`) rather than hardcoded in `settings.py`, which is safer for production.
   - Migrations create tables from models, but the database itself must be created manually first, with a connection that has sufficient permissions.
 - Security: use strong credentials and roles -- leaked database credentials are a major risk. Despite the setup effort, Django + MySQL is an industry-standard, scalable combination for full stack apps.
 
+#### Recap: Models and migrations
+
+- Models are the M in Django's MVT (model, view, template) architecture, widely considered one of Django's best features.
+- ORM (object-relational mapping) lets you build SQL queries using an object-oriented language like Python, enabling fast turnaround in production environments with frequent updates.
+
+##### ORM and CRUD Operations in Models
+
+- The ORM sits as a layer between the application and the database.
+- Each model is a Python class, a subclass of `django.db.models.Model`; each attribute represents a database field/column, and models support CRUD (create, read, update, delete) operations.
+- Models are defined in an app's `models.py` file. Compare the SQL and the corresponding Django model for a `User` table:
+
+```sql
+CREATE TABLE user (
+    "id" serial NOT NULL PRIMARY KEY,
+    "first_name" varchar(30) NOT NULL,
+    "last_name" varchar(30) NOT NULL
+);
+```
+
+```python
+from django.db import models
+
+class User(models.Model):
+    first_name = models.CharField(max_length=30)
+    last_name = models.CharField(max_length=30)
+```
+
+- The `first_name`/`last_name` columns map directly to model attributes; `id` is auto-generated during migrations. Methods like `CharField` are "form fields" that determine an attribute's data type.
+
+CRUD examples, Django ORM alongside the equivalent SQL:
+
+```python
+# Create
+new_user = User(id=1, first_name="John", last_name="Jones")
+new_user.save()
+```
+```sql
+INSERT INTO user (id, first_name, last_name) VALUES (1, 'John', 'Jones');
+```
+
+```python
+# Update
+user = User.objects.get(id=1)
+user.last_name = "Smith"
+user.save()
+```
+```sql
+UPDATE user
+SET last_name = 'Smith'
+WHERE id = 1;
+```
+
+```python
+# Delete
+user = User.objects.get(id=1)
+user.delete()
+```
+```sql
+DELETE FROM user WHERE id = 1;
+```
+
+- Django's ORM supports many more SQL query options beyond these basics -- see Django's official documentation for the full reference.
+
+##### Using Raw SQL with `raw()`
+
+Django processes data as `QuerySet` objects, but you can also run SQL directly via `raw()`. From the Django shell:
+
+```python
+people = Person.objects.raw('SELECT id, first_name FROM myapp_person')
+
+for p in people:
+    print(p.first_name, p.last_name)
+# e.g. prints: Jesse Rogers
+```
+
+##### Model Relationships
+
+Model relationships come in three types:
+- One-to-one: a primary key in one model maps to exactly one record in a related model.
+- One-to-many: one object in a model can be associated with one or more objects in another (e.g. one subject can have many teachers who teach it).
+- Many-to-many: multiple objects in one model associate with multiple objects in another.
+
+These mirror table relationships in SQL, built primarily around foreign keys -- represented in Django via the `ForeignKey` field.
+
+Many-to-many example:
+
+```python
+class Teacher(models.Model):
+    teacherID = models.IntegerField(primary_key=True)
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+
+class Subject(models.Model):
+    subjectcode = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=30)
+    credits = models.IntegerField()
+    teacher = models.ManyToManyField(Teacher)
+```
+
+One-to-many example, using `ForeignKey`:
+
+```python
+class Subject(models.Model):
+    subjectcode = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=30)
+    credits = models.IntegerField()
+
+class Teacher(models.Model):
+    teacherID = models.IntegerField(primary_key=True)
+    subjectcode = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    qualification = models.CharField(max_length=50)
+    email = models.EmailField(max_length=50)
+```
+
+##### Migrations
+
+Once a model is defined in `models.py`, migrations are the next, most important step for applying it to the database.
+
+- Migrations let Django create and change the models that represent a database schema; they're tied to models and stored as files in each app's `migrations/` folder.
+- Without an ORM, adding a column (e.g. `City` to the `User` table) would require logging into the database and running an SQL `ALTER TABLE` statement. With Django, you just add the attribute to the model and run the migration scripts instead.
+
+Migrating is a two-step process:
+
+```bash
+# 1. Create a migration from model changes
+python3 manage.py makemigrations
+
+# 2. Apply the migration to the database
+python3 manage.py migrate
+```
+
+- Beyond applying model changes, migrations also sync and version-control the database schema.
+
+##### History of Changes
+
+- Migrations track a history of schema changes over time, so multiple users/databases stay in sync -- a developer changes the model, then applies it via a migration script.
+- This also avoids repetition: instead of manually writing SQL for every model change, migrations generate it for you.
+- The history is stored as files in each app's `migrations/` folder. Running:
+
+```bash
+python3 manage.py showmigrations
+```
+
+might return something like:
+
+```
+[X] 0001_initial
+[X] 0002_logentry_remove_menu_items
+[X] __init__
+[X] 0001_initial
+[X] 0001_alter_menu_items
+```
+
+- Django names migration files based on the action performed or a timestamp.
+- `[X]` marks a migration that has been created (via `makemigrations`) and applied (via `migrate`); Django won't reapply a migration to the same database unless it detects further changes.
+
+##### Logic Behind Migrations
+
+Django tracks migrations in a `django_migrations` table. Every time a migration runs:
+- The table is updated with the latest changes.
+- It's checked before the migration script runs.
+- Django confirms which scripts have already run and which still need to be applied.
+
+A typical migration file looks like:
+
+```python
+dependencies = [
+    ('LittleLemonDRF', '0001_initial'),
+]
+
+operations = [
+    migrations.CreateModel(
+        name='table_customers',
+        fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+            ('first_name', models.CharField(max_length=200)),
+        ],
+    ),
+]
+```
+
+- `dependencies` lists prior migrations that must be applied first; `operations` lists the actions performed in this migration.
+
+#### Configuring Django to connect to MySQL
+
+- MySQL is a popular, performant, open-source database engine suited to projects of any scale.
+- Install `mysqlclient`, the package Django needs to talk to MySQL, inside your project's virtual environment.
+- Connect to the MySQL server from the terminal, adjusting the command if using a non-default host/port, then create and verify the database.
+- Update `settings.py` to point `DATABASES` at MySQL instead of the SQLite default, filling in the engine, database name, host, user, password, and (if non-default) port.
+  - Never use the root user in production -- it has full access to every database, so misuse can cause serious damage.
+- Run migrations to confirm the connection works, then check inside the MySQL shell that Django created the expected tables.
+
+```bash
+# Install the MySQL driver Django needs -- uv adds it to pyproject.toml and manages the virtual environment
+uv add mysqlclient
+
+# Connect to the MySQL server (adjust host/port if not using the defaults)
+mysql -u root -p
+mysql -u root -p -P 3307        # non-default port (3306 is the default)
+mysql -u root -h 127.0.0.1 -p   # non-default host
+```
+
+```sql
+-- Inside the MySQL shell: create and verify the database
+CREATE DATABASE little_lemon;
+SHOW DATABASES;
+exit
+```
+
+```python
+# settings.py: point DATABASES at MySQL instead of the SQLite default
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',  # was 'django.db.backends.sqlite3'
+        'NAME': 'little_lemon',
+        'HOST': 'localhost',       # or e.g. '127.0.0.1'
+        'USER': 'root',            # never use root in production
+        'PASSWORD': 'yourpassword',
+        'PORT': '3307',            # only needed if not using the default 3306
+    }
+}
+```
+
+```bash
+# Apply migrations to confirm the connection works
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+```
+
+```sql
+-- Back in the MySQL shell: confirm Django created the tables
+USE little_lemon;
+SHOW TABLES;
+```
+
+#### Exercise: Connect Django to MySQL
+
+Folder: [`lab/02-connect-django-mysql/`](./lab/02-connect-django-mysql/) ([Instructions.md](./lab/02-connect-django-mysql/Instructions.md)).
+
+What was done to complete the exercise:
+- Replaced the lab's pipenv setup (`Pipfile`/`Pipfile.lock`) with `uv` (`pyproject.toml` + `uv.lock`), pinning Django and `mysqlclient` as dependencies.
+- Updated `myproject/settings.py`: pointed `DATABASES` at MySQL (`menu_db`, via the `admindjango` user) instead of the SQLite default, and added `'myapp'` to `INSTALLED_APPS`.
+- Verified the setup with `uv run python manage.py check` and `uv run python manage.py makemigrations` -- both ran cleanly against the new configuration (the sample credentials below are placeholders; running `migrate` for real requires an actual MySQL server with that database/user created via the steps below).
+
+```bash
+# Create the database's virtual environment and install dependencies (Django, mysqlclient)
+uv sync
+```
+
+```bash
+# Step 1: log into the MySQL shell (add sudo if your OS requires admin privileges)
+mysql -u root -p
+```
+
+```sql
+-- Step 2-3: create and verify a database
+CREATE DATABASE menu_db;
+SHOW DATABASES;
+```
+
+```sql
+-- Step 6-7: create a second database, as practice, from the VS Code terminal
+CREATE DATABASE menu_items;
+SHOW DATABASES;
+```
+
+```sql
+-- Step 8-10: create a dedicated user and grant it privileges (or just use root)
+CREATE USER 'admindjango'@'localhost' IDENTIFIED BY 'employee@123!';
+GRANT ALL ON *.* TO 'admindjango'@'localhost';
+FLUSH PRIVILEGES;
+exit
+```
+
+```python
+# Step 12-13: myproject/settings.py -- connect to MySQL and register the app
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'menu_db',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        'USER': 'admindjango',
+        'PASSWORD': 'employee@123!',
+    }
+}
+
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'myapp',
+]
+```
+
+```bash
+# Step 14: apply the migrations against the MySQL database
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+```
+
 ### Django and the Front End
 
+#### Recap: What you know about forms and ModelForms
 
+- Forms are the primary mechanism for user interactivity and data exchange on the web, e.g. social media comments or restaurant app reviews -- not just a minor front-end detail.
+- Beyond plain HTML/CSS/JS, Django offers two easier alternatives for generating forms: the Form API and the ModelForm class, which auto-generate HTML form elements from a Python class. The most common submission method is a POST request, handled server-side.
+- Plain HTML forms work but get tedious and error-prone at scale: every input's `name`/`id` must manually match what the back-end code expects, and complex/conditional forms compound this.
+
+##### Plain HTML Form
+
+- A basic HTML form to submit a name: a `label` describes the input, a `text` input captures the name, and a `submit` input triggers a POST request to the view named in the `action` attribute.
+
+```html
+<form action="/order/" method="post">
+  <label for="name">Name:</label>
+  <input type="text" name="name" id="name">
+  <input type="submit" value="Send Name">
+</form>
+```
+
+- This works, but every `name`/`id` here must match what the receiving view expects to read -- a manual, error-prone link that gets worse as forms grow larger or more conditional.
+
+##### The Form Class
+
+- A Django `Form` class defines the expected attributes once, and both renders the HTML and validates incoming data against it -- no more manually matching input names to server-side code.
+- Example: the same name-submission form, as a `Form` class.
+
+```python
+from django import forms
+
+class NameForm(forms.Form):
+    your_name = forms.CharField(max_length=100)  # renders as an HTML text input, validated to 100 chars
+```
+
+- The mapping from the Python class to rendered HTML happens in the view: it creates a `NameForm` instance and passes it into the template context under the key `form` -- that key is what `{{ form }}` refers to in the template.
+
+```python
+# views.py
+def order_view(request):
+    form = NameForm(request.POST or None)  # the same NameForm instance is used to render AND validate
+    if form.is_valid():
+        name = form.cleaned_data['your_name']
+        # ... process name ...
+    return render(request, 'order.html', {'form': form})
+```
+
+- The template then renders that `form` object -- `{{ form }}` expands to the HTML for every field declared on `NameForm` (here, just `your_name`), which is how the class ends up generating the equivalent HTML automatically:
+
+```html
+<!-- order.html -->
+<form action="/order/" method="post">
+  {% csrf_token %}
+  {{ form }}
+  <input type="submit" value="Send Name">
+</form>
+```
+
+##### ModelForm
+
+- `ModelForm` goes a step further than `Form`: since submitted data usually needs to be persisted, it binds a form directly to a model so the data can be saved straight to the database.
+- Creating a `ModelForm` involves three steps: create the model, create the `ModelForm` (via a `Meta` class referencing that model instead of a separate form class), and configure the view to process the POST data.
+- Example: a work-hours logging form for restaurant employees.
+
+```python
+# models.py
+from django.db import models
+
+class Logger(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    time_log = models.TimeField()
+```
+
+```python
+# forms.py -- by convention, user-defined form classes live in forms.py inside the app
+from django import forms
+from .models import Logger
+
+class LogForm(forms.ModelForm):
+    class Meta:
+        model = Logger
+        fields = '__all__'
+```
+
+```python
+# views.py -- an instance of LogForm handles validating and saving POST data
+def form_view(request):
+    form = LogForm(request.POST or None)
+    if form.is_valid():
+        form.save()  # persists directly to the Logger table
+    return render(request, 'log_form.html', {'form': form})
+```
+
+```html
+<!-- log_form.html -->
+<form method="post">
+  {% csrf_token %}
+  {{ form }}
+  <input type="submit" value="Log Hours">
+</form>
+```
+
+- Once migrations are applied and the server runs, submitted form data is processed by the view and saved to the database.
+
+##### Form Field Types
+
+A form's attributes are field class objects, each corresponding to the HTML element it renders as. Frequently used ones:
+- `CharField` -- HTML text input.
+- `IntegerField` -- like `CharField`, but only accepts integers.
+- `FloatField` -- text input validated as a float.
+- `FileField` -- file upload input.
+- `EmailField` -- a `CharField` that validates the text as a valid email address.
+- `ChoiceField` -- emulates an HTML `<select>` element.
+
+Choosing the right form/field type matters for both user experience and efficient data processing.
+
+#### Fetching data using JavaScript
+
+- Combining JavaScript and Django in a full stack app generally follows one of two approaches:
+  - Client-first: build the front end first with JavaScript/frameworks like React (templating, URL routing), then bring in Django mainly for database interaction and utility apps like DRF (Django REST Framework).
+  - Server-first: build the Django side first, then fill in the gaps with JavaScript, AJAX, and simple event handling -- the approach a back-end developer tends to prefer.
+- Native JavaScript alone (no extra library) -- `addEventListener` plus the `fetch` API -- is enough to submit a form without reloading the page.
+- Example, following the server-first approach: a comment form for the Little Lemon food blog that POSTs to a Django view and saves each comment to MySQL via a model, without a full page refresh.
+
+```python
+# models.py
+from django.db import models
+
+class UserComments(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    comment = models.CharField(max_length=500)
+```
+
+```python
+# forms.py
+from django import forms
+from .models import UserComments
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = UserComments
+        fields = '__all__'
+```
+
+```python
+# views.py -- renders the form (GET) and processes/saves it (POST)
+from django.shortcuts import render
+from django.http import JsonResponse
+from .models import UserComments
+from .forms import CommentForm
+
+def form_view(request):
+    form = CommentForm()
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data  # cleaned_data normalizes the validated form data
+            uc = UserComments()
+            uc.first_name = cd['first_name']
+            uc.last_name = cd['last_name']
+            uc.comment = cd['comment']
+            uc.save()
+            # JsonResponse, not render, so the fetch() call below can read a JSON success message
+            return JsonResponse({'message': 'Comment submitted successfully!'})
+    return render(request, 'blog.html', {'form': form})
+```
+
+```html
+<!-- blog.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Little Lemon Food Blog</title>
+</head>
+<body>
+    <h1>Comments</h1>
+    <form id="form" action="{% url 'blog' %}" method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        const form = document.getElementById('form');  // access the form element from the HTML
+        form.addEventListener('submit', submitHandler);
+
+        function submitHandler(event) {
+            event.preventDefault(); // stop the default full-page form submission
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form), // includes the CSRF token automatically
+            })
+                .then((response) => response.json()) // parse the JsonResponse from the view
+                .then((data) => {
+                    alert(data.message);
+                    form.reset(); // clear the form for the next comment
+                });
+        }
+    </script>
+</body>
+</html>
+```
+
+- End to end: submitting the form fires `submitHandler`, which POSTs the form data via `fetch` instead of reloading the page; the Django view validates and saves it to the `UserComments` model (visible as a table in the MySQL database), then responds with JSON that the script turns into a success alert.
+
+#### Querying APIs using JavaScript
+
+JavaScript isn't just for client-side programming and interactivity -- it's also commonly used to send and receive data from an API, including from back-end code. This section covers fetching and sending data to an API using the native `fetch` function.
+
+##### Native Solution vs. Third-Party Libraries
+
+When fetching data from APIs, the options are the native `fetch` function, the older `XMLHttpRequest` object, or a library like jQuery or Axios. Some context:
+
+- Fetching data with `XMLHttpRequest` was historically difficult, requiring a lot of code for even a simple request -- at the time, there was no alternative.
+- Third-party libraries emerged as wrappers around `XMLHttpRequest`, providing a simpler interface, and quickly became popular.
+- Later, JavaScript introduced the native `fetch` API: powerful, simple, and easy to use.
+- Even so, `fetch` still requires manually writing extra code for error checking and header processing, which is why libraries like Axios remain popular -- they provide a simpler interface and handle more of this automatically.
+- Both the native `fetch` API and Axios are viable choices for fetching data from APIs.
+
+The rest of this section covers making GET, POST, PUT, PATCH, and DELETE calls with `fetch`, plus authenticated calls using tokens.
+
+##### Making a GET Call
+
+A GET call with `fetch` just needs the call itself, converting the response to JSON (or text), then processing it however you like. Example, calling the menu-items endpoint of the Little Lemon restaurant app (from the APIs course):
+
+```js
+fetch('http://127.0.0.1:8000/api/menu-items')
+    .then(response => response.json())
+    .then(data => {
+        console.log(data)
+    })
+```
+
+##### POST, PUT, and PATCH Calls
+
+To make a POST call with data via `fetch`, convert the JSON payload to a string with `JSON.stringify()` and pass it as `body` in the second argument to `fetch`. It's also good practice to add `Accept` and `Content-Type` headers to API calls.
+
+Example: creating a new menu item with a POST call to the `http://127.0.0.1:8000/api/menu-items` endpoint.
+
+```js
+const payload = {
+    "title": "Ambrosia Ice cream",
+    "price": 5.00,
+    "inventory": 100
+}
+const endpoint = 'http://127.0.0.1:8000/api/menu-items'
+fetch(endpoint,
+    {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data)
+    })
+```
+
+For PUT and PATCH calls, just change the `method` from `'POST'` to `'PUT'` or `'PATCH'` -- everything else stays the same. These requests typically operate on a single resource, identified by an ID in the URL.
+
+##### DELETE Calls
+
+For DELETE calls, change the method to `'DELETE'`; in most cases, no body is passed. Example, a DELETE call to the menu-items endpoint:
+
+```js
+const endpoint = 'http://127.0.0.1:8000/api/menu-items/17'
+fetch(endpoint,
+    {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data)
+    })
+```
+
+##### Making Authenticated Calls with Tokens
+
+For authenticated API calls using bearer tokens, pass an `Authorization` header in the second argument to `fetch`. Example: an authenticated POST call, with the bearer token passed in the headers.
+
+```js
+const endpoint = 'http://127.0.0.1:8000/api/menu-items/17'
+const token = "Some token"
+fetch(endpoint,
+    {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data)
+    })
+```
+
+The same `Authorization` header approach works for authenticated GET calls too.
+
+#### Exercise: Submitting a form with JavaScript
 
 ## 4. Production Environments
 
