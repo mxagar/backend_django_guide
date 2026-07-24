@@ -156,6 +156,9 @@ Table of Contents:
       - [Key elements of cloud computing](#key-elements-of-cloud-computing)
       - [Networking in the cloud](#networking-in-the-cloud)
     - [Scaling in the cloud](#scaling-in-the-cloud)
+      - [What is scaling?](#what-is-scaling)
+      - [Load balancing](#load-balancing)
+      - [How a CDN improves scaling](#how-a-cdn-improves-scaling)
   - [5. Final Project](#5-final-project)
     - [Final project assessment](#final-project-assessment)
   - [6. Extra: HTMX](#6-extra-htmx)
@@ -3153,6 +3156,53 @@ def form_view(request):
 - Uplink and downlink: on a server, the uplink is the network path used to send data out, and the downlink is the network path used to receive incoming data.
 
 ### Scaling in the cloud
+
+#### What is scaling?
+
+- Scalability is resizing a production infrastructure to withstand load as it rises or falls -- whether a sudden spike (e.g. a viral feature, a successful campaign) or steady growth as an application gains users. The web server and database server are usually the main bottlenecks that need to scale.
+- Under load, servers typically fail for one of two reasons: insufficient resources (CPU, RAM), or a misconfiguration that prevents using the resources already available.
+- Vertical scaling: adding more storage, RAM, or processor cores to a VM (virtual machine), or upgrading the physical processor. Quicker and simpler to configure than horizontal scaling, but limited -- a physical machine's hardware configuration caps how much you can add, and once that limit is hit, scaling stops; adding hardware this way can also get expensive over time.
+- Horizontal scaling: adding nodes/virtual servers as load rises, and removing them as it falls -- e.g. if one web server handles 2,000 requests/minute, reaching 10,000/minute needs 4 extra nodes (5 total). Databases scale horizontally via replication or clustering to add/remove database nodes as needed. More efficient, cost-effective, and effectively infinitely scalable, but configuring the infrastructure for it takes real time and effort -- it isn't plug-and-play.
+- Auto-scaling: some cloud providers automatically add or remove computing nodes, memory, and other resources to keep an application healthy under changing load, with no manual intervention -- saving time and improving uptime.
+
+#### Load balancing
+
+- Load balancers scale an application by distributing load across multiple nodes, either round-robin or based on node health.
+- Web server load balancing: multiple web servers running the same application code are linked to a load balancer, which accepts incoming HTTP requests and distributes them.
+  - Round-robin: distributes requests equally across all servers -- but since requests vary in processing time, a server already handling a slow request can still be sent more, causing a backlog.
+  - Health-based: monitors server load and routes new requests only to servers that are available and not already loaded -- performs better than round-robin.
+- A reverse proxy can serve static files (HTML, CSS, JS, text, images) itself, forwarding only application-specific URLs and API calls to the web server -- widely used to reduce the number of requests the web server has to handle.
+- Static assets can be offloaded further to an external CDN (content delivery network), which serves multiple copies from the data center nearest the client, speeding up page rendering.
+- Database scaling is more complex than web server scaling; vertical scaling sometimes helps, but horizontal scaling sustains load better, via two common techniques:
+  - Sharding: splitting a large database into chunks, each held by a separate server, with an extra database tracking the chunks for lookups.
+  - Master-slave replication: the database is replicated across multiple servers -- a master server handles data modifications and propagates changes to slave servers, while read requests are distributed evenly across the slaves, letting multiple servers share the query load while staying healthy.
+- Many cloud providers offer managed database services that balance load internally and handle massive data volumes without going down, freeing developers to focus on development and business growth instead of infrastructure/DevOps work.
+- The techniques above are public load balancing, dealing directly with external client requests. Private load balancing is sometimes needed too, for heavily loaded internal, non-public applications or microservices communicating with each other over private IP addresses.
+
+#### How a CDN improves scaling
+
+- A CDN (content delivery network) stores a web application's static files (HTML, CSS, JS, images) and delivers them from the server nearest the client -- widely used because of the advantages this brings.
+- What a CDN is: multiple servers, called PoPs (points of presence), run in different countries; each PoP can hold a copy of an application's static files, and the PoP closest to a visitor's ISP (internet service provider) serves the content.
+
+![Web architecture without CDN. Back-end code and Static files are served via Webserver to client.](./assets/no_cdn.png)
+
+- Two key benefits of this: visitors receive content faster, and the web server no longer receives direct traffic for those static files, cutting its load substantially.
+- Push vs. pull CDNs:
+  - Push CDN: static files must be manually or automatically uploaded to the CDN every time they change -- extra developer effort, so less popular.
+  - Pull CDN: automatically checks the origin server (where the application and its static files are hosted) when a file is requested, pulls any changed files, and replaces the older versions on the CDN -- fully automated, so used most often.
+
+![A diagram of a pull CDN works that shows how updated static files are automatically pulled f the web server to the CDN](./assets/with_cdn.png)
+
+- Advantages:
+  - Faster delivery of static files, which are typically the slowest part of a page to render.
+  - Reduced web server workload: a page with 10 JS files, 2 CSS files, and 60 images makes 73 requests per visit (1 + 10 + 2 + 60); a server handling 2,000 requests/minute could serve only ~27 visitors/minute at that rate. Offloading static files to a CDN cuts each visit to a single request to the web server, letting it serve 2,000 visitors/minute instead -- a major improvement for relatively little cost, and lighter load lets the server run more efficiently too.
+  - Reduced bandwidth usage on the web server, since CDNs have high uplink capacity built for large data transfers -- though the overall bandwidth cost still depends on the CDN provider's pricing model.
+  - Many CDNs automatically resize or convert images on request into modern formats like WebP, a lossless format that preserves image quality.
+- Disadvantages:
+  - Updated files can take time (10-30 minutes or more, depending on cache settings) to become visible to visitors, since some CDNs are slower to refresh their stored copies.
+  - CDN providers typically charge for data transfer, and as traffic grows, the cumulative bandwidth cost can exceed what it would cost to serve files directly from your own infrastructure.
+  - Even so, the advantages outweigh these disadvantages by far, so using a CDN is worthwhile whenever possible.
+
 
 
 ## 5. Final Project
