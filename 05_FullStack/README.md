@@ -162,6 +162,7 @@ Table of Contents:
   - [5. Final Project](#5-final-project)
     - [Final project assessment](#final-project-assessment)
       - [Exercise: Connect the Little Lemon back-end to MySQL](#exercise-connect-the-little-lemon-back-end-to-mysql)
+      - [Exercise: Set up a Little Lemon booking API](#exercise-set-up-a-little-lemon-booking-api)
 
 ## 1. Introduction to the Full Stack
 
@@ -3287,4 +3288,154 @@ SHOW TABLES;
 DESCRIBE myapp_booking;
 ```
 
+#### Exercise: Set up a Little Lemon booking API
 
+Folder: [`lab/05-littlelemon-booking-api/`](./lab/05-littlelemon-booking-api/) ([Instructions.md](./lab/05-littlelemon-booking-api/Instructions.md)).
+
+- Replaced the lab's pipenv setup (`Pipfile`/`Pipfile.lock`) with `uv` (`pyproject.toml` + `uv.lock`), pinning Django and `mysqlclient` as dependencies.
+- Created `restaurant/forms.py` with `BookingForm`, a `ModelForm` bound to the `Booking` model (`fields = "__all__"`).
+- In `restaurant/views.py`: uncommented the `book()` view and its `BookingForm` import, and added a new `bookings()` view that serializes all `Booking` records to JSON (via `django.core.serializers`) and passes them to `bookings.html`.
+- In `restaurant/urls.py`, uncommented the `book` and `bookings` URL routes.
+- In `templates/book.html`: added the "Make a reservation" heading, and a script that sets the `id_reservation_date` input's type to `date`.
+- In `templates/bookings.html`: added the "All Reservations" heading, and a script that parses the JSON passed from the view, logs it, pretty-prints it with `JSON.stringify(..., null, 2)`, and renders it into the page's `<pre id="bookings">` element (this last render step wasn't spelled out in the original pseudocode, but is needed for the reservations to actually be visible on the page).
+- In `templates/index.html` and `templates/partials/_header.html`: replaced the placeholder comments with the "Book your table now" link and the Book/Reservations navigation items.
+- Verified with `uv run python manage.py check` (passed), `makemigrations` (correctly reported "No changes detected," since the model already matched the existing migrations), and by rendering `index.html`, `book.html`, and `bookings.html` directly to confirm they resolve without template errors and that the new `book`/`bookings` links work. As with the earlier MySQL labs, I don't have this machine's MySQL root password, so the live `migrate` step and manually testing the booking form still need to be done with your credentials.
+
+```bash
+# Install dependencies and create the project's virtual environment
+uv sync
+```
+
+```python
+# restaurant/forms.py -- new file
+from django import forms
+from .models import Booking
+
+
+class BookingForm(forms.ModelForm):
+    class Meta:
+        model = Booking
+        fields = "__all__"
+```
+
+```python
+# restaurant/views.py
+from django.shortcuts import render
+from .models import Menu
+from django.core import serializers
+from .models import Booking
+from datetime import datetime
+import json
+from .forms import BookingForm  # was commented out
+
+def home(request):
+    return render(request, 'index.html')
+
+def about(request):
+    return render(request, 'about.html')
+
+# book(): uncommented -- renders BookingForm, saves valid POSTs
+def book(request):
+    form = BookingForm()
+    if request.method == 'POST':
+        form = BookingForm(request.POST)
+        if form.is_valid():
+            form.save()
+    context = {'form': form}
+    return render(request, 'book.html', context)
+
+# bookings(): new view -- serializes all bookings to JSON for the template
+def bookings(request):
+    date = request.GET.get('date', datetime.today().date())
+    bookings = Booking.objects.all()
+    booking_json = serializers.serialize('json', bookings)
+    return render(request, 'bookings.html', {'bookings': booking_json})
+```
+
+```python
+# restaurant/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.home, name="home"),
+    path('about/', views.about, name="about"),
+    path('book/', views.book, name="book"),           # uncommented
+    path('menu/', views.menu, name="menu"),
+    path('menu_item/<int:pk>/', views.display_menu_item, name="menu_item"),
+    path('bookings/', views.bookings, name="bookings"),  # uncommented
+]
+```
+
+```bash
+# Generate and apply migrations (model already matched existing migrations, so no new files were created)
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+```
+
+```html
+<!-- templates/book.html -->
+<h1>Make a reservation</h1>
+...
+<form action="" method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <!-- ^ auto-generates the fields below from BookingForm -- no hand-written <input> markup exists in this file -->
+  <input type="submit" id="button">
+</form>
+...
+<script>
+  console.log("Hello");
+  // Switches the rendered text input into a native date picker
+  document.getElementById("id_reservation_date").type = "date";
+</script>
+```
+
+```html
+<!-- What {{ form.as_p }} above actually expands to at runtime, generated from BookingForm -->
+<p>
+  <label for="id_first_name">First name:</label>
+  <input type="text" name="first_name" maxlength="200" required id="id_first_name">
+</p>
+
+<p>
+  <label for="id_reservation_date">Reservation date:</label>
+  <input type="text" name="reservation_date" required id="id_reservation_date">
+</p>
+
+<p>
+  <label for="id_reservation_slot">Reservation slot:</label>
+  <input type="number" name="reservation_slot" value="10" required id="id_reservation_slot">
+</p>
+<!-- id_reservation_date above is exactly what the <script> in book.html switches to type="date" -->
+```
+
+```html
+<!-- templates/bookings.html -->
+<h1>All Reservations</h1>
+...
+<pre id="bookings"></pre>
+...
+<script>
+  // {{ bookings|safe }} is the JSON string passed in from the bookings() view
+  const bookings = JSON.parse('{{ bookings|safe }}');
+  console.log(bookings);
+  const pretty_json = JSON.stringify(bookings, null, 2);
+  // Not in the original pseudocode, but needed to actually show the data on the page
+  document.getElementById('bookings').textContent = pretty_json;
+</script>
+```
+
+```html
+<!-- templates/index.html -->
+<p>
+  <a href="{% url 'book' %}">Book your table now</a>
+</p>
+```
+
+```html
+<!-- templates/partials/_header.html -->
+<li><a href="{% url 'menu' %}">Menu</a></li>
+<li><a href="{% url 'book' %}">Book</a></li>
+<li><a href="{% url 'bookings' %}">Reservations</a></li>
+```
