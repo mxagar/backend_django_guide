@@ -165,6 +165,7 @@ Table of Contents:
       - [Exercise: Set up a Little Lemon booking API](#exercise-set-up-a-little-lemon-booking-api)
       - [Exercise: Display the Little Lemon available booking times](#exercise-display-the-little-lemon-available-booking-times)
       - [Peer-graded Assignment: Little Lemon booking system](#peer-graded-assignment-little-lemon-booking-system)
+        - [Results](#results)
 
 ## 1. Introduction to the Full Stack
 
@@ -3524,5 +3525,238 @@ for (let i = 10; i < 20; i++) {
 
 #### Peer-graded Assignment: Little Lemon booking system
 
+Folder: [`lab/07-final-project/`](./lab/07-final-project/) ([Instructions.md](./lab/07-final-project/Instructions.md)).
+
+- This assignment packages the three previous exercises (MySQL connection, booking API, display of available slots) into one submittable project, following the assignment's own naming convention and tooling requirements:
+  - Project directory named `littlelemon`, app named `restaurant` (as required for peer review).
+  - Dependencies managed with `pipenv` instead of `uv` this time (`Pipfile`/`Pipfile.lock`, pinning Django, `mysqlclient` and `python-dotenv`) -- the assignment explicitly requires `pipenv`.
+  - Dev server run on port `8080` instead of the default `8000`.
+  - `pipenv` itself had to be installed for a plain (non-project-specific) Python 3.12 via `py -3.12 -m pip install --user pipenv` -- the `pipenv` command already on this machine belonged to an unrelated project's virtualenv, and the fresh install's `pipenv.exe` landed in a Scripts folder that isn't on PATH, so all commands below are invoked as `py -3.12 -m pipenv ...` rather than plain `pipenv ...`.
+- Copied and adapted the already-completed code from labs 04-06: the `Booking`/`Menu` models, `BookingForm`, the `book()`/`bookings()`/`reservations()` views (including the duplicate-booking check and the JSON booking API), the URL routes, and the `book.html`/`bookings.html` templates with their full JavaScript booking flow -- these three exercises together already satisfy every item in the grading criteria, so no new application logic was needed here.
+- In `littlelemon/settings.py`: registered `'restaurant'` in `INSTALLED_APPS` and pointed `DATABASES` at MySQL (`reservations` database, `admindjango` user).
+- No credentials are hard-coded anywhere in the project. `settings.py` loads a `.env` file (via `python-dotenv`, added as a new Pipfile dependency) and reads `MYSQL_ADMIN_USER`/`MYSQL_ADMIN_PASSWORD` from it with `os.environ.get(...)`. `.env` itself is git-ignored (already covered by the repo's root `.gitignore`); a `.env.example` with the expected keys and placeholder values is committed instead, so anyone cloning the repo knows what to fill in without any real secret being checked in.
+- Verified with `py -3.12 -m pipenv run python manage.py check` (passed) and `makemigrations` (correctly reported "No changes detected," since the models are unchanged since lab 06). With real MySQL credentials filled into `.env`, `migrate` and `runserver 8080` both run cleanly against the actual `reservations` database.
+- **Bug found and fixed:** the "All Reservations" page rendered blank once real bookings existed. `restaurant/views.py`'s `reservations()` view passes `serializers.serialize('json', bookings)` straight into the template, and Django's JSON serializer always ends that string with a trailing `\n`. `templates/bookings.html` embedded it as `JSON.parse('{{ bookings|safe }}')` -- a single-quoted JS string literal cannot contain a literal newline, so the browser threw `Uncaught SyntaxError: Invalid or unexpected token` and the whole inline `<script>` silently failed, leaving `<pre id="bookings">` empty. The same fragility would also break on any booking whose `first_name` contains an apostrophe (e.g. "O'Brien"), since that would prematurely close the single-quoted string too.
+  - Fix: swapped the `|safe` filter for Django's built-in `|escapejs` filter, which JS-escapes the string for safe embedding inside a quoted literal (newlines, quotes, and all) instead of inserting it verbatim.
+  - Verified with Playwright against the real MySQL data: before the fix, the console showed the `Invalid or unexpected token` error and the reservations page was blank; after the fix, `console.log(bookings)` logs the parsed array and the page renders the pretty-printed JSON for all 5 existing bookings.
+
+```html
+<!-- restaurant/templates/bookings.html -->
+<script>
+  const bookings = JSON.parse('{{ bookings|escapejs }}')  // was: {{ bookings|safe }}
+  console.log(bookings);
+  const pretty_json = JSON.stringify(bookings,null,2)
+  document.getElementById('bookings').innerHTML = pretty_json
+</script>
+```
+
+- **Second bug found and fixed:** two of the grading criteria weren't actually met by the inherited lab 06 markup -- "Does a date selector open up when you click on the reservation date field?" and (as a consequence) "Is the current date automatically selected when you open the booking form?". `templates/book.html`'s `reservation_date` field was `<input type="text" ...>`, so it was never a real date picker, just a plain text box pre-filled by JavaScript.
+  - Fix: changed it to `<input type="date" ...>`. That in turn exposed a second latent issue -- the date-prefill script built the value as `` `${date.getFullYear()}-${date.getMonth() + 1}-...` ``, without zero-padding the month (e.g. `2026-7-27`). A `type="text"` field displays that fine, but a real `type="date"` input requires the strict `YYYY-MM-DD` format and silently rejects anything else, which would have left the field blank on load. Added `.toString().padStart(2, "0")` to the month too.
+  - Verified with Playwright against the live server: the field now renders as a native date input pre-filled with today's date (`07/27/2026`, with the calendar-icon affordance that opens the browser's date picker on click), and the existing "refetch bookings on date change" behavior keeps working since `.value` is always normalized to `YYYY-MM-DD` for a `type="date"` input.
+
+```html
+<!-- restaurant/templates/book.html -->
+<input type="date" placeholder="Reservation Date" required="" id="reservation_date">  <!-- was: type="text" -->
+```
+
+```js
+// templates/book.html -- inside the main <script> block
+document.getElementById('reservation_date').value = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`
+// was missing .toString().padStart(2, "0") on the month
+```
+
+- The `Menu` table was empty (the app never seeded any menu items), and `restaurant/templates/menu_item.html` had a hard-coded, unusable image path left over from the starter code (`/Final Assessment/littlelemon/restaurant/static/img/{{menu_item.name}}.jpg`, which doesn't correspond to how `STATIC_URL` is actually configured). Fixed both: added a data migration (`restaurant/migrations/0004_seed_menu_items.py`) that seeds four items -- Bruschetta, Greek salad, Grilled fish, Lemon dessert -- matching the images already present in `restaurant/static/img/menu_items/`, and pointed `menu_item.html` at `{% static 'img/menu_items/'|add:menu_item.name|add:'.jpg' %}` instead. Verified with Playwright: the Menu page lists all four with prices, and each detail page renders its description, price and image correctly.
+
+```python
+# restaurant/migrations/0004_seed_menu_items.py
+MENU_ITEMS = [
+    {"name": "Bruschetta", "price": 8, "menu_item_description": "..."},
+    {"name": "Greek salad", "price": 10, "menu_item_description": "..."},
+    {"name": "Grilled fish", "price": 18, "menu_item_description": "..."},
+    {"name": "Lemon dessert", "price": 7, "menu_item_description": "..."},
+]
+
+def seed_menu_items(apps, schema_editor):
+    Menu = apps.get_model('restaurant', 'Menu')
+    for item in MENU_ITEMS:
+        Menu.objects.get_or_create(name=item["name"], defaults=item)
+
+class Migration(migrations.Migration):
+    dependencies = [('restaurant', '0003_remove_booking_comment_remove_booking_guest_number_and_more')]
+    operations = [migrations.RunPython(seed_menu_items, remove_menu_items)]
+```
+
+```html
+<!-- restaurant/templates/menu_item.html -->
+<img src="{% static 'img/menu_items/'|add:menu_item.name|add:'.jpg' %}" alt="{{ menu_item.name }}" />
+<!-- was: src="/Final Assessment/littlelemon/restaurant/static/img/{{menu_item.name}}.jpg" -->
+```
+
+```bash
+# .env -- git-ignored, fill in with your own MySQL credentials (see .env.example)
+MYSQL_ROOT_USER="root"
+MYSQL_ADMIN_USER="admindjango"
+MYSQL_ROOT_PASSWORD="<your MySQL root password>"
+MYSQL_ADMIN_PASSWORD="<your admindjango password>"
+```
+
+```sql
+-- Create the MySQL database and user in the MySQL shell (mysql -u root -p),
+-- with the password masked out -- substitute your own admindjango password from .env
+CREATE DATABASE IF NOT EXISTS reservations;
+CREATE USER IF NOT EXISTS 'admindjango'@'localhost' IDENTIFIED BY '***';
+GRANT ALL ON *.* TO 'admindjango'@'localhost';
+FLUSH PRIVILEGES;
+exit
+```
+
+```powershell
+# From littlelemon/ -- install dependencies into a pipenv-managed virtualenv.
+# Invoked as `py -3.12 -m pipenv` rather than plain `pipenv`: pip installs the
+# pipenv.exe entry point under AppData\Roaming\Python\Python312\Scripts, which
+# isn't on PATH by default on this machine -- `python -m pipenv` sidesteps that
+# entirely, since it only needs the pipenv package to be importable.
+py -3.12 -m pipenv install
+
+# Generate and apply migrations, then run the dev server on port 8080
+py -3.12 -m pipenv run python manage.py makemigrations
+py -3.12 -m pipenv run python manage.py migrate
+py -3.12 -m pipenv run python manage.py runserver 8080
+```
+
+> If `pipenv`'s Scripts folder *is* on your PATH, the plain `pipenv install` / `pipenv run ...` form works the same way -- this is only a Windows/PATH workaround for this particular machine, not a project requirement.
+
+```toml
+# Pipfile
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = ">=4.2.30"
+mysqlclient = ">=2.2.7"
+python-dotenv = ">=1.0.1"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+```
+
+```python
+# littlelemon/settings.py
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Loads MYSQL_ADMIN_USER / MYSQL_ADMIN_PASSWORD (and friends) from .env
+load_dotenv(BASE_DIR / '.env')
+
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'restaurant',
+]
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'reservations',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        'USER': os.environ.get('MYSQL_ADMIN_USER'),  # admindjango
+        'PASSWORD': os.environ.get('MYSQL_ADMIN_PASSWORD'),
+    }
+}
+```
+
+```python
+# restaurant/models.py
+class Booking(models.Model):
+    first_name = models.CharField(max_length=200)
+    reservation_date = models.DateField()
+    reservation_slot = models.SmallIntegerField(default=10)
+
+    def __str__(self):
+        return self.first_name
 
 
+class Menu(models.Model):
+    name = models.CharField(max_length=200)
+    price = models.IntegerField(null=False)
+    menu_item_description = models.TextField(max_length=1000, default='')
+
+    def __str__(self):
+        return self.name
+```
+
+```python
+# restaurant/forms.py
+class BookingForm(ModelForm):
+    class Meta:
+        model = Booking
+        fields = "__all__"
+```
+
+```python
+# restaurant/urls.py
+urlpatterns = [
+    path('', views.home, name="home"),
+    path('about/', views.about, name="about"),
+    path('book/', views.book, name="book"),
+    path('reservations/', views.reservations, name="reservations"),
+    path('menu/', views.menu, name="menu"),
+    path('menu_item/<int:pk>/', views.display_menu_item, name="menu_item"),
+    path('bookings', views.bookings, name='bookings'),
+]
+```
+
+```bash
+# Manual verification of the booking API (against the temporary SQLite database, port 8080)
+# Uses curl.exe explicitly -- in Windows PowerShell, plain `curl` is an alias for
+# Invoke-WebRequest, which doesn't understand -X/-H/-d; curl.exe bypasses that alias
+# and works the same way here and in Git Bash.
+curl.exe "http://127.0.0.1:8080/bookings?date=2026-07-27"
+# -> []
+
+curl.exe -X POST -H "Content-Type: application/json" -d '{"first_name":"Ada","reservation_date":"2026-07-27","reservation_slot":12}' http://127.0.0.1:8080/bookings
+# -> [{"model": "restaurant.booking", "pk": 1, "fields": {"first_name": "Ada", "reservation_date": "2026-07-27", "reservation_slot": 12}}]
+
+curl.exe -X POST -H "Content-Type: application/json" -d '{"first_name":"Bob","reservation_date":"2026-07-27","reservation_slot":12}' http://127.0.0.1:8080/bookings
+# -> {'error':1}   (duplicate date/slot rejected)
+```
+
+`book.html`, `bookings.html` and `restaurant/views.py` (the `book()`, `bookings()` and `reservations()` view functions) are otherwise identical to the versions documented in the [previous exercise](#exercise-display-the-little-lemon-available-booking-times) above.
+
+##### Results
+
+[http://127.0.0.1:8080](http://127.0.0.1:8080):
+
+![Final Project: Home](./lab/07-final-project/assets/final_project_home.png)
+
+[http://127.0.0.1:8080/book](http://127.0.0.1:8080/book):
+
+![Final Project: Book](./lab/07-final-project/assets/final_project_book.png)
+
+Duplicate booking is not possible on the booking form -- already-booked time slots are greyed out:
+
+![Final Project: Duplicate slots disabled](./lab/07-final-project/assets/final_project_duplicate_slots.png)
+
+[http://127.0.0.1:8080/reservations](http://127.0.0.1:8080/reservations):
+
+![Final Project: Reservations](./lab/07-final-project/assets/final_project_reservations.png)
+
+[http://127.0.0.1:8080/bookings?date=2026-07-27](http://127.0.0.1:8080/bookings?date=2026-07-27):
+
+![Final Project: Bookings API for a specific date](./lab/07-final-project/assets/final_project_bookings_api.png)
+
+[http://127.0.0.1:8080/menu_item/2/](http://127.0.0.1:8080/menu_item/2/) (Greek salad, one of the seeded menu items):
+
+![Final Project: Menu item detail](./lab/07-final-project/assets/final_project_menu_item.png)
