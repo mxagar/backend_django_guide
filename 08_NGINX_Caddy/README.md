@@ -24,7 +24,8 @@ Table of Contents:
     - [Introduction and Objectives](#introduction-and-objectives)
     - [NGINX Fundamentals through Demos](#nginx-fundamentals-through-demos)
       - [Demo Part 1a: Create an AWS EC2 Instance](#demo-part-1a-create-an-aws-ec2-instance)
-      - [Demo Part 1b: Install and Launch NGINX](#demo-part-1b-install-and-launch-nginx)
+      - [Demo Part 1b: Create an Azure VM Instance (extra)](#demo-part-1b-create-an-azure-vm-instance-extra)
+      - [Demo Part 1c: Install and Launch NGINX](#demo-part-1c-install-and-launch-nginx)
       - [Demo Part 2: NGINX Basic Configuration](#demo-part-2-nginx-basic-configuration)
       - [Demo Part 3: Create the Landing Page for the Demo Website](#demo-part-3-create-the-landing-page-for-the-demo-website)
       - [Demo Part 4: Deploy the Landing Page and Basic Management Commands](#demo-part-4-deploy-the-landing-page-and-basic-management-commands)
@@ -112,7 +113,11 @@ See the section [Extra: Notes on Gunicorn / Uvicorn](#extra-notes-on-gunicorn--u
 ssh -i "your-key.pem" ubuntu@<ec2-public-dns>
 ```
 
-#### Demo Part 1b: Install and Launch NGINX
+#### Demo Part 1b: Create an Azure VM Instance (extra)
+
+TBD.
+
+#### Demo Part 1c: Install and Launch NGINX
 
 - With the instance up and connected, install and verify NGINX:
   - Update the package index so installed software is current.
@@ -130,6 +135,7 @@ sudo ufw app list
 sudo ufw allow 'Nginx HTTP'
 sudo service nginx status
 ```
+
 
 #### Demo Part 2: NGINX Basic Configuration
 
