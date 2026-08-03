@@ -38,7 +38,12 @@ Table of Contents:
     - [Access Control and SSL Security](#access-control-and-ssl-security)
     - [Advanced SSL and Load Balancing Strategies](#advanced-ssl-and-load-balancing-strategies)
     - [Monitoring, Optimization, and Project Wrap-Up](#monitoring-optimization-and-project-wrap-up)
-  - [Extra: Caddy](#extra-caddy)
+  - [Extra: Notes on Gunicorn / Uvicorn](#extra-notes-on-gunicorn--uvicorn)
+    - [Gunicorn](#gunicorn)
+      - [Scaling Gunicorn with Nginx](#scaling-gunicorn-with-nginx)
+    - [Uvicorn](#uvicorn)
+    - [What to use: Gunicorn or Uvicorn?](#what-to-use-gunicorn-or-uvicorn)
+  - [Extra: Caddy -- Alternative to NGINX](#extra-caddy----alternative-to-nginx)
 
 ## 1. Getting Statrted with NGINX Website Deployment
 
@@ -80,12 +85,12 @@ Django
 PostgreSQL
 ```
 
-With multiple Django replicas (Nginx acts as the entry point and load-balances requests between them):
+With multiple Django/Gunicorn replicas (Nginx acts as the entry point and load-balances requests between them):
 
 ```
-                 ┌─ Django replica 1
-Internet → Nginx ├─ Django replica 2
-                 └─ Django replica 3
+                 ┌─ Django/Gunicorn replica 1
+Internet -> Nginx ├─ Django/Gunicorn replica 2
+                 └─ Django/Gunicorn replica 3
 ```
 
 ### NGINX Fundamentals through Demos
@@ -166,7 +171,208 @@ sudo chown -R $USER:$USER /var/www/demo.com/html
 
 ### Monitoring, Optimization, and Project Wrap-Up
 
-## Extra: Caddy
+## Extra: Notes on Gunicorn / Uvicorn
+
+**Gunicorn and Uvicorn run the Python web application.** Nginx does not execute Django or FastAPI code itself. The request flow is typically:
+
+```text
+Browser -> Nginx -> Gunicorn/Uvicorn -> Django/FastAPI
+```
+
+### Gunicorn
+
+**Gunicorn** is mainly a **WSGI application server**: It is a standard interface that connects a Python web server such as Gunicorn with a Python web framework such as Django:
+
+- WSGI: Web Server Gateway Interface
+- It starts several Python worker processes and sends HTTP requests to your Django application.
+- It is a common choice for traditional Django applications.
+- Gunicorn receives the HTTP request, converts it into the WSGI format, and calls Django. Django returns a WSGI response, and Gunicorn converts it back into an HTTP response.
+
+Here's how to run Gunicorn with 3 workers:
+
+```bash
+# Each worker has a complete Django backend running
+# This requires having all the data in an external DB (SQL, S3, etc), no in-memory data
+gunicorn myproject.wsgi:application --workers 3
+```
+
+Here's what `myproject/wsgi.py` could contain:
+
+```python
+import os
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "myproject.settings")
+
+# myproject.wsgi: Python module
+# application: WSGI application object inside that module
+application = get_wsgi_application()
+```
+
+We can scale up/down the number of workers online, without the need to restart the server:
+
+```bash
+# Get the Guinicorn master process PID
+pgrep -f "gunicorn.*myproject.wsgi"
+
+# Scale up/down
+kill -TTIN <master_pid>  # add one worker
+kill -TTOU <master_pid>  # remove one worker
+
+# Reload the configuration gracefully
+kill -HUP <master_pid>
+```
+
+#### Scaling Gunicorn with Nginx
+
+- Besides adding more workers inside one Gunicorn process (vertical scaling on a single machine), we can run several separate Gunicorn/Django replicas -- each its own container or pod -- and have Nginx load-balance across them (horizontal scaling); this also adds redundancy if one replica crashes or is being redeployed.
+
+```
+                 ┌─ Django/Gunicorn replica 1
+Internet -> Nginx ├─ Django/Gunicorn replica 2
+                 └─ Django/Gunicorn replica 3
+```
+
+- Nginx side: define an `upstream` group listing each replica's address, then point `proxy_pass` at that group; Nginx distributes requests round-robin by default (other options: `least_conn`, `ip_hash`, weighted, etc.).
+
+```nginx
+upstream django_app {
+    server app1:8000;
+    server app2:8000;
+    server app3:8000;
+}
+
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        proxy_pass http://django_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+- Docker Compose: scale the Gunicorn service to multiple containers with `--scale`; since replicas share one service name, point Nginx's `upstream` at that service name instead of individual container names -- Docker's embedded DNS resolves it to all healthy replicas.
+
+```bash
+docker compose up --scale web=3 -d
+```
+
+```yaml
+# docker-compose.yml (excerpt)
+services:
+  web:
+    build: .
+    command: gunicorn myproject.wsgi:application --bind 0.0.0.0:8000
+    expose:
+      - "8000"
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+```
+
+```nginx
+# nginx.conf (excerpt) -- "web" resolves to all scaled replicas via Docker's embedded DNS
+upstream django_app {
+    server web:8000;
+}
+```
+
+- Kubernetes: set `replicas` on the Gunicorn/Django `Deployment` and put a `Service` in front of it; the Service load-balances across all matching pods automatically, so Nginx (or an Nginx Ingress controller) only needs to point at the Service, not at individual pods. A `HorizontalPodAutoscaler` can adjust `replicas` automatically based on load.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-gunicorn
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: django-gunicorn
+  template:
+    metadata:
+      labels:
+        app: django-gunicorn
+    spec:
+      containers:
+        - name: gunicorn
+          image: myproject:latest
+          command: ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000"]
+          ports:
+            - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-gunicorn-svc
+spec:
+  selector:
+    app: django-gunicorn
+  ports:
+    - port: 8000
+      targetPort: 8000
+```
+
+```bash
+kubectl scale deployment django-gunicorn --replicas=5
+kubectl autoscale deployment django-gunicorn --cpu-percent=70 --min=3 --max=10
+```
+
+
+### Uvicorn
+
+**Uvicorn** is an **ASGI server** (Asynchronous Server Gateway Interface). It supports asynchronous features such as:
+
+* WebSockets: A WebSocket creates a persistent, bidirectional connection; examples include chat apps, live notifications, and real-time dashboards.
+* Long-lived connections: Some requests remain open for seconds, minutes, or longer; examples include streaming data, server-sent events, and long-polling.
+* Async Django views: usually Django views are synchronous, but Django supports async views that can wait for I/O operations.
+* FastAPI and Starlette: These frameworks are built on ASGI and support async features natively; examples include real-time APIs, many simultaneous network requests, etc.
+
+```bash
+uvicorn myproject.asgi:application --host 0.0.0.0 --port 8000
+```
+
+Gunicorn or Uvicorn can receive HTTP traffic directly, but Nginx is usually placed in front because it is better at:
+
+* HTTPS certificates
+* Serving static and media files
+* Handling slow clients
+* Compression
+* Request-size limits
+* Reverse proxying
+* Load balancing
+
+### What to use: Gunicorn or Uvicorn?
+
+A production Django setup might be:
+
+```text
+Internet
+   ↓
+Nginx :443
+   ↓
+Gunicorn :8000
+   ↓
+Django
+```
+
+For a normal Django app, **Gunicorn is usually enough**. For WebSockets or substantial async functionality, use **Uvicorn**, often directly or through Gunicorn with Uvicorn workers:
+
+```bash
+gunicorn myproject.asgi:application \
+  -k uvicorn.workers.UvicornWorker \
+  --workers 3
+```
+
+## Extra: Caddy -- Alternative to NGINX
 
 
 
