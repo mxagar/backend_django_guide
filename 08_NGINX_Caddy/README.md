@@ -26,7 +26,8 @@ Table of Contents:
       - [Demo Part 1a: Create an AWS EC2 Instance](#demo-part-1a-create-an-aws-ec2-instance)
       - [Demo Part 1b: Install and Launch NGINX](#demo-part-1b-install-and-launch-nginx)
       - [Demo Part 2: NGINX Basic Configuration](#demo-part-2-nginx-basic-configuration)
-    - [Completing Website Deployment with NGINX](#completing-website-deployment-with-nginx)
+      - [Demo Part 3: Create the Landing Page for the Demo Website](#demo-part-3-create-the-landing-page-for-the-demo-website)
+      - [Demo Part 4: Deploy the Landing Page and Basic Management Commands](#demo-part-4-deploy-the-landing-page-and-basic-management-commands)
   - [2. Project Setup and Core NGINX Configuration](#2-project-setup-and-core-nginx-configuration)
     - [Reverse Proxy Introduction and Case Content](#reverse-proxy-introduction-and-case-content)
     - [Lab Preparation and Secure Server Access](#lab-preparation-and-secure-server-access)
@@ -88,10 +89,12 @@ PostgreSQL
 With multiple Django/Gunicorn replicas (Nginx acts as the entry point and load-balances requests between them):
 
 ```
-                 ┌─ Django/Gunicorn replica 1
+                  ┌─ Django/Gunicorn replica 1
 Internet -> Nginx ├─ Django/Gunicorn replica 2
-                 └─ Django/Gunicorn replica 3
+                  └─ Django/Gunicorn replica 3
 ```
+
+See the section [Extra: Notes on Gunicorn / Uvicorn](#extra-notes-on-gunicorn--uvicorn) for more details on how Gunicorn and Uvicorn work with Django.
 
 ### NGINX Fundamentals through Demos
 
@@ -147,7 +150,78 @@ sudo mkdir -p /var/www/demo.com/html
 sudo chown -R $USER:$USER /var/www/demo.com/html
 ```
 
-### Completing Website Deployment with NGINX
+#### Demo Part 3: Create the Landing Page for the Demo Website
+
+- Set the site folder's permissions with `chmod` (not `chown`, which only changes ownership): `755` grants the owner read/write/execute, and group/others read/execute, so NGINX can traverse and serve the folder.
+- Create the landing page with `vim`, opening `index.html` directly inside the demo site's web root.
+- The page content is intentionally minimal (see below).
+- Recap of what this tutorial covered before deployment: the default `/var/www/html` landing page, the `/etc/nginx` `sites-available`/`sites-enabled` folders, the global `nginx.conf`, the `access.log`/`error.log` files in `/var/log/nginx`, and now the demo site's own folder, ownership, and `index.html` landing page. The site is ready; the next lab wires it up via NGINX configuration.
+
+```bash
+sudo chmod -R 755 /var/www/demo.com
+sudo vim /var/www/demo.com/html/index.html
+```
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome to Demo Site</title>
+</head>
+<body>
+    <h1>Congratulations! You have just hosted a website using the Nginx web server.</h1>
+</body>
+</html>
+```
+
+#### Demo Part 4: Deploy the Landing Page and Basic Management Commands
+
+- Goal: wire up the `demo.com` site (created in Part 3, at `/var/www/demo.com/html/index.html`) through NGINX configuration, then reload and verify it.
+- Create a server block for the site, based on the existing default one:
+  - Copy `/etc/nginx/sites-available/default` to a new file, `/etc/nginx/sites-available/demo.com`, then edit it with `sudo` (editing under `/etc/nginx` requires root).
+  - Keep `listen 80;`, drop the default `server_name`, and set `root` to the site's web root, `server_name` to the site's domain, and `index` to `index.html`.
+- Enable the site by symlinking it from `sites-available` into `sites-enabled` (only files present there are actually served), then confirm the symlink exists.
+- Avoid a "hash bucket" error from added server names: edit `/etc/nginx/nginx.conf` and uncomment the `server_names_hash_bucket_size` directive, which ships commented out by default.
+- Validate the configuration syntax, then reload NGINX so the change takes effect; refresh the site in a browser to confirm the landing page now loads.
+- Basic service management commands: stop, restart, and enable/disable NGINX's automatic start on boot.
+
+```bash
+sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/demo.com
+sudo vim /etc/nginx/sites-available/demo.com
+```
+
+```nginx
+# /etc/nginx/sites-available/demo.com
+server {
+    listen 80;
+    root /var/www/demo.com/html;
+    index index.html;
+    server_name demo.ubuntu.com;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/demo.com /etc/nginx/sites-enabled/
+ls -l /etc/nginx/sites-enabled/
+
+sudo vim /etc/nginx/nginx.conf
+# uncomment: server_names_hash_bucket_size 64;
+
+sudo nginx -t
+sudo systemctl restart nginx
+
+# management commands
+sudo systemctl stop nginx
+sudo systemctl disable nginx   # don't start automatically on boot
+sudo systemctl enable nginx    # start automatically on boot
+
+# watch requests arrive live
+tail -f /var/log/nginx/access.log
+```
 
 ## 2. Project Setup and Core NGINX Configuration
 
@@ -228,9 +302,9 @@ kill -HUP <master_pid>
 - Besides adding more workers inside one Gunicorn process (vertical scaling on a single machine), we can run several separate Gunicorn/Django replicas -- each its own container or pod -- and have Nginx load-balance across them (horizontal scaling); this also adds redundancy if one replica crashes or is being redeployed.
 
 ```
-                 ┌─ Django/Gunicorn replica 1
+                  ┌─ Django/Gunicorn replica 1
 Internet -> Nginx ├─ Django/Gunicorn replica 2
-                 └─ Django/Gunicorn replica 3
+                  └─ Django/Gunicorn replica 3
 ```
 
 - Nginx side: define an `upstream` group listing each replica's address, then point `proxy_pass` at that group; Nginx distributes requests round-robin by default (other options: `least_conn`, `ip_hash`, weighted, etc.).
