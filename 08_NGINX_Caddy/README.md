@@ -171,7 +171,7 @@ Find your public IP address so you can restrict SSH to it instead of the whole i
 curl -4 ifconfig.me
 ```
 
-A single address is written as a CIDR (classless inter-domain routing) block with a `/32` suffix, e.g. `203.0.113.24/32` -- meaning "only this exact address." A residential IP can change; that's the first thing to check if SSH later stops connecting.
+A single address is written as a CIDR (classless inter-domain routing) block with a `/32` suffix, e.g. `203.xxx.xxx.xxx/32` -- meaning "only this exact address." A residential IP can change; that's the first thing to check if SSH later stops connecting.
 
 ##### Step 1: Sign in to AWS
 
