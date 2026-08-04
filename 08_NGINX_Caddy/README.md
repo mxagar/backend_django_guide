@@ -182,7 +182,7 @@ Open the AWS Management Console and sign in. For regular work, avoid the account
 Pick one region at the top-right of the console and keep using it for the whole tutorial -- resources are region-scoped, so switching regions mid-tutorial makes an instance appear to vanish. For example:
 
 ```text
-Europe (Frankfurt) — eu-central-1
+Europe (Frankfurt) -- eu-central-1
 ```
 
 ##### Step 3: Open EC2
