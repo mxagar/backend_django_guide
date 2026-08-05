@@ -94,8 +94,11 @@ Table of Contents:
       - [Demo Part 4: Deploy the Landing Page and Basic Management Commands](#demo-part-4-deploy-the-landing-page-and-basic-management-commands)
   - [2. Project Setup and Core NGINX Configuration](#2-project-setup-and-core-nginx-configuration)
     - [Reverse Proxy Introduction and Case Content](#reverse-proxy-introduction-and-case-content)
+      - [Contents](#contents)
+      - [Case Study](#case-study)
     - [Lab Preparation and Secure Server Access](#lab-preparation-and-secure-server-access)
     - [NGINX Configuration and Static Content Hosting](#nginx-configuration-and-static-content-hosting)
+    - [Extra: Concept Definitions](#extra-concept-definitions)
   - [3. Backend Integration and Reverse Proxy Implementation](#3-backend-integration-and-reverse-proxy-implementation)
     - [Backend Services Creation](#backend-services-creation)
     - [Virtual Hosting and Reverse Proxy Architecture](#virtual-hosting-and-reverse-proxy-architecture)
@@ -1659,9 +1662,43 @@ docker compose logs -f nginx       # follow logs
 
 ### Reverse Proxy Introduction and Case Content
 
+#### Contents
+
+- NGINX is the most widely adopted web server, but this course goes beyond serving files: it also covers using NGINX as a reverse proxy, a static-content cache, a load balancer, and an SSL (secure sockets layer) termination point.
+- The course follows a case-study format: a single problem statement is introduced first, then each following section solves one part of it.
+  - Lab setup uses an AWS (Amazon Web Services) free-tier account, since the exercises need at least three virtual machines.
+  - NGINX configuration fundamentals: `nginx.conf` parameters, the master process versus worker processes, how the PID (process ID) is created, and where logs are configured.
+  - Reverse proxy: configuring one across the three virtual machines as part of the case study.
+  - Basic authentication: prompting for a username/password directly at the NGINX layer before a user can access the site.
+  - SSL certificates: what they are and how they're applied to secure the site.
+  - Load balancers: the concept, and the load-balancer types NGINX supports.
+  - Logging: setting up and customizing logs, and the log types NGINX offers.
+  - HTTP compression: the mechanisms available for compressing static content.
+  - The final section validates the complete solution against the original case-study problem statement.
+
+![Contents](./assets/contents.png)
+
+#### Case Study
+
+Company XYZ wants to launch its website with NGINX in the web layer. The web must satisfy: 
+
+- act as a reverse proxy,
+- provide load balancing,
+- enforce basic authentication (username/password),
+- have an SSL certificate configured in its configuration file,
+- redirect port-80 (HTTP) requests to port 443 (HTTPS),
+- and have logging enabled and properly available.
+
 ### Lab Preparation and Secure Server Access
 
 ### NGINX Configuration and Static Content Hosting
+
+### Extra: Concept Definitions
+
+Reverse proxy
+Load balancing
+Authentication
+SSL certificates
 
 ## 3. Backend Integration and Reverse Proxy Implementation
 
