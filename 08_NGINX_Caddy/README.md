@@ -1275,13 +1275,14 @@ docker exec nginx-tutorial nginx -s reload                  # reload NGINX
 cd path/to/compose.yaml
 docker compose up -d
 docker exec -it --user student nginx-tutorial bash
+sudo tail -f /var/log/nginx/access.log
 exit
 docker compose down
 ```
 
 #### Demo Part 2: NGINX Basic Configuration
 
-Continuing the case study: Part 1 installed NGINX and opened the firewall for it; this lab explores where NGINX keeps its configuration and logs, then scaffolds a placeholder site to wire up and deploy in the next lab.
+Part 1 installed NGINX and opened the firewall for it; this lab explores where NGINX keeps its configuration and logs.
 
 Before touching any configuration, it helps to know where NGINX actually stores things, since managing a web server and debugging it later both come down to knowing which file or folder to open. The table below covers the locations that matter for day-to-day work:
 
@@ -1295,18 +1296,251 @@ Before touching any configuration, it helps to know where NGINX actually stores 
 | `/var/log/nginx/access.log` | Records every incoming request, useful for confirming that traffic is actually reaching the server and seeing what's being requested. |
 | `/var/log/nginx/error.log` | Records server errors, and is usually the first place to check when a deployment isn't behaving as expected. |
 
+The default nginx welcome page `/var/www/html/index.nginx-debian.html` has this content:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+
+<p>This is part of the tutorial :)</p>
+
+</body>
+</html>
+```
+
+These are the default contents of `sites-available` and `sites-enabled`:
+
+```bash
+cd /etc/nginx/sites-available
+ls -la  # default
+cd /etc/nginx/sites-enabled
+ls -la  # default -> /etc/nginx/sites-available/default
+```
+
 Notes:
 
 - The real configuration file lives only in `sites-available`, e.g. `/etc/nginx/sites-available/demo.com`; that's the only place the actual `server { ... }` content (port, domain, root folder, index file) is stored. 
 - `sites-enabled` never holds real files, only symlinks (shortcuts) pointing back into `sites-available`, and NGINX only ever reads from `sites-enabled` -- it ignores `sites-available` directly.
-- The link itself is created with
-  ```bash
-  # ln -s target linkname 
-  sudo ln -s /etc/nginx/sites-available/demo.com /etc/nginx/sites-enabled/demo.com
-  ```
+- We need to manually create the link, e.g.:
+```bash
+# ln -s target linkname 
+sudo ln -s /etc/nginx/sites-available/demo.com /etc/nginx/sites-enabled/demo.com
+```
 - This split is what lets a site be disabled without deleting its configuration: removing the link (`sudo rm /etc/nginx/sites-enabled/demo.com`) leaves the real file in `sites-available` untouched, so re-enabling it later is just re-running that one `ln -s` command.
 
-We now scaffold a placeholder site (`demo.com`), ready to be wired into this configuration and deployed in the following lab.
+The `default` site configuration block in `/etc/nginx/sites-available` contains the following:
+
+```conf
+##
+# You should look at the following URL's in order to grasp a solid understanding
+# of Nginx configuration files in order to fully unleash the power of Nginx.
+# https://www.nginx.com/resources/wiki/start/
+# https://www.nginx.com/resources/wiki/start/topics/tutorials/config_pitfalls/
+# https://wiki.debian.org/Nginx/DirectoryStructure
+#
+# In most cases, administrators will remove this file from sites-enabled/ and
+# leave it as reference inside of sites-available where it will continue to be
+# updated by the nginx packaging team.
+#
+# This file will automatically load configuration files provided by other
+# applications, such as Drupal or Wordpress. These applications will be made
+# available underneath a path with that package name, such as /drupal8.
+#
+# Please see /usr/share/doc/nginx-doc/examples/ for more detailed examples.
+##
+
+# Default server configuration
+#
+server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+
+        # SSL configuration
+        #
+        # listen 443 ssl default_server;
+        # listen [::]:443 ssl default_server;
+        #
+        # Note: You should disable gzip for SSL traffic.
+        # See: https://bugs.debian.org/773332
+        #
+        # Read up on ssl_ciphers to ensure a secure configuration.
+        # See: https://bugs.debian.org/765782
+        #
+        # Self signed certs generated by the ssl-cert package
+        # Don't use them in a production server!
+        #
+        # include snippets/snakeoil.conf;
+
+        root /var/www/html;
+
+        # Add index.php to the list if you are using PHP
+        index index.html index.htm index.nginx-debian.html;
+
+        server_name _;
+
+        location / {
+                # First attempt to serve request as file, then
+                # as directory, then fall back to displaying a 404.
+                try_files $uri $uri/ =404;
+        }
+
+        # pass PHP scripts to FastCGI server
+        #
+        #location ~ \.php$ {
+        #       include snippets/fastcgi-php.conf;
+        #
+        #       # With php-fpm (or other unix sockets):
+        #       fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        #       # With php-cgi (or other tcp sockets):
+        #       fastcgi_pass 127.0.0.1:9000;
+        #}
+
+        # deny access to .htaccess files, if Apache's document root
+        # concurs with nginx's one
+        #
+        #location ~ /\.ht {
+        #       deny all;
+        #}
+}
+
+
+# Virtual Host configuration for example.com
+#
+# You can move that to a different file under sites-available/ and symlink that
+# to sites-enabled/ to enable it.
+#
+#server {
+#       listen 80;
+#       listen [::]:80;
+#
+#       server_name example.com;
+#
+#       root /var/www/example.com;
+#       index index.html;
+#
+#       location / {
+#               try_files $uri $uri/ =404;
+#       }
+#}
+```
+
+The **global NGINX configuration** file `/etc/nginx/nginx.conf` contains the following:
+
+```conf
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+
+        ##
+        # Basic Settings
+        ##
+
+        sendfile on;
+        tcp_nopush on;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        # server_names_hash_bucket_size 64;
+        # server_name_in_redirect off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # SSL Settings
+        ##
+
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+        ssl_prefer_server_ciphers on;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+
+        ##
+        # Gzip Settings
+        ##
+
+        gzip on;
+
+        # gzip_vary on;
+        # gzip_proxied any;
+        # gzip_comp_level 6;
+        # gzip_buffers 16 8k;
+        # gzip_http_version 1.1;
+        # gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+}
+
+
+#mail {
+#       # See sample authentication script at:
+#       # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+#
+#       # auth_http localhost/auth.php;
+#       # pop3_capabilities "TOP" "USER";
+#       # imap_capabilities "IMAP4rev1" "UIDPLUS";
+#
+#       server {
+#               listen     localhost:110;
+#               protocol   pop3;
+#               proxy      on;
+#       }
+#
+#       server {
+#               listen     localhost:143;
+#               protocol   imap;
+#               proxy      on;
+#       }
+#}
+```
+
+Notes:
+
+- `access_log` from `/etc/nginx/nginx.conf` configures where the logs are saved.
+- Similarly, we can define a `error_log` field pointing to `/var/log/nginx/error.log` nelow `access_log` to configure where error logs are saved.
+
+#### Demo Part 3: Create the Landing Page for the Demo Website
+
+Now we start with a case study or example: We now scaffold a placeholder site (`demo.com`), ready to be wired into this configuration and deployed in the following lab.
+
+First, we create the folder for the new site:
 
 ```bash
 # -p: create parent directories as needed
@@ -1314,12 +1548,11 @@ sudo mkdir -p /var/www/demo.com/html
 sudo chown -R $USER:$USER /var/www/demo.com/html
 ```
 
-#### Demo Part 3: Create the Landing Page for the Demo Website
+Then, we change the permissions of the newly created folder and create a simple landing page in it:
 
-- Set the site folder's permissions with `chmod` (not `chown`, which only changes ownership): `755` grants the owner read/write/execute, and group/others read/execute, so NGINX can traverse and serve the folder.
+- Set the site folder's permissions with `chmod`: `755` grants the owner read/write/execute, and group/others read/execute, so NGINX can traverse and serve the folder.
 - Create the landing page with `vim`, opening `index.html` directly inside the demo site's web root.
 - The page content is intentionally minimal (see below).
-- Recap of what this tutorial covered before deployment: the default `/var/www/html` landing page, the `/etc/nginx` `sites-available`/`sites-enabled` folders, the global `nginx.conf`, the `access.log`/`error.log` files in `/var/log/nginx`, and now the demo site's own folder, ownership, and `index.html` landing page. The site is ready; the next lab wires it up via NGINX configuration.
 
 ```bash
 sudo chmod -R 755 /var/www/demo.com
@@ -1340,24 +1573,26 @@ sudo vim /var/www/demo.com/html/index.html
 
 #### Demo Part 4: Deploy the Landing Page and Basic Management Commands
 
-- Goal: wire up the `demo.com` site (created in Part 3, at `/var/www/demo.com/html/index.html`) through NGINX configuration, then reload and verify it.
+Goal: wire up the `demo.com` site (created in Part 3, at `/var/www/demo.com/html/index.html`) through NGINX configuration, then reload and verify it:
+
 - Create a server block for the site, based on the existing default one:
-  - Copy `/etc/nginx/sites-available/default` to a new file, `/etc/nginx/sites-available/demo.com`, then edit it with `sudo` (editing under `/etc/nginx` requires root).
-  - Keep `listen 80;`, drop the default `server_name`, and set `root` to the site's web root, `server_name` to the site's domain, and `index` to `index.html`.
-- Enable the site by symlinking it from `sites-available` into `sites-enabled` (only files present there are actually served), then confirm the symlink exists.
-- Avoid a "hash bucket" error from added server names: edit `/etc/nginx/nginx.conf` and uncomment the `server_names_hash_bucket_size` directive, which ships commented out by default.
-- Validate the configuration syntax, then reload NGINX so the change takes effect; refresh the site in a browser to confirm the landing page now loads.
-- Basic service management commands: stop, restart, and enable/disable NGINX's automatic start on boot.
+  - Copy `/etc/nginx/sites-available/default` to a new file, `/etc/nginx/sites-available/demo.com`, then edit it with `sudo` (editing under `/etc/nginx` requires root):
+    - keep `listen 80;`
+    - drop the default `server_name`
+    - set `root` to the site's web root
+    - set `server_name` to the site's domain
+    - set `index` to `index.html`
 
 ```bash
 sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/demo.com
 sudo vim /etc/nginx/sites-available/demo.com
 ```
 
-```nginx
+```conf
 # /etc/nginx/sites-available/demo.com
 server {
     listen 80;
+    listen [::]:80;
     root /var/www/demo.com/html;
     index index.html;
     server_name demo.ubuntu.com;
@@ -1368,23 +1603,56 @@ server {
 }
 ```
 
+- Enable the site by symlinking it from `sites-available` into `sites-enabled` (only files present there are actually served), then confirm the symlink exists.
+- Remove the default site if you want `demo.com` to be the only one served.
+
 ```bash
+# Enable the site
 sudo ln -s /etc/nginx/sites-available/demo.com /etc/nginx/sites-enabled/
 ls -l /etc/nginx/sites-enabled/
 
+# Remove the default site
+sudo rm /etc/nginx/sites-enabled/default
+sudo rm /etc/nginx/sites-available/default
+```
+
+- Modify the `/etc/nginx/nginx.conf`: avoid a "hash bucket" error from added server names: edit `/etc/nginx/nginx.conf` and uncomment the `server_names_hash_bucket_size` directive, which ships commented out by default.
+- Validate the configuration syntax, then reload NGINX so the change takes effect; refresh the site in a browser to confirm the landing page now loads.
+- Basic service management commands: stop, restart, and enable/disable NGINX's automatic start on boot.
+
+
+```bash
 sudo vim /etc/nginx/nginx.conf
 # uncomment: server_names_hash_bucket_size 64;
 
+# Validate configuration syntax and reload NGINX
 sudo nginx -t
 sudo systemctl restart nginx
+# If in Docker, systemctl won't work; use: instead:
+sudo nginx -s reload
+# ... if it doesnt work, restart the container.
 
-# management commands
+# Watch requests arrive live
+tail -f /var/log/nginx/access.log
+```
+
+Some Management commands are useful for controlling NGINX:
+
+```bash
+# Management commands
 sudo systemctl stop nginx
 sudo systemctl disable nginx   # don't start automatically on boot
 sudo systemctl enable nginx    # start automatically on boot
 
-# watch requests arrive live
-tail -f /var/log/nginx/access.log
+# ... in Docker:
+docker compose stop nginx          # stop the NGINX container
+docker compose start nginx         # start an existing container
+docker compose restart nginx       # restart it
+docker compose down                # stop and remove the project’s containers
+docker compose up -d               # create/start them in the background
+docker compose ps                  # show status
+docker compose logs nginx          # show NGINX logs
+docker compose logs -f nginx       # follow logs
 ```
 
 ## 2. Project Setup and Core NGINX Configuration
