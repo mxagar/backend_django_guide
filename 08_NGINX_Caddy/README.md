@@ -1272,9 +1272,11 @@ docker exec nginx-tutorial nginx -s reload                  # reload NGINX
 
 ```bash
 # Usage summary
+cd path/to/compose.yaml
 docker compose up -d
-docker compose down
 docker exec -it --user student nginx-tutorial bash
+exit
+docker compose down
 ```
 
 #### Demo Part 2: NGINX Basic Configuration
