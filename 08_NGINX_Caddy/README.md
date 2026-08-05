@@ -80,6 +80,7 @@ Table of Contents:
         - [Step 4: Create `compose.yaml`](#step-4-create-composeyaml)
         - [Step 5: Build and start the container](#step-5-build-and-start-the-container)
         - [Step 6: Open the NGINX website](#step-6-open-the-nginx-website)
+        - [What about UFW?](#what-about-ufw)
         - [Step 7: Enter the container](#step-7-enter-the-container)
         - [Step 8: Explore the NGINX installation](#step-8-explore-the-nginx-installation)
         - [Step 9: Modify the default welcome page](#step-9-modify-the-default-welcome-page)
@@ -1060,6 +1061,24 @@ Container port 80
 NGINX
 ```
 
+##### What about UFW?
+
+[Demo Part 1c](#demo-part-1c-install-and-launch-nginx) had two firewall layers to configure: the AWS security group/Azure NSG, and Ubuntu's UFW (uncomplicated firewall) inside the VM. This Docker lab intentionally has no UFW step, and that's not an oversight -- there's no equivalent layer to configure here:
+
+- The `ports: - "8080:80"` line in `compose.yaml` **is** the outer firewall layer -- it's what Docker uses to decide whether the container's port 80 is reachable from outside at all. Docker configures the host's own networking (on Windows, inside the WSL2 VM Docker Desktop runs) to implement that mapping; anything not explicitly published stays unreachable, regardless of UFW.
+- UFW itself manipulates the Linux kernel's netfilter/iptables rules, which requires the `NET_ADMIN` capability. A plain container like this one (no `cap_add`, no `--privileged`) doesn't have it, so installing and enabling UFW inside the container (`sudo apt-get install ufw && sudo ufw enable`) would typically fail or silently do nothing useful -- it isn't just skipped for simplicity, it largely doesn't work in an unprivileged container.
+- So the Docker equivalent of the EC2/Azure two-layer diagram collapses to one layer:
+
+```text
+Internet / browser
+   ↓
+Docker port publishing (ports: "8080:80")
+   ↓
+NGINX
+```
+
+If you specifically want to practice UFW commands for their own sake (not for real network security, since Docker's mapping already gates access), you'd need to add `cap_add: [NET_ADMIN]` to the `nginx` service in `compose.yaml` and install `ufw` in the Dockerfile -- that's beyond the scope of this lab, and not something you'd do in a real containerized deployment.
+
 ##### Step 7: Enter the container
 
 The Docker equivalent of entering the EC2 server through SSH is:
@@ -1251,21 +1270,44 @@ docker exec nginx-tutorial nginx -t                         # validate NGINX fro
 docker exec nginx-tutorial nginx -s reload                  # reload NGINX
 ```
 
+```bash
+# Usage summary
+docker compose up -d
+docker compose down
+docker exec -it --user student nginx-tutorial bash
+```
+
 #### Demo Part 2: NGINX Basic Configuration
 
-- Case study recap: a startup has a new website ready and wants it deployed with NGINX; Part 1 installed NGINX and opened the firewall, this lab explores NGINX's configuration layout and then scaffolds a placeholder site to deploy next.
-- Key locations to know for managing and debugging a site:
-  - `/var/www/html` -- the default web root holding the built-in "Welcome to nginx!" page served out of the box.
-  - `/etc/nginx` -- the main configuration directory:
-    - `sites-available/` stores one server-block config file per site you might host.
-    - `sites-enabled/` holds only the sites NGINX actually serves; a config in `sites-available` takes effect only once it's symlinked into `sites-enabled`. Each server block sets what port to listen on, the server (domain) name, the site's root folder, and its default index file.
-    - `nginx.conf` is the global config file -- edits here affect the whole server, not a single site.
-  - `/var/log/nginx` -- holds `access.log` (every incoming request) and `error.log` (server errors), the first places to check when debugging a deployment.
-- Demo site scaffold: create a placeholder site (`demo.com`) matching the case study, to be wired up and deployed in the next lab.
-  - Create the site's web root, using `-p` to create parent directories as needed (the narrated `-b` flag doesn't exist for `mkdir`).
-  - Recursively hand ownership of that folder to the current user so it can be edited without `sudo`.
+Continuing the case study: Part 1 installed NGINX and opened the firewall for it; this lab explores where NGINX keeps its configuration and logs, then scaffolds a placeholder site to wire up and deploy in the next lab.
+
+Before touching any configuration, it helps to know where NGINX actually stores things, since managing a web server and debugging it later both come down to knowing which file or folder to open. The table below covers the locations that matter for day-to-day work:
+
+| Path | Purpose |
+| --- | --- |
+| `/var/www/html` | The default web root, holding the built-in "Welcome to nginx!" page served out of the box before any site-specific configuration exists. |
+| `/etc/nginx` | The main configuration directory, containing the global config file and the per-site configuration folders described below. |
+| `/etc/nginx/sites-available/` | Stores one server-block configuration file per site you might host, whether or not that site is currently active. |
+| `/etc/nginx/sites-enabled/` | Holds only the sites NGINX actually serves. A configuration file in `sites-available` takes effect only once it is symlinked into `sites-enabled`. |
+| `/etc/nginx/nginx.conf` | The global configuration file. Edits here affect the entire server, not just one site, so changes should be made carefully. |
+| `/var/log/nginx/access.log` | Records every incoming request, useful for confirming that traffic is actually reaching the server and seeing what's being requested. |
+| `/var/log/nginx/error.log` | Records server errors, and is usually the first place to check when a deployment isn't behaving as expected. |
+
+Notes:
+
+- The real configuration file lives only in `sites-available`, e.g. `/etc/nginx/sites-available/demo.com`; that's the only place the actual `server { ... }` content (port, domain, root folder, index file) is stored. 
+- `sites-enabled` never holds real files, only symlinks (shortcuts) pointing back into `sites-available`, and NGINX only ever reads from `sites-enabled` -- it ignores `sites-available` directly.
+- The link itself is created with
+  ```bash
+  # ln -s target linkname 
+  sudo ln -s /etc/nginx/sites-available/demo.com /etc/nginx/sites-enabled/demo.com
+  ```
+- This split is what lets a site be disabled without deleting its configuration: removing the link (`sudo rm /etc/nginx/sites-enabled/demo.com`) leaves the real file in `sites-available` untouched, so re-enabling it later is just re-running that one `ln -s` command.
+
+We now scaffold a placeholder site (`demo.com`), ready to be wired into this configuration and deployed in the following lab.
 
 ```bash
+# -p: create parent directories as needed
 sudo mkdir -p /var/www/demo.com/html
 sudo chown -R $USER:$USER /var/www/demo.com/html
 ```
