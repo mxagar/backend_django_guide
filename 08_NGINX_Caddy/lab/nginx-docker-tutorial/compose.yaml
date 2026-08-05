@@ -1,0 +1,17 @@
+services:
+  nginx:
+    build:
+      context: .
+    container_name: nginx-tutorial
+    ports:
+      - "8080:80"
+    volumes:
+      - nginx-www:/var/www
+      - nginx-config:/etc/nginx
+      - nginx-logs:/var/log/nginx
+    restart: unless-stopped
+
+volumes:
+  nginx-www:
+  nginx-config:
+  nginx-logs:

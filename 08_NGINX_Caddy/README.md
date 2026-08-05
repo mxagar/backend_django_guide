@@ -38,8 +38,9 @@ Table of Contents:
         - [Step 11: Find the public address](#step-11-find-the-public-address)
         - [Step 12: Connect using SSH](#step-12-connect-using-ssh)
         - [Optional: create an SSH config entry](#optional-create-an-ssh-config-entry)
-        - [AWS access keys: do you need them?](#aws-access-keys-do-you-need-them)
+        - [Note on AWS access keys: Do you need them?](#note-on-aws-access-keys-do-you-need-them)
         - [Cleanup](#cleanup)
+        - [What if you cannot log in via SSH?](#what-if-you-cannot-log-in-via-ssh)
       - [Demo Part 1b: Create an Azure VM Instance (extra)](#demo-part-1b-create-an-azure-vm-instance-extra)
         - [Step 1: Sign in to Azure](#step-1-sign-in-to-azure)
         - [Step 2: Understand the resource group](#step-2-understand-the-resource-group)
@@ -72,6 +73,21 @@ Table of Contents:
         - [Step 14: Inspect logs](#step-14-inspect-logs)
         - [Complete command sequence](#complete-command-sequence)
         - [Troubleshooting](#troubleshooting)
+      - [Demo Part 1d: (Optional) Use NGINX via Docker Compose](#demo-part-1d-optional-use-nginx-via-docker-compose)
+        - [Step 1: Check Docker Desktop](#step-1-check-docker-desktop)
+        - [Step 2: Create the project](#step-2-create-the-project)
+        - [Step 3: Create the Dockerfile](#step-3-create-the-dockerfile)
+        - [Step 4: Create `compose.yaml`](#step-4-create-composeyaml)
+        - [Step 5: Build and start the container](#step-5-build-and-start-the-container)
+        - [Step 6: Open the NGINX website](#step-6-open-the-nginx-website)
+        - [Step 7: Enter the container](#step-7-enter-the-container)
+        - [Step 8: Explore the NGINX installation](#step-8-explore-the-nginx-installation)
+        - [Step 9: Modify the default welcome page](#step-9-modify-the-default-welcome-page)
+        - [Step 10: Modify the NGINX configuration](#step-10-modify-the-nginx-configuration)
+        - [Step 11: Inspect the logs](#step-11-inspect-the-logs)
+        - [Step 12: Validate persistence](#step-12-validate-persistence)
+        - [Step 13: Container, image, and volume persistence](#step-13-container-image-and-volume-persistence)
+        - [Step 14: Useful lifecycle commands](#step-14-useful-lifecycle-commands)
       - [Demo Part 2: NGINX Basic Configuration](#demo-part-2-nginx-basic-configuration)
       - [Demo Part 3: Create the Landing Page for the Demo Website](#demo-part-3-create-the-landing-page-for-the-demo-website)
       - [Demo Part 4: Deploy the Landing Page and Basic Management Commands](#demo-part-4-deploy-the-landing-page-and-basic-management-commands)
@@ -169,13 +185,45 @@ Find your public IP address so you can restrict SSH to it instead of the whole i
 
 ```bash
 curl -4 ifconfig.me
+curl.exe -4 ifconfig.me
 ```
 
 A single address is written as a CIDR (classless inter-domain routing) block with a `/32` suffix, e.g. `203.xxx.xxx.xxx/32` -- meaning "only this exact address." A residential IP can change; that's the first thing to check if SSH later stops connecting.
 
 ##### Step 1: Sign in to AWS
 
-Open the AWS Management Console and sign in. For regular work, avoid the account's root user, which has unrestricted control; use or create an IAM (identity and access management) identity with only the permissions EC2 needs, with MFA (multi-factor authentication) enabled, and avoid creating permanent access keys unless you actually need CLI/API access.
+Open the AWS Management Console and sign in: [https://aws.amazon.com](https://aws.amazon.com). For regular work, avoid the account's root user, which has unrestricted control; use or create an IAM (identity and access management) identity with only the permissions EC2 needs, with MFA (multi-factor authentication) enabled, and avoid creating permanent access keys unless you actually need CLI/API access.
+
+To create a specific IAM user for this lab, follow these steps:
+
+```
+AWS Console
+IAM
+    IAM Users
+    Create user: ec2-admin
+        Enable "Provide user access to the AWS Management Console"
+        and set a password (custom password).
+    Set permissions: Attach policies directly
+        AmazonEC2FullAccess
+    Create user
+```
+Then, in the IAM Users list:
+
+- select the new user (`ec2-admin`)
+- go to **Security credentials**
+- and enable MFA (virtual or hardware): assign MFA device; get the code instead of the QR code.
+
+We will get a sign-in URL like this: `<IAM-user-name>.signin.aws.amazon.com`.
+Alternatively, we can sign in at the general AWS sign-in page and select **IAM user**: [https://aws.amazon.com/console/](https://aws.amazon.com/console/):
+
+```
+IAM id: <IAM-id>
+IAM user name: ec2-admin
+Password: <password>
+MFA: <OTP>
+``` 
+
+Use this IAM user for the lab instead of the root account.
 
 ##### Step 2: Select an AWS region
 
@@ -208,7 +256,7 @@ This is stored as an AWS tag; it helps identify the instance but does not become
 Under **Application and OS Images**, select a current LTS (long-term support) Ubuntu release published by Canonical:
 
 ```text
-Ubuntu Server 24.04 LTS
+Ubuntu Server 24.04 LTS / 26.04 LTS
 ```
 
 Confirm the architecture (x86-64 vs. Arm). The original demo's Ubuntu 18.04 image is past standard support and should not be used for a new deployment.
@@ -218,8 +266,10 @@ Confirm the architecture (x86-64 vs. Arm). The original demo's Ubuntu 18.04 imag
 A small instance is sufficient for this lab:
 
 ```text
-t3.micro
+t3.micro / t2.nano
 ```
+
+Check instance types here: [Compare instance types](https://eu-central-1.console.aws.amazon.com/ec2/home?region=eu-central-1#LaunchInstances:)
 
 Be careful with `t4g.micro`: it's an Arm processor. NGINX works fine on Arm, but later tutorial software may expect x86-64. Review the price shown in the console -- Free Tier eligibility depends on account, region, instance type, and disk configuration.
 
@@ -233,7 +283,7 @@ Key pair type: ED25519
 Private key format: .pem
 ```
 
-AWS stores the public key and gives you the private key once; protect it. Move it to a safe directory and lock down its permissions:
+AWS stores the public key and gives you the private key once, which is automatically **downloaded**; protect it. Move it to a safe directory and lock down its permissions:
 
 ```bash
 mkdir -p ~/.ssh
@@ -243,7 +293,7 @@ chmod 600 ~/.ssh/nginx-tutorial-key.pem
 
 On Windows PowerShell:
 
-```powershell
+```bash
 New-Item -ItemType Directory -Force "$HOME\.ssh"
 Move-Item "$HOME\Downloads\nginx-tutorial-key.pem" "$HOME\.ssh\"
 icacls "$HOME\.ssh\nginx-tutorial-key.pem" /inheritance:r
@@ -254,15 +304,17 @@ Never email the private key, commit it to git, bake it into a Docker image, or p
 
 ##### Step 8: Configure network settings
 
-Create a security group (AWS's instance-level virtual firewall), e.g. `nginx-tutorial-sg`, with these inbound rules:
+Create a security group (AWS's instance-level virtual firewall), e.g. `nginx-tutorial-sg`, with these inbound rules (click on `Add security group rule` for each rule):
 
 | Type | Protocol | Port | Source | Description |
 | --- | --- | --- | --- | --- |
-| SSH | TCP | 22 | My IP (your `/32`) | SSH from my computer |
+| SSH | TCP | 22 | My IP (your `/32`): automatically detected | SSH from my computer |
 | HTTP | TCP | 80 | Anywhere-IPv4 (`0.0.0.0/0`) | Public NGINX HTTP |
 | HTTPS (optional) | TCP | 443 | Anywhere-IPv4 (`0.0.0.0/0`) | For later TLS work |
 
-Do not open SSH to `0.0.0.0/0` -- that exposes port 22 to the entire internet. HTTP does need to be public for this exercise; add `::/0` too if the instance/VPC (virtual private cloud) uses IPv6.
+If possible, do not open SSH to `0.0.0.0/0` (Anywhere-IPv4) -- that exposes port 22 to the entire internet. HTTP does need to be public for this exercise; add `::/0` too if the instance/VPC (virtual private cloud) uses IPv6.
+
+It might be that you are trying to connect via SSH from a secured/corporate network. In that case, probably the SSH connection explained here won't work. In that case, you can use **EC2 Instance Connect** as an alternative: complete until Step 11, then go to section [What if you cannot log in via SSH?](#what-if-you-cannot-log-in-via-ssh).
 
 ##### Step 9: Review storage
 
@@ -299,6 +351,7 @@ The address can change after stopping/starting the instance unless you assign an
 The default username for the official Ubuntu AWS image is `ubuntu`:
 
 ```bash
+# Log in
 ssh -i ~/.ssh/nginx-tutorial-key.pem ubuntu@<public-ip-or-dns>
 ```
 
@@ -317,7 +370,7 @@ Host aws-nginx
 ssh aws-nginx
 ```
 
-##### AWS access keys: do you need them?
+##### Note on AWS access keys: Do you need them?
 
 Not for the console-based tutorial above. An access key (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) authenticates API/CLI requests, not an SSH session:
 
@@ -350,6 +403,16 @@ EC2 -> Instances -> select instance -> Instance state -> Terminate instance
 ```
 
 Also check for leftover Elastic IPs, extra EBS volumes, snapshots, or load balancers that keep incurring cost.
+
+##### What if you cannot log in via SSH?
+
+If you are behind a secured/corporate network, the SSH connection may not work. In that case, you can use **EC2 Instance Connect** as an alternative; that's a browser-based SSH client that works even if your network blocks port 22.
+
+First log in as root or, if you want to use the `ec2-admin` IAM role, attach the `SendSSHPublicKey` policy to it. Then, in the AWS console, navigate to:
+
+```
+EC2 -> Instances -> select instance -> Connect -> EC2 Instance Connect
+```
 
 #### Demo Part 1b: Create an Azure VM Instance (extra)
 
@@ -426,7 +489,7 @@ cat ~/.ssh/id_azure_nginx.pub
 
 On Windows PowerShell:
 
-```powershell
+```bash
 Get-Content "$HOME\.ssh\id_azure_nginx.pub"
 ```
 
@@ -546,6 +609,7 @@ ssh azure-nginx
 ```bash
 cat /etc/os-release
 uname -a
+# Linux ip-172-31-17-20 7.0.0-1006-aws #6-Ubuntu SMP PREEMPT Tue May 26 12:04:34 UTC 2026 x86_64 GNU/Linux
 ```
 
 You should see Ubuntu and its version, plus kernel/architecture info.
@@ -687,30 +751,31 @@ Visit `http://<public-ip>` in a browser -- you should see **Welcome to nginx!** 
 curl -I http://<public-ip>
 ```
 
+![NGINX Welcome Page](./assets/nginx_welcome_page.png)
+
 ##### Step 11: Locate the default website files
 
 ```bash
-ls -la /var/www/html
+ls -la /var/www/html  # index.nginx-debian.html
 cat /var/www/html/index.nginx-debian.html
 ```
 
-Replace the default page with a simple custom one:
+Extend the default page with a new line:
 
 ```bash
-sudo tee /var/www/html/index.html > /dev/null <<'EOF'
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>NGINX tutorial</title>
-</head>
-<body>
-    <h1>NGINX is working</h1>
-    <p>This page is being served from my Ubuntu VM.</p>
-</body>
-</html>
-EOF
+sudo vim /var/www/html/index.nginx-debian.html
 ```
+
+Add: 
+
+```html
+<!-- ... -->
+<p>This is part of the tutorial :)</p>
+```
+
+Save and reload the page in your browser -- you should see the new line appear:
+
+![NGINX Welcome Page Modified](./assets/nginx_welcome_page_modified.png)
 
 Depending on NGINX's default index ordering, you may need to rename the original page so your new `index.html` takes priority:
 
@@ -739,6 +804,8 @@ sudo less /etc/nginx/sites-available/default
 
 ```bash
 sudo nginx -t
+# nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+# nginx: configuration file /etc/nginx/nginx.conf test is successful
 ```
 
 A valid result reads `syntax is ok` / `test is successful`. Only then reload -- chaining the two makes the reload conditional on a passing test:
@@ -753,6 +820,8 @@ sudo nginx -t && sudo systemctl reload nginx
 sudo tail -f /var/log/nginx/access.log    # reload the page in your browser to see a request appear
 sudo tail -f /var/log/nginx/error.log
 ```
+
+![NGINX Logs](./assets/nginx_logs.png)
 
 Stop following with `Ctrl+C`. These logs are the first place to check for `403`, `404`, `502`, connection resets, or configuration errors.
 
@@ -811,6 +880,376 @@ sudo journalctl -u nginx --since "10 minutes ago"
 **`nginx: configuration file test failed`** -- run `sudo nginx -t`, read the reported file/line, and fix it before reloading.
 
 **Public IP changed** -- AWS/Azure dynamic public IPs can change under some lifecycle operations; for a persistent server use an AWS Elastic IP or an Azure static public IP. For the tutorial, just update your SSH config with the new address.
+
+#### Demo Part 1d: (Optional) Use NGINX via Docker Compose
+
+We can reproduce the EC2/NGINX exercises locally with Docker. One important distinction: with EC2 you enter the virtual machine using `ssh`, but with Docker the normal equivalent is `docker exec`. This setup uses Ubuntu 24.04 and installs NGINX with `apt`, giving you the familiar Ubuntu locations:
+
+```text
+/var/www/html
+/etc/nginx
+/etc/nginx/sites-available
+/etc/nginx/sites-enabled
+/var/log/nginx
+```
+
+Docker volumes will preserve your websites, NGINX configuration, and logs when the container is recreated.
+
+##### Step 1: Check Docker Desktop
+
+```bash
+docker version
+docker run --rm hello-world
+```
+
+##### Step 2: Create the project
+
+```bash
+mkdir nginx-docker-tutorial
+cd nginx-docker-tutorial
+```
+
+The project will contain:
+
+```text
+nginx-docker-tutorial/
+├── Dockerfile
+└── compose.yaml
+```
+
+The NGINX files themselves will be stored in Docker-managed volumes.
+
+##### Step 3: Create the Dockerfile
+
+```bash
+vim Dockerfile
+```
+
+```dockerfile
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y \
+        nginx \
+        vim \
+        curl \
+        sudo \
+        iproute2 \
+        procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a normal user similar to the "ubuntu" user on EC2.
+RUN useradd \
+        --create-home \
+        --shell /bin/bash \
+        student \
+    && usermod --append --groups sudo student \
+    && echo "student ALL=(ALL) NOPASSWD:ALL" \
+        > /etc/sudoers.d/student \
+    && chmod 0440 /etc/sudoers.d/student
+
+# Let the student user manage website files without sudo.
+RUN chown -R student:student /var/www
+
+EXPOSE 80
+
+# NGINX must stay in the foreground inside a container.
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+This image gives you:
+
+- Ubuntu 24.04;
+- the standard Ubuntu NGINX installation;
+- Bash, Vim, and basic diagnostic tools;
+- a normal user named `student`;
+- passwordless `sudo`, suitable for a local tutorial;
+- the standard Ubuntu NGINX directory structure.
+
+##### Step 4: Create `compose.yaml`
+
+```bash
+vim compose.yaml
+```
+
+```yaml
+services:
+  nginx:
+    build:
+      context: .
+    container_name: nginx-tutorial
+    ports:
+      - "8080:80"
+    volumes:
+      - nginx-www:/var/www
+      - nginx-config:/etc/nginx
+      - nginx-logs:/var/log/nginx
+    restart: unless-stopped
+
+volumes:
+  nginx-www:
+  nginx-config:
+  nginx-logs:
+```
+
+The mappings are:
+
+| Docker volume | Container location | Purpose |
+| --- | --- | --- |
+| `nginx-www` | `/var/www` | Website content |
+| `nginx-config` | `/etc/nginx` | Complete NGINX configuration |
+| `nginx-logs` | `/var/log/nginx` | Access and error logs |
+| Port `8080` | Port `80` | Browser access |
+
+When Docker creates these volumes for the first time, it initializes them with the files already present in the image.
+
+These are **named volumes**, not bind mounts, which is an easy thing to mix up if you're used to volume definitions such as `./html:/usr/share/nginx/html`. The practical difference:
+
+- The `nginx-docker-tutorial` project folder will only ever contain `Dockerfile` and `compose.yaml` -- nothing NGINX-related gets written there. A bind mount (like `./html:/...`) maps a container path directly onto a folder you can browse in Windows; a named volume does not.
+- Docker creates and stores `nginx-www`, `nginx-config`, and `nginx-logs` in its own managed storage area -- on Windows with Docker Desktop, that's inside the WSL2 (Windows Subsystem for Linux)/Linux VM Docker runs in, not a folder next to `compose.yaml`. You won't see `/etc/nginx`'s files appear anywhere in Windows Explorer.
+- The **volume becomes the persistent, real copy** of that path: once initialized from the image, changes made inside the container to `/etc/nginx`, `/var/www`, or `/var/log/nginx` are written to the volume and survive `docker compose down`/`up` (though not `docker compose down -v`, which deletes the volumes -- see the warning in Step 12).
+- To inspect those files from outside the container, use `docker exec` to look from inside (see Step 8), or `docker volume inspect nginx-docker-tutorial_nginx-config` to see the internal path Docker uses -- not something you'd normally open directly from Windows.
+
+##### Step 5: Build and start the container
+
+Run from the project directory:
+
+```bash
+cd lab/nginx-docker-tutorial
+docker compose up -d --build
+```
+
+The first build may take a few minutes because Docker must download Ubuntu and install NGINX. Check that the container is running:
+
+```bash
+docker compose ps
+```
+
+You should see something similar to:
+
+```text
+NAME             STATUS         PORTS
+nginx-tutorial   Up             0.0.0.0:8080->80/tcp
+```
+
+You can also inspect its logs:
+
+```bash
+docker compose logs nginx
+```
+
+##### Step 6: Open the NGINX website
+
+Open [http://localhost:8080](http://localhost:8080) -- you should see the default Ubuntu NGINX welcome page. You can also test it from PowerShell:
+
+```bash
+curl.exe http://localhost:8080
+```
+
+The port mapping means:
+
+```text
+Browser localhost:8080
+          ↓
+Windows port 8080
+          ↓
+Container port 80
+          ↓
+NGINX
+```
+
+##### Step 7: Enter the container
+
+The Docker equivalent of entering the EC2 server through SSH is:
+
+```bash
+docker exec -it --user student nginx-tutorial bash
+```
+
+Your prompt will change to something similar to `student@xxx:/$` -- you are now inside the Ubuntu container. Verify the environment:
+
+```bash
+whoami
+hostname
+cat /etc/os-release
+nginx -v
+```
+
+Expected user: `student`. Expected operating system: `Ubuntu 24.04`.
+
+##### Step 8: Explore the NGINX installation
+
+Inside the container, inspect the standard Ubuntu NGINX paths:
+
+```bash
+ls -la /var/www/html
+ls -la /etc/nginx
+ls -la /etc/nginx/sites-available
+ls -la /etc/nginx/sites-enabled
+ls -la /var/log/nginx
+```
+
+View the default website, the global configuration, and the default server block:
+
+```bash
+cat /var/www/html/index.nginx-debian.html
+cat /etc/nginx/nginx.conf
+cat /etc/nginx/sites-available/default
+```
+
+Inspect the enabled-site symlink:
+
+```bash
+ls -la /etc/nginx/sites-enabled
+```
+
+It should show that the enabled default site points to `/etc/nginx/sites-available/default`, reproducing the Ubuntu/EC2 structure from the course:
+
+```text
+/etc/nginx/sites-available/default
+                 ↑
+                 │ symbolic link
+                 │
+/etc/nginx/sites-enabled/default
+```
+
+Exit the container with:
+
+```bash
+exit
+```
+
+##### Step 9: Modify the default welcome page
+
+Enter the container:
+
+```bash
+docker exec -it --user student nginx-tutorial bash
+```
+
+Open the existing page:
+
+```bash
+sudo vim /var/www/html/index.nginx-debian.html
+```
+
+Change some visible text, then save it (press `i` to edit, `Esc`, then `:wq` and Enter). Refresh [http://localhost:8080](http://localhost:8080) -- the change should appear immediately, since static HTML changes do not require an NGINX reload.
+
+##### Step 10: Modify the NGINX configuration
+
+Files under `/etc/nginx` are owned by `root`, as they would be on a normal Ubuntu server. Use `sudo` when editing them:
+
+```bash
+sudo vim /etc/nginx/sites-available/default
+```
+
+Before applying any configuration change, validate it:
+
+```bash
+sudo nginx -t
+```
+
+A valid configuration produces `syntax is ok` / `test is successful`. Reload NGINX without stopping the container:
+
+```bash
+sudo nginx -s reload
+```
+
+Alternatively, exit the container and restart it from PowerShell:
+
+```bash
+docker compose restart nginx
+```
+
+##### Step 11: Inspect the logs
+
+Inside the container, inspect the access log:
+
+```bash
+sudo tail -f /var/log/nginx/access.log
+```
+
+Refresh [http://localhost:8080](http://localhost:8080), and you should see the requests appear. Stop following the log with `Ctrl+C`. Inspect recent errors:
+
+```bash
+sudo tail -n 50 /var/log/nginx/error.log
+```
+
+You can also inspect container-level output from PowerShell, optionally following it continuously:
+
+```bash
+docker compose logs nginx
+docker compose logs -f nginx
+```
+
+Press `Ctrl+C` to stop following the output.
+
+##### Step 12: Validate persistence
+
+First, make a recognizable change to the welcome page. Then exit the container and delete it:
+
+```bash
+docker compose down
+```
+
+Recreate it:
+
+```bash
+docker compose up -d
+```
+
+Open [http://localhost:8080](http://localhost:8080) -- your changes should remain because the relevant directories are stored in named volumes: `nginx-www`, `nginx-config`, `nginx-logs`. You can list the volumes with:
+
+```bash
+docker volume ls
+```
+
+Docker Compose will normally give them project-prefixed names resembling:
+
+```text
+nginx-docker-tutorial_nginx-www
+nginx-docker-tutorial_nginx-config
+nginx-docker-tutorial_nginx-logs
+```
+
+**Important warning**: `docker compose down` preserves the volumes, but `docker compose down -v` deletes them. Do not use `-v` if you want to preserve your website, configuration, and logs.
+
+##### Step 13: Container, image, and volume persistence
+
+The three concepts serve different purposes:
+
+```text
+Dockerfile
+    ↓ builds
+Ubuntu + NGINX image
+    ↓ creates
+NGINX container
+    ↓ uses
+persistent Docker volumes
+```
+
+**Image**: contains reproducible system-level dependencies -- Ubuntu, NGINX, Nano, Curl, and the `student` user. Changes to installed software should be added to the `Dockerfile`, followed by `docker compose up -d --build`.
+
+**Container**: the running NGINX environment. Its non-volume filesystem changes are temporary and disappear when the container is replaced -- for example, installing a package manually inside the container (`sudo apt-get install some-package`) is not reliably persistent. Add permanent packages to the `Dockerfile` instead.
+
+**Volumes**: contain persistent runtime data (`/var/www`, `/etc/nginx`, `/var/log/nginx`). Changes made there survive normal container removal and recreation -- they are not literally added to the Docker image, but preserved separately in Docker volumes, which is the appropriate Docker persistence mechanism.
+
+##### Step 14: Useful lifecycle commands
+
+```bash
+docker compose start                                       # start the existing container
+docker compose stop                                        # stop it without removing it
+docker compose restart nginx                                # restart it
+docker compose down                                         # stop and remove the container, preserving volumes
+docker compose up -d                                        # recreate it
+docker compose up -d --build                                # rebuild after changing the Dockerfile
+docker exec -it --user student nginx-tutorial bash          # enter as the student user
+docker exec -it nginx-tutorial bash                         # enter as root, for troubleshooting
+docker exec nginx-tutorial nginx -t                         # validate NGINX from PowerShell
+docker exec nginx-tutorial nginx -s reload                  # reload NGINX
+```
 
 #### Demo Part 2: NGINX Basic Configuration
 
