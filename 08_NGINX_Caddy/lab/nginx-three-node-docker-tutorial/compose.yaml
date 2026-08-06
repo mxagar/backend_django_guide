@@ -6,6 +6,8 @@ services:
     container_name: nginx
     ports:
       - "8080:80"
+      # Virtual host lab: second server block listens on 3000.
+      - "3000:3000"
     # Named volumes so website content, NGINX config, and logs survive
     # `docker compose down`/`up` and image rebuilds -- without them,
     # anything written inside the container is lost once it's recreated.
@@ -20,6 +22,11 @@ services:
       # named volumes above, this stays in sync with the repo folder on the
       # host -- edit static.html on either side and both see the change.
       - ./nginx-files:/home/student/nginx-files
+      # Virtual host lab: two server blocks (port 80 + port 3000) and the
+      # html root they both serve from, added on top of the nginx-config
+      # named volume above.
+      - ./conf.d/virtual.conf:/etc/nginx/conf.d/virtual.conf
+      - ./virtual-host-html:/home/student/html
     networks:
       - lab-net
 

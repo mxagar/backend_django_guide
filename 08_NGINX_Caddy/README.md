@@ -1875,7 +1875,7 @@ The `mail` block is unrelated to serving websites: it configures NGINX as a mail
 
 We build the case study's actual website as a static HTML page, served from the `nginx` server, that links out to the two backend servers created earlier.
 
-- Each backend server exposes two API endpoints, so the page lists four links total: backend-1's endpoint-1/endpoint-2 and backend-2's endpoint-1/endpoint-2. Each link currently points at a placeholder `http://ip:port/uri`, to be filled in with the real backend address once that's known.
+- Each backend server exposes two API endpoints, so the page lists four links total: backend-1's endpoint-1/endpoint-2 and backend-2's endpoint-1/endpoint-2. In this Docker lab, those addresses are already known -- backend-1 and backend-2 publish port 3000 to the host as `3001`/`3002` respectively (see [Backend Services Creation](#backend-services-creation)) -- so the links point at `http://localhost:3001/`, `http://localhost:3001/test`, `http://localhost:3002/`, and `http://localhost:3002/testing`.
 - We create the file directly on the `nginx` server.
 
 Note: the [`compose.yaml`](./lab/nginx-three-node-docker-tutorial/compose.yaml) file mounts the local folder [`lab/nginx-three-node-docker-tutorial/nginx-files/`](./lab/nginx-three-node-docker-tutorial/nginx-files/) already into the container at `/home/student/nginx-files`.
@@ -1912,20 +1912,20 @@ vim static.html
     Backend Server-1 :
     <br>
     <br>
-    <a href="http://ip:port/uri">endpoint-1</a>
+    <a href="http://localhost:3001/">endpoint-1</a>
     <br>
     <br>
-    <a href="http://ip:port/uri">endpoint-2</a>
+    <a href="http://localhost:3001/test">endpoint-2</a>
     <br>
     <br>
     <br>
     Backend Server-2 :
     <br>
     <br>
-    <a href="http://ip:port/uri">endpoint-1</a>
+    <a href="http://localhost:3002/">endpoint-1</a>
     <br>
     <br>
-    <a href="http://ip:port/uri">endpoint-2</a>
+    <a href="http://localhost:3002/testing">endpoint-2</a>
     <br>
 
 </body>
@@ -2141,7 +2141,102 @@ In short, the **virtual host determines which domain NGINX is handling**, while 
 
 #### Creating a Virtual Host
 
+In NGINX
 
+- A **virtual host** is defined by a `server` block (`nginx.conf`), which specifies the domain name and port to listen on, as well as the root directory for static files or the backend to proxy requests to. So basically it is a mapping to an HTML file.
+- A **reverse proxy** is defined by a `location` block inside the `server` block (`nginx.conf`), which specifies the backend server to forward requests to using the `proxy_pass` directive. So basically it is a mapping to a service represented by a URL.
+
+In this section, a virtual host is created, i.e., a second website is hosted on the same NGINX server. To do this, we modify the `nginx` container in [lab/nginx-three-node-docker-tutorial](./lab/nginx-three-node-docker-tutorial).
+
+The Ubuntu NGINX package already ships a default site as `/etc/nginx/sites-enabled/default`. We remove that symlink first.
+
+```bash
+cd lab/nginx-three-node-docker-tutorial
+docker compose up -d --build
+
+docker exec -it --user student nginx bash
+
+# Remove the default site symlink
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+Create/Add a new `/etc/nginx/conf.d/virtual.conf` file defining two server blocks instead of one, so the same NGINX hosts two sites:
+
+- one on port 80 serving `static.html` (the page from [Creating a Static Website](#creating-a-static-website)),
+- one on port 3000 serving a new `secondhost.html`.
+
+Instead of creating these three files, I mount them from the host into the container with `compose.yaml` so they can be edited on the host and take effect immediately inside the container.
+
+In `/etc/nginx/conf.d/virtual.conf` both blocks point `root` at the same directory; only the `index` file differs.
+
+
+```nginx
+# lab/nginx-three-node-docker-tutorial/conf.d/virtual.conf
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        root /home/student/html;
+        index static.html;
+    }
+}
+
+server {
+    listen 3000;
+    server_name localhost;
+
+    location / {
+        root /home/student/html;
+        index secondhost.html;
+    }
+}
+```
+
+The first host `virtual-host-html/static.html` is the same file already created under `nginx-files/static.html`. The second host `virtual-host-html/secondhost.html` is a new file; both are mounted at `/home/student/html`. Here is the content of `secondhost.html`:
+
+```html
+<!-- lab/nginx-three-node-docker-tutorial/virtual-host-html/secondhost.html -->
+<html>
+<head>
+    <title>Second Host</title>
+</head>
+<body>
+    <h1>This is our secondhost</h1>
+</body>
+</html>
+```
+
+If we edit the files manually, we need to validate the configuration and reload NGINX after any change:
+
+```bash
+# docker exec -it --user student nginx bash
+sudo nginx -t && sudo nginx -s reload
+```
+
+Recall that `compose.yaml` mounts the new conf file and html folder into the `nginx` service, and publishes the new port 3000:
+
+```yaml
+    volumes:
+      # ...existing volumes...
+      - ./conf.d/virtual.conf:/etc/nginx/conf.d/virtual.conf
+      - ./virtual-host-html:/home/student/html
+    ports:
+      - "8080:80"
+      - "3000:3000"
+```
+
+Usage:
+
+```bash
+docker compose up -d --build
+curl http://localhost:8080/    # static.html
+curl http://localhost:3000/    # secondhost.html
+```
+
+![Virtual Host 1](./assets/virtual_host_1.png)
+
+![Virtual Host 2](./assets/virtual_host_2.png)
 
 #### Reverse Proxy
 
