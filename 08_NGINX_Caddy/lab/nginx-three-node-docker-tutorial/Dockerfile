@@ -18,11 +18,27 @@ RUN useradd \
     && chmod 0440 /etc/sudoers.d/student
 
 # ---- backend-node -----------------------------------------------------
-# Nothing installed yet, matching the "just launched, ran apt update"
-# state of the backend EC2 instances at this point in the course.
+# Course uses Node.js/Express here; we use Python/FastAPI instead.
+# Packages are installed now, in the image, rather than by hand over SSH.
 FROM base AS backend-node
 
-CMD ["sleep", "infinity"]
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu 24.04 blocks plain `pip install` outside a venv (PEP 668);
+# --break-system-packages is fine for a throwaway lab container.
+RUN pip install --no-cache-dir --break-system-packages "fastapi[standard]"
+
+USER student
+WORKDIR /home/student/backend_app
+
+EXPOSE 3000
+
+# main.py is provided by the bind mount in compose.yaml, not the image.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
 
 # ---- nginx-node ---------------------------------------------------------
 # Adds only NGINX on top of the shared base, skipping recommended

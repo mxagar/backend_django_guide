@@ -1933,6 +1933,65 @@ vim static.html
 
 ### Backend Services Creation
 
+Each backend server gets a small API with two endpoints (matching the four links on the static page):
+
+- backend-1 answers on `/` and `/test`,
+- backend-2 on `/` and `/testing`,
+- both listening on port 3000.
+
+The course builds these with Node.js/Express; this repo uses Python/FastAPI instead.
+
+Docker arrangement: `python3`, `pip`, and `fastapi[standard]` (which includes Uvicorn) are installed in the shared backend image at build time, rather than by hand over SSH -- see the `backend-node` stage in [Dockerfile](./lab/nginx-three-node-docker-tutorial/Dockerfile).
+
+Each app's `main.py` lives on the host,
+
+- in [backend-1-app/](./lab/nginx-three-node-docker-tutorial/backend-1-app/main.py)
+- and [backend-2-app/](./lab/nginx-three-node-docker-tutorial/backend-2-app/main.py)
+
+and is bind-mounted to `~/backend_app` inside its respective container -- editing `main.py` on the host takes effect immediately, since the container runs Uvicorn with `--reload`. Since both containers share the identical backend image, only the mounted app code tells them apart.
+
+Just like the course opens port 3000 in the backend's AWS security group so the API is reachable directly, `compose.yaml` publishes each container's port 3000 to a distinct host port (`3001` for backend-1, `3002` for backend-2, since both can't claim the same host port).
+
+```python
+# backend-1-app/main.py
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+app = FastAPI()
+
+@app.get("/", response_class=HTMLResponse)
+def endpoint_1():
+    return "<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>"
+
+@app.get("/test", response_class=HTMLResponse)
+def endpoint_2():
+    return "<h2>This is the response coming from Backend-Server-1: endpoint-2</h2>"
+```
+
+```python
+# backend-2-app/main.py
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+app = FastAPI()
+
+@app.get("/", response_class=HTMLResponse)
+def endpoint_1():
+    return "<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>"
+
+@app.get("/testing", response_class=HTMLResponse)
+def endpoint_2():
+    return "<h2>This is the response coming from Backend-Server-2: endpoint-2</h2>"
+```
+
+```bash
+docker compose up -d --build
+curl http://localhost:3001/  # Backend-Server-1: endpoint-1
+curl http://localhost:3001/test  # Backend-Server-1: endpoint-2
+curl http://localhost:3002/  # Backend-Server-2: endpoint-1
+curl http://localhost:3002/testing  # Backend-Server-2: endpoint-2
+```
+
 ### Virtual Hosting and Reverse Proxy Architecture
 
 ## 4. Security, Load Balancing, and Performance Optimization

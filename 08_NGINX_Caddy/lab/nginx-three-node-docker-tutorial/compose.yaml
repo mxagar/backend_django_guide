@@ -29,6 +29,16 @@ services:
       target: backend-node
     image: nginx-lab-backend
     container_name: backend-1
+    # Local FastAPI app bind-mounted in, matching the course's app
+    # directory on the backend EC2 instance -- edit main.py on the host,
+    # uvicorn's --reload picks it up without rebuilding the image.
+    volumes:
+      - ./backend-1-app:/home/student/backend_app
+    # Course opens port 3000 in the backend's AWS security group so the
+    # API is reachable directly; here that's the host port published below
+    # (3001, since backend-2 needs its own host port for the same 3000).
+    ports:
+      - "3001:3000"
     networks:
       - lab-net
 
@@ -38,6 +48,10 @@ services:
   backend-2:
     image: nginx-lab-backend
     container_name: backend-2
+    volumes:
+      - ./backend-2-app:/home/student/backend_app
+    ports:
+      - "3002:3000"
     depends_on:
       - backend-1
     networks:
