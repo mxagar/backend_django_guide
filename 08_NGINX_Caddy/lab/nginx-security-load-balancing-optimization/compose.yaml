@@ -1,0 +1,69 @@
+services:
+  nginx:
+    build:
+      context: .
+      target: nginx-node
+    container_name: nginx
+    ports:
+      - "8080:80"
+    # Named volumes so website content, NGINX config, and logs survive
+    # `docker compose down`/`up` and image rebuilds -- without them,
+    # anything written inside the container is lost once it's recreated.
+    # `docker compose down -v` deletes these volumes; plain `down` keeps them.
+    volumes:
+      - nginx-www:/var/www
+      - nginx-config:/etc/nginx
+      - nginx-logs:/var/log/nginx
+      # Single site: one server block on port 80, reverse-proxying
+      # /Backend1end1, /Backend1end2, /Backend2end1, /Backend2end2 to
+      # backend-1/backend-2 -- see "Reverse Proxy".
+      - ./nginx-server/conf.d/reverse-proxy.conf:/etc/nginx/conf.d/site.conf
+      # Mounted as a single file, not the whole nginx-server/ folder --
+      # that folder also holds conf.d/, and mounting the directory itself
+      # would put reverse-proxy.conf under the web root, serving NGINX's
+      # own config over HTTP.
+      - ./nginx-server/static.html:/home/student/html/static.html
+    networks:
+      - lab-net
+
+  backend-1:
+    build:
+      context: .
+      target: backend-node
+    image: nginx-lab-backend
+    container_name: backend-1
+    # Local FastAPI app bind-mounted in, matching the course's app
+    # directory on the backend EC2 instance -- edit main.py on the host,
+    # uvicorn's --reload picks it up without rebuilding the image.
+    volumes:
+      - ./backend-1-app:/home/student/backend_app
+    # Course opens port 3000 in the backend's AWS security group so the
+    # API is reachable directly; here that's the host port published below
+    # (3001, since backend-2 needs its own host port for the same 3000).
+    ports:
+      - "3001:3000"
+    networks:
+      - lab-net
+
+  # Reuses the image built for backend-1 instead of building it again --
+  # both containers share the exact same image, just two separate
+  # (essentially empty) writable layers on top.
+  backend-2:
+    image: nginx-lab-backend
+    container_name: backend-2
+    volumes:
+      - ./backend-2-app:/home/student/backend_app
+    ports:
+      - "3002:3000"
+    depends_on:
+      - backend-1
+    networks:
+      - lab-net
+
+networks:
+  lab-net:
+
+volumes:
+  nginx-www:
+  nginx-config:
+  nginx-logs:

@@ -2316,6 +2316,31 @@ curl http://localhost:8080/Backend2end2    # proxied to backend-2, "/testing"
 
 ## 4. Security, Load Balancing, and Performance Optimization
 
+This section uses [`lab/nginx-security-load-balancing-optimization/`](./lab/nginx-security-load-balancing-optimization/).
+
+To launch the lab, run the following commands:
+
+```bash
+# Go to next lab folder
+cd lab/nginx-security-load-balancing-optimization
+
+# Build and launch the lab
+docker compose up -d --build
+
+# Enter the NGINX container to check the configuration and logs, if desired
+docker exec -it --user student nginx bash
+
+# Check the static page and each backend endpoint through the reverse proxy
+curl http://localhost:8080/                # static.html
+curl http://localhost:8080/Backend1end1    # proxied to backend-1, "/"
+curl http://localhost:8080/Backend1end2    # proxied to backend-1, "/test"
+curl http://localhost:8080/Backend2end1    # proxied to backend-2, "/"
+curl http://localhost:8080/Backend2end2    # proxied to backend-2, "/testing"
+
+# Shutdown the lab when done
+docker compose down
+```
+
 ### Access Control and SSL Security
 
 ### Advanced SSL and Load Balancing Strategies
