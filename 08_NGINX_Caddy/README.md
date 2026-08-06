@@ -1878,7 +1878,7 @@ We build the case study's actual website as a static HTML page, served from the 
 - Each backend server exposes two API endpoints, so the page lists four links total: backend-1's endpoint-1/endpoint-2 and backend-2's endpoint-1/endpoint-2. In this Docker lab, those addresses are already known -- backend-1 and backend-2 publish port 3000 to the host as `3001`/`3002` respectively (see [Backend Services Creation](#backend-services-creation)) -- so the links point at `http://localhost:3001/`, `http://localhost:3001/test`, `http://localhost:3002/`, and `http://localhost:3002/testing`.
 - We create the file directly on the `nginx` server.
 
-Note: the [`compose.yaml`](./lab/nginx-three-node-docker-tutorial/compose.yaml) file mounts the local folder [`lab/nginx-three-node-docker-tutorial/nginx-files/`](./lab/nginx-three-node-docker-tutorial/nginx-files/) already into the container at `/home/student/nginx-files`.
+Note: the [`compose.yaml`](./lab/nginx-three-node-docker-tutorial/compose.yaml) file mounts the local folder [`lab/nginx-three-node-docker-tutorial/nginx-html/`](./lab/nginx-three-node-docker-tutorial/nginx-html/) already into the container at `/home/student/nginx-html`.
 
 ```bash
 cd lab/nginx-three-node-docker-tutorial
@@ -1887,12 +1887,12 @@ docker compose up -d --build
 docker exec -it --user student nginx bash
 
 # This is not really necessary, since the folder is already mounted, but for clarity:
-mkdir ~/nginx-files
-cd ~/nginx-files
+mkdir ~/nginx-html
+cd ~/nginx-html
 vim static.html
 ```
 
-[`static.html`](./lab/nginx-three-node-docker-tutorial/nginx-files/static.html):
+[`static.html`](./lab/nginx-three-node-docker-tutorial/nginx-html/static.html):
 
 ```html
 <html>
@@ -2160,18 +2160,18 @@ docker exec -it --user student nginx bash
 sudo rm /etc/nginx/sites-enabled/default
 ```
 
-Create/Add a new `/etc/nginx/conf.d/virtual.conf` file defining two server blocks instead of one, so the same NGINX hosts two sites:
+Create/Add a new `/etc/nginx/conf.d/site.conf` file defining two server blocks instead of one, so the same NGINX hosts two sites:
 
 - one on port 80 serving `static.html` (the page from [Creating a Static Website](#creating-a-static-website)),
 - one on port 3000 serving a new `secondhost.html`.
 
 Instead of creating these three files, I mount them from the host into the container with `compose.yaml` so they can be edited on the host and take effect immediately inside the container.
 
-In `/etc/nginx/conf.d/virtual.conf` both blocks point `root` at the same directory; only the `index` file differs.
+In `/etc/nginx/conf.d/site.conf` both blocks point `root` at the same directory; only the `index` file differs.
 
 
 ```nginx
-# lab/nginx-three-node-docker-tutorial/conf.d/virtual.conf
+# lab/nginx-three-node-docker-tutorial/virtual-host-html/conf.d/virtual.conf
 server {
     listen 80;
     server_name localhost;
@@ -2193,7 +2193,7 @@ server {
 }
 ```
 
-The first host `virtual-host-html/static.html` is the same file already created under `nginx-files/static.html`. The second host `virtual-host-html/secondhost.html` is a new file; both are mounted at `/home/student/html`. Here is the content of `secondhost.html`:
+The first host `virtual-host-html/static.html` is the same file already created under `nginx-html/static.html`. The second host `virtual-host-html/secondhost.html` is a new file; both are mounted at `/home/student/html`. Here is the content of `secondhost.html`:
 
 ```html
 <!-- lab/nginx-three-node-docker-tutorial/virtual-host-html/secondhost.html -->
@@ -2214,13 +2214,15 @@ If we edit the files manually, we need to validate the configuration and reload 
 sudo nginx -t && sudo nginx -s reload
 ```
 
-Recall that `compose.yaml` mounts the new conf file and html folder into the `nginx` service, and publishes the new port 3000:
+Recall that `compose.yaml` mounts the conf file and html folder into the `nginx` service at the same target paths used by the reverse-proxy setup below (`/etc/nginx/conf.d/site.conf` and `/home/student/html`), so only one of the two can be active -- mounting both to the same path is an error Docker itself will refuse to start, which is what keeps them from silently conflicting. To use this virtual-host setup, the `virtual-host-html` lines in `compose.yaml` must be the uncommented ones, and the `reverse-proxy-html` lines commented out:
 
 ```yaml
     volumes:
       # ...existing volumes...
-      - ./conf.d/virtual.conf:/etc/nginx/conf.d/virtual.conf
+      - ./virtual-host-html/conf.d/virtual.conf:/etc/nginx/conf.d/site.conf
       - ./virtual-host-html:/home/student/html
+      # - ./reverse-proxy-html/conf.d/reverse-proxy.conf:/etc/nginx/conf.d/site.conf
+      # - ./reverse-proxy-html:/home/student/html
     ports:
       - "8080:80"
       - "3000:3000"
@@ -2240,7 +2242,77 @@ curl http://localhost:3000/    # secondhost.html
 
 #### Reverse Proxy
 
+With the infrastructure from the previous videos in place, this one wires it up as an actual reverse proxy rather than a plain virtual host. As covered in [What are Virtual Hosts and Reverse Proxies?](#what-are-virtual-hosts-and-reverse-proxies), a reverse proxy sits between the client and the application servers: every request and response passes through NGINX, the client only ever talks to NGINX, and the backend servers are never exposed to the outside world directly, which is also a meaningful security boundary (backend servers can stay off any public network entirely).
 
+We replace `virtual-host-html/conf.d/virtual.conf`'s two server blocks with a single one in a new file, `reverse-proxy-html/conf.d/reverse-proxy.conf`, mounted to the same `/etc/nginx/conf.d/site.conf` target path -- so this setup and the virtual-host one from the previous section stay mutually exclusive via the same `compose.yaml` comment/uncomment toggle described there. The `/` location still serves `static.html` as before, but four more `location` blocks are added, one per backend API endpoint, each using `proxy_pass` instead of a `root`/`index` pair -- there's nothing local to serve, only a request to forward. The course looks up each backend's private IP from the AWS console and hardcodes it into `proxy_pass`; here, `backend-1`/`backend-2` are used directly as the proxy targets, since Docker's embedded DNS on the `lab-net` network resolves those container names automatically -- no IP to look up, and nothing to update if a container restarts with a different address.
+
+```nginx
+# lab/nginx-three-node-docker-tutorial/reverse-proxy-html/conf.d/reverse-proxy.conf
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        root /home/student/html;
+        index static.html;
+    }
+
+    location /Backend1end1 {
+        proxy_pass http://backend-1:3000/;
+    }
+
+    location /Backend1end2 {
+        proxy_pass http://backend-1:3000/test;
+    }
+
+    location /Backend2end1 {
+        proxy_pass http://backend-2:3000/;
+    }
+
+    location /Backend2end2 {
+        proxy_pass http://backend-2:3000/testing;
+    }
+}
+```
+
+`static.html`'s four links are updated to point at these new proxy paths instead of the direct backend ports (`3001`/`3002`) used in [Creating a Static Website](#creating-a-static-website) -- since NGINX now forwards them internally, a relative path is enough, with no host or port to hardcode:
+
+```html
+<!-- lab/nginx-three-node-docker-tutorial/reverse-proxy-html/static.html (excerpt) -->
+<a href="/Backend1end1">endpoint-1</a>
+<a href="/Backend1end2">endpoint-2</a>
+<a href="/Backend2end1">endpoint-1</a>
+<a href="/Backend2end2">endpoint-2</a>
+```
+
+To activate this setup, the `reverse-proxy-html` lines in `compose.yaml` must be the uncommented pair, with the `virtual-host-html` ones commented out (the reverse order from the previous section):
+
+```yaml
+    volumes:
+      # ...existing volumes...
+      - ./reverse-proxy-html/conf.d/reverse-proxy.conf:/etc/nginx/conf.d/site.conf
+      - ./reverse-proxy-html:/home/student/html
+      # - ./virtual-host-html/conf.d/virtual.conf:/etc/nginx/conf.d/site.conf
+      # - ./virtual-host-html:/home/student/html
+```
+
+Validating and reloading after any manual edit works the same as before:
+
+```bash
+docker exec -it --user student nginx bash
+sudo nginx -t && sudo nginx -s reload
+```
+
+Usage -- opening the page in a browser and clicking each link now round-trips through NGINX to the corresponding backend:
+
+```bash
+docker compose up -d --build
+curl http://localhost:8080/                # static.html
+curl http://localhost:8080/Backend1end1    # proxied to backend-1, "/"
+curl http://localhost:8080/Backend1end2    # proxied to backend-1, "/test"
+curl http://localhost:8080/Backend2end1    # proxied to backend-2, "/"
+curl http://localhost:8080/Backend2end2    # proxied to backend-2, "/testing"
+```
 
 ## 4. Security, Load Balancing, and Performance Optimization
 

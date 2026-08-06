@@ -19,7 +19,7 @@ RUN useradd \
     # Ubuntu creates home directories as 750 (owner + group only). NGINX's
     # worker processes run as www-data, which is neither student nor in
     # its group, so without this it can't even traverse /home/student to
-    # reach the bind-mounted html/nginx-files folders -- causing 403s.
+    # reach the bind-mounted nginx-html/html folders -- causing 403s.
     && chmod o+rx /home/student
 
 # ---- backend-node -----------------------------------------------------

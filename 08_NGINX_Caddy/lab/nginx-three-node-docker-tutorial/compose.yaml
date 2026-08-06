@@ -6,7 +6,8 @@ services:
     container_name: nginx
     ports:
       - "8080:80"
-      # Virtual host lab: second server block listens on 3000.
+      # Only used by the virtual-host lab's second server block; harmless
+      # to leave published while the reverse-proxy lab is active.
       - "3000:3000"
     # Named volumes so website content, NGINX config, and logs survive
     # `docker compose down`/`up` and image rebuilds -- without them,
@@ -16,17 +17,28 @@ services:
       - nginx-www:/var/www
       - nginx-config:/etc/nginx
       - nginx-logs:/var/log/nginx
-      # Bind mount (not a named volume): the course creates the nginx-files
-      # folder in the home directory right after logging in, so it's mapped
-      # here to the student user's home inside the container. Unlike the
-      # named volumes above, this stays in sync with the repo folder on the
-      # host -- edit static.html on either side and both see the change.
-      - ./nginx-files:/home/student/nginx-files
-      # Virtual host lab: two server blocks (port 80 + port 3000) and the
-      # html root they both serve from, added on top of the nginx-config
-      # named volume above.
-      - ./conf.d/virtual.conf:/etc/nginx/conf.d/virtual.conf
-      - ./virtual-host-html:/home/student/html
+      # Bind mount (not a named volume): the course creates this folder in
+      # the home directory right after logging in, so it's mapped here to
+      # the student user's home inside the container. Unlike the named
+      # volumes above, this stays in sync with the repo folder on the host
+      # -- edit static.html on either side and both see the change.
+      - ./nginx-html:/home/student/nginx-html
+      #
+      # The two setups below both mount a conf.d/*.conf file and an
+      # html root to the *same* container paths, so only one can be
+      # active at a time -- comment/uncomment the pair you want.
+      #
+      # Reverse proxy lab (active): one site on port 80, proxying
+      # /Backend1end1, /Backend1end2, /Backend2end1, /Backend2end2 to
+      # backend-1/backend-2 -- see "Reverse Proxy".
+      - ./reverse-proxy-html/conf.d/reverse-proxy.conf:/etc/nginx/conf.d/site.conf
+      - ./reverse-proxy-html:/home/student/html
+      #
+      # Virtual host lab: two server blocks (port 80 + port 3000), no
+      # proxying -- see "Creating a Virtual Host". Swap it back in by
+      # commenting out the reverse-proxy pair above and uncommenting these:
+      # - ./virtual-host-html/conf.d/virtual.conf:/etc/nginx/conf.d/site.conf
+      # - ./virtual-host-html:/home/student/html
     networks:
       - lab-net
 
