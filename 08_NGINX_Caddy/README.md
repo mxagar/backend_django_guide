@@ -98,7 +98,8 @@ Table of Contents:
       - [Case Study](#case-study)
     - [Lab Preparation and Secure Server Access](#lab-preparation-and-secure-server-access)
     - [NGINX Configuration and Static Content Hosting](#nginx-configuration-and-static-content-hosting)
-    - [Extra: Concept Definitions](#extra-concept-definitions)
+      - [NGINX Configuration: `/etc/nginx/nginx.conf`](#nginx-configuration-etcnginxnginxconf)
+      - [Creating a Static Website](#creating-a-static-website)
   - [3. Backend Integration and Reverse Proxy Implementation](#3-backend-integration-and-reverse-proxy-implementation)
     - [Backend Services Creation](#backend-services-creation)
     - [Virtual Hosting and Reverse Proxy Architecture](#virtual-hosting-and-reverse-proxy-architecture)
@@ -106,6 +107,7 @@ Table of Contents:
     - [Access Control and SSL Security](#access-control-and-ssl-security)
     - [Advanced SSL and Load Balancing Strategies](#advanced-ssl-and-load-balancing-strategies)
     - [Monitoring, Optimization, and Project Wrap-Up](#monitoring-optimization-and-project-wrap-up)
+  - [Extra: Concept Definitions](#extra-concept-definitions)
   - [Extra: Notes on Gunicorn / Uvicorn](#extra-notes-on-gunicorn--uvicorn)
     - [Gunicorn](#gunicorn)
       - [Scaling Gunicorn with Nginx](#scaling-gunicorn-with-nginx)
@@ -986,6 +988,10 @@ services:
     container_name: nginx-tutorial
     ports:
       - "8080:80"
+    # Named volumes so website content, NGINX config, and logs survive
+    # `docker compose down`/`up` and image rebuilds -- without them,
+    # anything written inside the container is lost once it's recreated.
+    # `docker compose down -v` deletes these volumes; plain `down` keeps them.
     volumes:
       - nginx-www:/var/www
       - nginx-config:/etc/nginx
@@ -1691,14 +1697,237 @@ Company XYZ wants to launch its website with NGINX in the web layer. The web mus
 
 ### Lab Preparation and Secure Server Access
 
+The server creation and NGINX install/verification here are the same process already covered in detail in [Demo Part 1a: Create an AWS EC2 Instance](#demo-part-1a-create-an-aws-ec2-instance) and [Demo Part 1c: Install and Launch NGINX](#demo-part-1c-install-and-launch-nginx) -- see those sections for the full walkthrough. The **only real differences here**:
+
+- Launch **three** EC2 instances instead of one, from the same Free Tier Ubuntu AMI (Amazon machine image) and security group, naming them `nginx`, `backend-1`, and `backend-2` -- `nginx` will receive requests and route them to the two backend machines.
+- Only the `nginx` instance needs NGINX installed and the HTTP/HTTPS inbound rules; the two backend instances just need to be reachable (SSH in, `sudo apt-get update`) since they'll host the actual backend app in a later section.
+- On Windows, the narration uses MobaXterm or PuTTY as the SSH client instead of a native `ssh` command, but the effect is identical to `ssh -i key.pem ubuntu@<public-ip>` from Demo Part 1a.
+
+Rather than provisioning three real EC2 instances, the local lab in this repo reproduces the same three-node topology with Docker Compose: an `nginx` service in the reverse-proxy role, and two bare `backend-1`/`backend-2` services standing in for the backend machines -- matching the "just launched and updated" state at this point in the course, with no backend application installed yet. See [lab/nginx-three-node-docker-tutorial](./lab/nginx-three-node-docker-tutorial).
+
+To keep disk usage low across three containers, the lab uses a single multi-stage `Dockerfile` instead of one per node: a shared `base` stage (Ubuntu 24.04 plus the `student` user) is built once, and both the `nginx-node` and `backend-node` stages build on top of it, so that common layer isn't duplicated. The `backend-node` stage installs nothing beyond the base, and `backend-2` reuses the exact image built for `backend-1` (via `image: nginx-lab-backend` with no separate `build:`) instead of rebuilding it, so all three containers ultimately share the same handful of image layers on disk -- only `nginx-node` adds its own extra layer for NGINX, installed with `--no-install-recommends` to skip docs/GeoIP extras it doesn't need.
+
+```bash
+# Useful commands for the three-node lab
+cd lab/nginx-three-node-docker-tutorial
+docker compose up -d --build
+docker compose ps
+docker compose down
+
+curl http://localhost:8080  # nginx node responds
+
+docker exec -it --user student nginx bash
+docker exec -it --user student backend-1 bash
+docker exec -it --user student backend-2 bash
+```
+
 ### NGINX Configuration and Static Content Hosting
 
-### Extra: Concept Definitions
+#### NGINX Configuration: `/etc/nginx/nginx.conf`
 
-Reverse proxy
-Load balancing
-Authentication
-SSL certificates
+Let's launch the 3-node lab and explore the NGINX configuration in the `nginx` container. 
+
+```bash
+# Useful commands for the three-node lab
+cd lab/nginx-three-node-docker-tutorial
+docker compose up -d --build
+
+docker exec -it --user student nginx bash
+cat /etc/nginx/nginx.conf
+```
+
+The `/etc/nginx/nginx.conf` file content is the following:
+
+```conf
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+
+        ##
+        # Basic Settings
+        ##
+
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        # server_names_hash_bucket_size 64;
+        # server_name_in_redirect off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # SSL Settings
+        ##
+
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+        ssl_prefer_server_ciphers on;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+
+        ##
+        # Gzip Settings
+        ##
+
+        gzip on;
+
+        # gzip_vary on;
+        # gzip_proxied any;
+        # gzip_comp_level 6;
+        # gzip_buffers 16 8k;
+        # gzip_http_version 1.1;
+        # gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+}
+
+
+#mail {
+#       # See sample authentication script at:
+#       # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+#
+#       # auth_http localhost/auth.php;
+#       # pop3_capabilities "TOP" "USER";
+#       # imap_capabilities "IMAP4rev1" "UIDPLUS";
+#
+#       server {
+#               listen     localhost:110;
+#               protocol   pop3;
+#               proxy      on;
+#       }
+#
+#       server {
+#               listen     localhost:143;
+#               protocol   imap;
+#               proxy      on;
+#       }
+#}
+```
+
+NGINX runs two kinds of process: 
+
+- a single **master process**, which reads `nginx.conf` and launches a number of worker processes,
+- and the **worker processes** themselves, which actually accept connections and answer client requests.
+
+The recommended worker count matches the number of CPU cores available (`cat /proc/cpuinfo` to check), which is exactly what `worker_processes auto;` does automatically instead of hardcoding a number.
+
+`nginx.conf` is organized into contexts -- blocks like `events`, `http`, and `mail` that scope the directives inside them -- and rather than writing every site's configuration directly into this file, NGINX conventionally `include`s separate per-site files from `conf.d/` and `sites-enabled/` (see [Demo Part 2](#demo-part-2-nginx-basic-configuration)), keeping the global file short and any single site's config easy to find when debugging.
+
+Whenever this file is edited, run `sudo nginx -t` to check syntax before reloading -- a broken config applied via reload can take the whole site down.
+
+Explanation of the most important directives in `nginx.conf`:
+
+| Line / directive | Explanation |
+| --- | --- |
+| `user www-data;` | The OS user NGINX's worker processes run as; the master process itself can stay privileged (e.g. to bind to port 80), while workers drop to this less-privileged account. |
+| `worker_processes auto;` | How many worker processes to launch; `auto` matches the number of CPU cores rather than a fixed value. |
+| `pid /run/nginx.pid;` | File path where the master process writes its PID (process ID), used by service-management tools to control NGINX. |
+| `error_log /var/log/nginx/error.log;` | Global error log path, recording problems like a site being unreachable or the service failing to start. |
+| `include /etc/nginx/modules-enabled/*.conf;` | Loads any dynamically enabled NGINX modules before the rest of the configuration is processed. |
+| `events { ... }` | The `events` context: a top-level block (alongside `http` and `mail`) that sets global options for how each worker handles connections. |
+| `worker_connections 768;` | Inside `events`: the maximum number of simultaneous connections one worker process can hold open. |
+| `http { ... }` | The `http` context: holds the majority of the configuration, defining everything about handling HTTP/HTTPS connections. |
+| `sendfile on;` | Lets the kernel copy file data straight to the network socket, avoiding extra userspace copies when serving static files. |
+| `tcp_nopush on;` | Sends response headers and the start of a file together in one packet where possible, working alongside `sendfile`. |
+| `tcp_nodelay on;` | Disables Nagle's algorithm so small packets (typical of keep-alive HTTP responses) are sent immediately instead of being buffered, reducing latency. |
+| `keepalive_timeout 65;` | How many seconds an idle persistent (keep-alive) connection stays open waiting for another request before NGINX closes it. |
+| `types_hash_max_size 2048;` | Tuning value for the internal hash table NGINX builds from `mime.types`, trading memory for faster lookups. |
+| `# server_tokens off;` | Commented out by default; when enabled, hides the NGINX version number from response headers and error pages (minor hardening). |
+| `# server_names_hash_bucket_size 64;` | Commented out by default; sizes the hash table of virtual host names -- needs uncommenting once you add enough/long `server_name`s to trigger a hash-bucket error (done in [Demo Part 4](#demo-part-4-deploy-the-landing-page-and-basic-management-commands)). |
+| `include /etc/nginx/mime.types;` | Loads the MIME (multipurpose internet mail extensions) type map, associating file extensions (`.html`, `.css`, etc.) with content types so the browser knows how to handle what it receives -- confirmable with `curl -I <url>`. |
+| `default_type application/octet-stream;` | Fallback content type applied when a served file's extension isn't listed in `mime.types`; browsers treat `octet-stream` responses as generic downloads rather than trying to render them. |
+| `ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;` | Restricts which TLS (transport layer security) versions are accepted, deliberately dropping the obsolete, vulnerable SSLv3 (POODLE). |
+| `ssl_prefer_server_ciphers on;` | During the TLS handshake, prefer the server's cipher order over the client's. |
+| `access_log /var/log/nginx/access.log;` | Logs every request NGINX serves (client address, request line, status, bytes sent, referrer, user agent); the log's format is customizable via a `log_format` directive. |
+| `gzip on;` | Enables HTTP compression of responses; the `gzip_*` tuning directives below it are commented out, left at their defaults. |
+| `include /etc/nginx/conf.d/*.conf;` and `include /etc/nginx/sites-enabled/*;` | Pull in per-site/virtual-host configuration files instead of writing them into `nginx.conf` directly. |
+| `mail { ... }` | A separate top-level context, sibling to `http` and `events` -- see below. |
+
+The `mail` block is unrelated to serving websites: it configures NGINX as a mail proxy, sitting in front of real POP3 (post office protocol), IMAP (internet message access protocol), or SMTP (simple mail transfer protocol) servers and authenticating clients (e.g. via an HTTP script referenced by `auth_http`) before proxying their connection through, similar to how NGINX proxies HTTP requests to a backend web server. It ships commented out because most installations only use NGINX as a web server or reverse proxy; enabling it means uncommenting the block, pointing `auth_http` at a real authentication endpoint, and defining one `server { listen ...; protocol ...; proxy on; }` block per mail protocol being proxied.
+
+
+#### Creating a Static Website
+
+We build the case study's actual website as a static HTML page, served from the `nginx` server, that links out to the two backend servers created earlier.
+
+- Each backend server exposes two API endpoints, so the page lists four links total: backend-1's endpoint-1/endpoint-2 and backend-2's endpoint-1/endpoint-2. Each link currently points at a placeholder `http://ip:port/uri`, to be filled in with the real backend address once that's known.
+- We create the file directly on the `nginx` server.
+
+Note: the [`compose.yaml`](./lab/nginx-three-node-docker-tutorial/compose.yaml) file mounts the local folder [`lab/nginx-three-node-docker-tutorial/nginx-files/`](./lab/nginx-three-node-docker-tutorial/nginx-files/) already into the container at `/home/student/nginx-files`.
+
+```bash
+cd lab/nginx-three-node-docker-tutorial
+docker compose up -d --build
+
+docker exec -it --user student nginx bash
+
+# This is not really necessary, since the folder is already mounted, but for clarity:
+mkdir ~/nginx-files
+cd ~/nginx-files
+vim static.html
+```
+
+[`static.html`](./lab/nginx-three-node-docker-tutorial/nginx-files/static.html):
+
+```html
+<html>
+<head>
+    <title>Test Website</title>
+</head>
+
+<body style="background-color:powderblue;">
+
+    <center><h1>Hello Folks !!</h1></center>
+
+    <center><b>Welcome to the hands on session on Nginx</b></center>
+    <br>
+    <br>
+    <h4>Links to check response from Backend Servers:</h4>
+    <br>
+    Backend Server-1 :
+    <br>
+    <br>
+    <a href="http://ip:port/uri">endpoint-1</a>
+    <br>
+    <br>
+    <a href="http://ip:port/uri">endpoint-2</a>
+    <br>
+    <br>
+    <br>
+    Backend Server-2 :
+    <br>
+    <br>
+    <a href="http://ip:port/uri">endpoint-1</a>
+    <br>
+    <br>
+    <a href="http://ip:port/uri">endpoint-2</a>
+    <br>
+
+</body>
+</html>
+```
 
 ## 3. Backend Integration and Reverse Proxy Implementation
 
@@ -1713,6 +1942,13 @@ SSL certificates
 ### Advanced SSL and Load Balancing Strategies
 
 ### Monitoring, Optimization, and Project Wrap-Up
+
+## Extra: Concept Definitions
+
+Reverse proxy
+Load balancing
+Authentication
+SSL certificates
 
 ## Extra: Notes on Gunicorn / Uvicorn
 

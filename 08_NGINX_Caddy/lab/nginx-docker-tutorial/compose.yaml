@@ -5,6 +5,10 @@ services:
     container_name: nginx-tutorial
     ports:
       - "8080:80"
+    # Named volumes so website content, NGINX config, and logs survive
+    # `docker compose down`/`up` and image rebuilds -- without them,
+    # anything written inside the container is lost once it's recreated.
+    # `docker compose down -v` deletes these volumes; plain `down` keeps them.
     volumes:
       - nginx-www:/var/www
       - nginx-config:/etc/nginx
