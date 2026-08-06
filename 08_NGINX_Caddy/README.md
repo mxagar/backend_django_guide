@@ -103,6 +103,9 @@ Table of Contents:
   - [3. Backend Integration and Reverse Proxy Implementation](#3-backend-integration-and-reverse-proxy-implementation)
     - [Backend Services Creation](#backend-services-creation)
     - [Virtual Hosting and Reverse Proxy Architecture](#virtual-hosting-and-reverse-proxy-architecture)
+      - [What are Virtual Hosts and Reverse Proxies?](#what-are-virtual-hosts-and-reverse-proxies)
+      - [Creating a Virtual Host](#creating-a-virtual-host)
+      - [Reverse Proxy](#reverse-proxy)
   - [4. Security, Load Balancing, and Performance Optimization](#4-security-load-balancing-and-performance-optimization)
     - [Access Control and SSL Security](#access-control-and-ssl-security)
     - [Advanced SSL and Load Balancing Strategies](#advanced-ssl-and-load-balancing-strategies)
@@ -1952,6 +1955,21 @@ and is bind-mounted to `~/backend_app` inside its respective container -- editin
 
 Just like the course opens port 3000 in the backend's AWS security group so the API is reachable directly, `compose.yaml` publishes each container's port 3000 to a distinct host port (`3001` for backend-1, `3002` for backend-2, since both can't claim the same host port).
 
+The [`Dockerfile`](./lab/nginx-three-node-docker-tutorial/Dockerfile) finishes the backend stage with:
+
+```dockerfile
+WORKDIR /home/student/backend_app
+EXPOSE 3000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
+```
+
+Which is equivalent to running this command inside the container:
+
+```bash
+cd /home/student/backend_app  # the working directory where main.py lives
+uvicorn main:app --host 0.0.0.0 --port 3000 --reload
+```
+
 ```python
 # backend-1-app/main.py
 from fastapi import FastAPI
@@ -1993,6 +2011,141 @@ curl http://localhost:3002/testing  # Backend-Server-2: endpoint-2
 ```
 
 ### Virtual Hosting and Reverse Proxy Architecture
+
+#### What are Virtual Hosts and Reverse Proxies?
+
+A single physical server or VPS can host several websites and applications. NGINX distinguishes between them using **virtual hosts**, which NGINX implements as **server blocks**.
+
+For example:
+
+```nginx
+server {
+    listen 80;
+    server_name example.com www.example.com;
+
+    root /var/www/example.com/html;
+    index index.html;
+}
+
+server {
+    listen 80;
+    server_name shop.example.com;
+
+    root /var/www/shop/html;
+    index index.html;
+}
+```
+
+Both websites use the same server and port `80`. When a request arrives, NGINX examines its HTTP `Host` header:
+
+```http
+Host: shop.example.com
+```
+
+It then selects the `server` block whose `server_name` matches that hostname.
+
+The relevant terminology is:
+
+* **Physical host:** the actual VPS or machine running NGINX.
+* **Virtual host:** a website or application hosted on that machine.
+* **Server block:** the NGINX configuration construct that implements a virtual host.
+
+On Ubuntu and Debian, virtual-host configuration files are commonly organized as follows:
+
+```text
+/etc/nginx/sites-available/example.com
+/etc/nginx/sites-enabled/example.com
+```
+
+The file in `sites-enabled` is usually a symbolic link to the corresponding file in `sites-available`. This is an Ubuntu/Debian convention rather than a fundamental NGINX requirement.
+
+A virtual host can serve static files directly, but it can also operate as a **reverse proxy**.
+
+A reverse proxy is a server that sits in front of one or more backend applications. It receives requests from users and forwards them to the appropriate internal backend.
+
+For a Django application, the request flow might be:
+
+```mermaid
+flowchart LR
+    A["Browser"] -->|"HTTPS :443"| B["NGINX"]
+    B -->|"HTTP :8000"| C["Gunicorn"]
+    C --> D["Django"]
+```
+
+For example, the browser requests:
+
+```text
+https://app.example.com/bookings
+```
+
+NGINX receives the request and forwards it internally to Gunicorn:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name app.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+    }
+}
+```
+
+The user communicates only with `app.example.com`. The internal backend address and port, such as `127.0.0.1:8000`, are not exposed directly.
+
+It is called a **reverse proxy** because it represents the server side:
+
+* A **forward proxy** represents clients when they access external services.
+* A **reverse proxy** represents backend services when external clients access them.
+
+NGINX can use different virtual hosts to route different domains to different applications:
+
+```nginx
+server {
+    listen 80;
+    server_name app.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+    }
+}
+
+server {
+    listen 80;
+    server_name grafana.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+```
+
+In this example:
+
+| Requested domain      | Backend selected by NGINX |
+| --------------------- | ------------------------- |
+| `app.example.com`     | `127.0.0.1:8000`          |
+| `grafana.example.com` | `127.0.0.1:3000`          |
+
+As a reverse proxy, NGINX commonly handles:
+
+* HTTPS certificates and encryption
+* Routing domains to different applications
+* Serving static files efficiently
+* Load balancing between multiple application instances
+* Hiding internal services and ports
+* Compression and caching
+* Request limits and security rules
+
+In short, the **virtual host determines which domain NGINX is handling**, while the **reverse proxy forwards the request to the appropriate backend application**.
+
+#### Creating a Virtual Host
+
+
+
+#### Reverse Proxy
+
+
 
 ## 4. Security, Load Balancing, and Performance Optimization
 
