@@ -109,6 +109,7 @@ Table of Contents:
   - [4. Security, Load Balancing, and Performance Optimization](#4-security-load-balancing-and-performance-optimization)
     - [Access Control and SSL Security](#access-control-and-ssl-security)
       - [Username-Password Auth](#username-password-auth)
+      - [Whitelisting IPs](#whitelisting-ips)
     - [Advanced SSL and Load Balancing Strategies](#advanced-ssl-and-load-balancing-strategies)
     - [Monitoring, Optimization, and Project Wrap-Up](#monitoring-optimization-and-project-wrap-up)
   - [Extra: Concept Definitions](#extra-concept-definitions)
@@ -2422,6 +2423,47 @@ To test:
 
 # Curl: use the -u flag to pass credentials.
 curl -u <username>:<password> http://localhost:8080/
+```
+
+#### Whitelisting IPs
+
+- IP whitelisting is another access-control approach, separate from username/password [basic auth](#username-password-auth): restrict a location to specific client IPs instead of (or alongside) credentials.
+- Implemented with `allow`/`deny` directives inside a `location` (or `server`) block:
+  - `allow <ip-or-cidr>;` permits that address or IP range; both single IPs and CIDR ranges work (IPv4 and IPv6).
+  - `deny all;` blocks everyone else. Rules are evaluated top-to-bottom, so `allow` lines must come before the closing `deny all;`.
+  - Only IP addresses/ranges are valid arguments -- a hostname like `localhost` fails config validation.
+- After editing the config, validate syntax (`nginx -t`) and reload/restart NGINX, same as with basic auth.
+- Effect: requests from an allowed IP reach the location normally; requests from any other IP get `403 Forbidden`.
+  - A `502 Bad Gateway` from an allowed IP means the upstream backend app itself isn't running -- unrelated to the whitelist rule.
+- Different locations can mix mechanisms in the same config, e.g. one location IP-restricted (such as an `/admin` path in production) while others stay open or use basic auth.
+- For many IPs, avoid hardcoding each one directly in the location block: use the `include` directive to pull the `allow`/`deny` rules from a separate file.
+  - Keeps the main config clean; adding a new IP (e.g. onboarding an employee) becomes an edit to the included file, then a config reload.
+  - As with the password file, store the included file under a path backed by a persisted volume (`/etc/nginx/...` in this lab's `nginx-config` volume) so it survives container recreation.
+
+```conf
+location /Backend1end1 {
+    # Only requests from this IP range can reach the backend-1 endpoint;
+    # everyone else gets 403 Forbidden.
+    allow 203.xxx.xxx.xxx/24;
+    deny all;
+
+    proxy_pass http://backend-1:3000/;
+}
+
+# For many IPs, keep the allow/deny rules in a separate, persisted file
+# instead of hardcoding them here:
+location /admin {
+    include /etc/nginx/whitelist.conf;
+    deny all;
+    # ...
+}
+```
+
+```conf
+# /etc/nginx/whitelist.conf
+allow 203.xxx.xxx.xx1;
+allow 203.xxx.xxx.xx2;
+# ... one line per allowed IP or range
 ```
 
 ### Advanced SSL and Load Balancing Strategies
