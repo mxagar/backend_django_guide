@@ -56,6 +56,7 @@ RUN apt-get update \
         vim \
         curl \
         iproute2 \
+        apache2-utils \
     && rm -rf /var/lib/apt/lists/*
 
 RUN chown -R student:student /var/www

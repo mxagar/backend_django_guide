@@ -108,6 +108,7 @@ Table of Contents:
       - [Reverse Proxy](#reverse-proxy)
   - [4. Security, Load Balancing, and Performance Optimization](#4-security-load-balancing-and-performance-optimization)
     - [Access Control and SSL Security](#access-control-and-ssl-security)
+      - [Username-Password Auth](#username-password-auth)
     - [Advanced SSL and Load Balancing Strategies](#advanced-ssl-and-load-balancing-strategies)
     - [Monitoring, Optimization, and Project Wrap-Up](#monitoring-optimization-and-project-wrap-up)
   - [Extra: Concept Definitions](#extra-concept-definitions)
@@ -2342,6 +2343,86 @@ docker compose down
 ```
 
 ### Access Control and SSL Security
+
+#### Username-Password Auth
+
+- NGINX supports HTTP basic authentication (username/password) to protect specific locations, such as admin or configuration pages, or to restrict access by IP range.
+- Two directives enable it inside a `location` (or `server`) block:
+  - `auth_basic`: takes a string label shown in the browser's login prompt (any name, e.g. `"basic auth"`).
+  - `auth_basic_user_file`: points to the file holding the username/password entries.
+- The password file is created with the `htpasswd` utility, part of the Apache2 utilities package (`apache2-utils` on Debian/Ubuntu, `httpd-tools` on CentOS).
+  - Install it, then run `htpasswd -c <path> <username>` to create the file and add the first user; the `-c` flag creates the file.
+  - Passwords are stored hashed (commonly base64-based crypt formats), not in plain text.
+- After editing the config and creating the password file:
+  - Validate the config syntax (`nginx -t`) before reloading.
+  - Restart/reload NGINX for the change to take effect.
+  - Requesting the protected location now prompts for the configured username and password.
+- Security caveat: basic auth alone is not safe for production over plain HTTP, since credentials travel base64-encoded (not encrypted) and can be intercepted and decoded easily.
+  - Always pair basic auth with SSL/TLS so credentials are transmitted encrypted.
+- Usually, authentication is handled by the application itself (Django, FastAPI, etc.) rather than NGINX, but basic auth is a simple option for static pages or admin endpoints.
+- `auth_basic` is inherited by nested `location` blocks, so a sub-location can opt back out with `auth_basic off;` instead of repeating/removing the parent directives.
+  - Alternatively, just omit `auth_basic`/`auth_basic_user_file` from a location that was never meant to inherit auth.
+- Persistence across container restarts: containers are ephemeral, so a password file written under an un-mounted path (e.g. `/home/student/html/.users`) is lost the next time the container is recreated.
+  - This lab's `compose.yaml` already mounts `/etc/nginx` as the named volume `nginx-config`, so pointing `auth_basic_user_file` at a path under `/etc/nginx` (e.g. `/etc/nginx/.htpasswd`) makes the credentials survive `docker compose down`/`up` and image rebuilds.
+  - `docker compose down -v` removes named volumes too, which wipes the password file along with everything else.
+
+Modification of `/etc/nginx/conf.d/reverse-proxy.conf` to add basic auth to the `/` location:
+
+```conf
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        root /home/student/html;
+        index static.html;
+        # /etc/nginx is backed by the "nginx-config" named volume, so this
+        # file survives container recreation (but not `docker compose down -v`).
+        auth_basic "Basic Auth";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+
+    # Sub-location opts back out of the inherited basic auth.
+    location /public/ {
+        auth_basic off;
+    }
+
+    location /Backend1end1 {
+        proxy_pass http://backend-1:3000/;
+    }
+
+    # ...
+```
+
+Commands to create the password file and add a user:
+
+```bash
+# Enter the NGINX container
+docker exec -it --user student nginx bash
+
+# htpasswd (from apache2-utils) is preinstalled in the nginx-node image,
+# so no manual install step is needed here.
+
+# Create the password file and add the "admin" user (-c creates the file).
+sudo htpasswd -c /etc/nginx/.htpasswd admin
+# 1234
+
+# Check base64-encoded password entry in the file.
+cat /etc/nginx/.htpasswd
+
+# Validate config syntax, then reload/restart NGINX.
+sudo nginx -t
+sudo service nginx restart
+```
+
+To test:
+
+```bash
+# Browser: visit http://localhost:8080/ and enter the username/password when prompted.
+
+# Curl: use the -u flag to pass credentials.
+curl -u <username>:<password> http://localhost:8080/
+```
 
 ### Advanced SSL and Load Balancing Strategies
 
