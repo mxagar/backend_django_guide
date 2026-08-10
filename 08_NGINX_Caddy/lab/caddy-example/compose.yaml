@@ -1,0 +1,54 @@
+services:
+  caddy:
+    build:
+      context: .
+      target: caddy-node
+    container_name: caddy
+    ports:
+      - "8080:80"
+    volumes:
+      # /data and /config are where Caddy persists TLS certificates and
+      # its autosaved JSON config. Unused for the plain-HTTP `:80` site
+      # here, but included since it's the standard, always-safe layout
+      # -- becomes load-bearing the moment a real domain is added.
+      - caddy-data:/data
+      - caddy-config:/config
+      - ./caddy-server/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy-server/static.html:/srv/static.html
+    networks:
+      - lab-net
+
+  backend-1:
+    build:
+      context: .
+      target: backend-node
+    image: caddy-lab-backend
+    container_name: backend-1
+    volumes:
+      - ./backend-1-app:/home/student/backend_app
+    ports:
+      - "3001:3000"
+    networks:
+      - lab-net
+
+  # Reuses the image built for backend-1 instead of building it again --
+  # both containers share the exact same image, just two separate
+  # (essentially empty) writable layers on top.
+  backend-2:
+    image: caddy-lab-backend
+    container_name: backend-2
+    volumes:
+      - ./backend-2-app:/home/student/backend_app
+    ports:
+      - "3002:3000"
+    depends_on:
+      - backend-1
+    networks:
+      - lab-net
+
+networks:
+  lab-net:
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,52 @@
+# lab/caddy-example/caddy-server/Caddyfile
+#
+# Equivalent to lab/nginx-security-load-balancing-optimization's
+# nginx-server/conf.d/reverse-proxy.conf -- same routes, same two
+# backend containers, just Caddy's syntax instead of NGINX's. `:80`
+# (port only, no hostname) tells Caddy to serve plain HTTP here and not
+# attempt automatic HTTPS, the same effect as NGINX's `listen 80;`.
+:80 {
+	# "/" -> static.html, equivalent to NGINX's
+	# `root /home/student/html; index static.html;`
+	handle {
+		root * /srv
+		file_server {
+			index static.html
+		}
+	}
+
+	# Direct proxy to one backend endpoint each. `rewrite` sets the path
+	# actually requested from the backend -- equivalent to NGINX's
+	# `proxy_pass http://backend-N:3000/<path>;`.
+	handle /Backend1end1 {
+		rewrite * /
+		reverse_proxy backend-1:3000
+	}
+
+	handle /Backend1end2 {
+		rewrite * /test
+		reverse_proxy backend-1:3000
+	}
+
+	handle /Backend2end1 {
+		rewrite * /
+		reverse_proxy backend-2:3000
+	}
+
+	handle /Backend2end2 {
+		rewrite * /testing
+		reverse_proxy backend-2:3000
+	}
+
+	# Load balancer between backend-1's and backend-2's "/" endpoint --
+	# equivalent to NGINX's `upstream endpoints { ... }` +
+	# `location /lb { proxy_pass http://endpoints/; }`.
+	# lb_policy is explicit because Caddy's default is `random`, not
+	# round robin like NGINX -- see "Simple Load Balancer" in the README.
+	handle /lb {
+		rewrite * /
+		reverse_proxy backend-1:3000 backend-2:3000 {
+			lb_policy round_robin
+		}
+	}
+}

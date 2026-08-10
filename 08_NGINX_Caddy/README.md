@@ -97,6 +97,7 @@ Table of Contents:
       - [Contents](#contents)
       - [Case Study](#case-study)
     - [Lab Preparation and Secure Server Access](#lab-preparation-and-secure-server-access)
+      - [Note on Architecture Pattern](#note-on-architecture-pattern)
     - [NGINX Configuration and Static Content Hosting](#nginx-configuration-and-static-content-hosting)
       - [NGINX Configuration: `/etc/nginx/nginx.conf`](#nginx-configuration-etcnginxnginxconf)
       - [Creating a Static Website](#creating-a-static-website)
@@ -127,6 +128,7 @@ Table of Contents:
     - [Uvicorn](#uvicorn)
     - [What to use: Gunicorn or Uvicorn?](#what-to-use-gunicorn-or-uvicorn)
   - [Extra: Caddy -- Alternative to NGINX](#extra-caddy----alternative-to-nginx)
+    - [Quick-Start Example: 1 Caddy Node + 2 Backend Replicas](#quick-start-example-1-caddy-node--2-backend-replicas)
 
 ## 1. Getting Statrted with NGINX Website Deployment
 
@@ -1734,6 +1736,12 @@ docker exec -it --user student backend-1 bash
 docker exec -it --user student backend-2 bash
 ```
 
+#### Note on Architecture Pattern
+
+- The `nginx` node runs no application code at all -- just NGINX itself, handling reverse proxying, load balancing, TLS termination, and static-file serving, then forwarding everything else over the network to the backend nodes (here, via Docker's embedded DNS to `backend-1`/`backend-2`). All the actual business logic (Django, FastAPI, or anything else) lives only on the backend replicas; NGINX never imports or executes any of it.
+- This dedicated-proxy-node-plus-backend-replicas shape is a very common production pattern, not something specific to this lab -- it scales from a single VM setup like this one (one NGINX instance, N backend instances) up to how most production systems are actually built, e.g. Kubernetes' Ingress + Service + Pod replicas, or a cloud load balancer in front of an autoscaling group of app instances.
+- One thing to keep in mind: the proxy node itself becomes a single point of failure unless redundancy is added at that layer too -- typically solved by putting a cloud L4/L7 load balancer (or `keepalived`/VRRP) in front of *multiple* NGINX instances rather than relying on just one.
+
 ### NGINX Configuration and Static Content Hosting
 
 #### NGINX Configuration: `/etc/nginx/nginx.conf`
@@ -2735,15 +2743,99 @@ for i in $(seq 1 20); do curl -s http://localhost:8080/lb; echo; done | sort | u
 
 #### Logs
 
-Hello guys, welcome back. In this section, we learn about the locks available with Nginx, how they are configured, how the locations can be configured, how they can be customized and the different options available with Nginx locks. Let's log into our Nginx server. So we are in the Nginx console. Let's move over to our configuration file. Let's first check the configuration file. If you remember, there is one main configuration file that's known by the name Nginx.com. Let's open it. If you remember, we studied two types of locks available in Nginx. So if you remember, there are two kinds of locks that we studied there in Nginx.com section. So in Nginx, we have two locks. One is access lock. Another one is error lock. This is the error lock and the other one is the access lock. So as the name suggests, access lock includes the logging information when someone is trying to hit the Nginx server. So like from which mode it's hitting the Nginx server, then what kind of request it's making, what kind of API request it is like a get request or a put request and what type of code it is getting in response. So all those things comprises this access lock. While the error log comprises of the errors related to the Nginx working. So suppose when you have done some kind of Nginx configuration change and there is some error coming and you are not able to find it out, just go to this error log and you will easily find out like what's the actual problem is. Apart from this, any other issue related to Nginx working can be easily find it here. So it's up to us like how we want to configure this access lock. If you can see here by default, the Nginx locks are found in this var log Nginx in this directory by the name access.log. And while the error log is found in this var log Nginx directory with the name as error.log. Well, the formats for these logs are, you know, predefined. We have the option to change the log format of the access log, but we cannot change the log format of error log because the errors related to Nginx can't be customized while the access log totally depends on the type of need that we want. So the log format that's provided here is actually the access log, log format. So we'll start as there will be a remote address, like then what will be the user, the time, the request, what's the HTTP status, what's the byte, I mean, like how many bytes are sent, then other useful stuff. So there may be situations like you just need only the remote address and the time only, and you need not to have all those things while there may be some requirement when you just need only the HTTP status code and you just need to, you know, send the log to some other place. So it is good to just customize this log format as per our need. Let's go to these log directories and check like how these log flows. Let's move to this directory var log that's Nginx. So we can easily find out two types of logs. One is this access.log. Another one is this error.log. Let's first open this access.log. Let's do tail minus app access.log. If you can see here, there are multiple logs available. Thus, you can say the last 10 logs are available. Just take any one log and analyze it. So it's simply telling like what's the IP from it was accessed the username that we provided by, you know, logging into the static web page, date, the time, the zone, and the type of request, like what are the different requests that we made, the status code, the HTTP status code actually, and then where it was redirected, what's the browser and the different things done. Let's analyze a fresh log here. Let's pick the Nginx IP here and we'll open the static web page here. So it's asking for username and password. I have entered it. So the website is now open. Let's check what are the logs that we received. So it's like some request has come till this tab, we have not provided any username and password, and it was simply requesting for a get request. Then when we supply it, so we have logged in into the browser, you can check like by the name admin, we have logged in. Now let's check another logs that are coming when we are trying to hit another IP. Let's try to hit this endpoint 2. So we are getting the response. Let's go back to a console. And we can easily check like there was one request being done that is get slash backend 1 endpoint 2. If you remember, in one of the lectures for this backend server 1 endpoint 1, we configured whitelisting and we placed some random IP there. So it will be like we won't be able to access that page from my PC. Let's try to hit it. It's giving 403 forbidden. Let's go to our console. So it said 403. That means the web page has not been accessed because the access was denied. Let's check one more endpoint. So it's giving the appropriate response. And we're getting HTTP 200 code. So that's it for access log. Let's check what's there in the error logs. Let's do tail minus F error dot log. So if you can see here, there are multiple logs available here. It's in their pre customized format. This is the log type. That's it's like we're getting some error. That's like when a connection was refused when we were trying to access some server. Let's do some changes. Well, this error log won't get affected whenever there is any sort of issue with the backend servers. This log will only get populated only when we have some issue with the Nginx. Changes with the Nginx.conf file. And let's try to restart the server and we'll come here and check like what's the error that it's giving. So let's go back to the config file slash etc. Nginx.conf.d. Then we need to open this sudo nano virtual.conf. Let's do one thing. We'll just remove this closing code. Just remove this closing code. Save the file. Syntax is failing. Let's restart the Nginx server in it. Sudo service Nginx restart. I've done so it's failing because the control process excited with error code. Let's go and check what's the error code. So when I'm trying to you know read these websites, it's not accessible just because our Nginx is not working properly. Let's check the error log. It's in cd slash or log Nginx. Let's do tail to error log. Open it. So this is so two things it's showing. The first one is like there is a log of emergency type. Well that means there is some problem in the line 17 of the virtual.conf. So any error related with the Nginx configuration it's working will be displayed here. Well I think that's enough for you know on the logging part and this is almost everything related to logging.
+- NGINX writes two separate logs by default, both under `/var/log/nginx/`:
+  - `access.log` -- one entry per incoming request: client (remote) address, authenticated user (if any), timestamp, the request line (method + path), the HTTP status code returned, bytes sent, and more.
+  - `error.log` -- NGINX's own operational problems, including connectivity issues reaching a backend (e.g. the `connect() failed` entries seen in [Extra: Health Checks](#extra-health-checks)) as well as NGINX-level problems such as invalid configuration.
+- The access log's format is customizable -- trim it down to just the fields actually needed (e.g. only remote address + timestamp, or only the status code) instead of logging everything by default. The error log's format is fixed and cannot be customized, since its messages come from NGINX itself rather than from configurable fields.
+- Both are configured in the main config file, `/etc/nginx/nginx.conf` -- not in the per-site files under `conf.d/`: `error_log` sits at the top level, while `log_format`/`access_log` live inside the `http {}` block so they apply to every `server` block by default.
+  - This lab's `nginx.conf` (Debian/Ubuntu package default) doesn't declare an explicit `log_format`, so `access_log` falls back to NGINX's built-in default (equivalent to the predefined `combined` format).
+  - A custom, named format is defined with `log_format <name> '...';` and then selected via `access_log <path> <name>;`, as in this alternative:
+
+```conf
+# /etc/nginx/nginx.conf (this lab's actual settings, no explicit log_format)
+error_log  /var/log/nginx/error.log;
+# ...inside http { ... }:
+access_log /var/log/nginx/access.log;
+```
+
+```conf
+# /etc/nginx/nginx.conf -- example of a named, custom access-log format
+error_log /var/log/nginx/error.log warn;
+
+http {
+    # ...
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                     '$status $body_bytes_sent "$http_referer" '
+                     '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+    # ...
+}
+```
+
+- Tailing `access.log` while exercising the site shows each request's outcome as it happens:
+  - A request to a basic-auth-protected location first appears without credentials, then again once logged in (e.g. as user `admin`).
+  - A request from a non-whitelisted IP to an IP-restricted location logs a `403 Forbidden`.
+  - A normal request to an open endpoint logs `200`.
+- Deliberately breaking `virtual.conf` (e.g. removing a closing brace) and restarting NGINX without first validating shows the failure mode: `nginx -t` reports the syntax error, and restarting anyway fails with "the control process exited with error code". `error.log` then records an emergency-level entry naming the exact file and line number of the broken directive, making it possible to pinpoint config mistakes quickly.
+
+```bash
+# Default log locations
+tail -n 10 /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
+```
 
 #### HTTP Compression
 
+- HTTP compression shrinks a response's payload before sending it over the network, similar to zipping a file (e.g. 10 MB down to 8 MB), so it transfers faster and the page loads quicker in the browser.
+- It only makes sense for static, text-based content -- text, CSS, XML, JavaScript, and similar -- not for already-compressed media like images, video, or PDFs.
+- NGINX handles this via its `gzip` module, configured in `/etc/nginx/nginx.conf`'s `http {}` block (see [Logs](#logs) for where NGINX's main config file lives and how it's structured):
+  - `gzip on;` enables compression.
+  - `gzip_types <mime-type> ...;` lists which content types to compress.
+  - `gzip_comp_level <1-9>;` sets the compression level: 1 is fastest/least compression, 9 is slowest/most; a mid-range value (e.g. 5) balances compression ratio against the server's available CPU power.
+- Why it helps: data travels over the network in fixed-size packets, capped by the MTU (maximum transmission unit, e.g. 1500 bytes on typical Ethernet). A 6,000-byte uncompressed payload needs `6000/1500 = 4` packets; if gzip shrinks it to 2,000 bytes, that drops to `2000/1500 = (approx) 2` packets -- fewer packets means faster transfer and a faster-loading page.
+- The server sends the compressed response and the browser transparently decompresses it to render the full content.
+- To verify the effect, capture traffic with a tool like Wireshark and compare packet size/count with compression on vs off.
 
+```conf
+# /etc/nginx/nginx.conf -- inside the http {} block
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+gzip_comp_level 5;  # 1 (fastest, least compression) .. 9 (slowest, most compression)
+```
 
 #### Extra: Caching
 
+- Proxy caching stores a copy of a backend's response at the NGINX layer, so repeat requests for the same resource are served directly by NGINX without hitting the backend again -- different from [HTTP Compression](#http-compression) (which shrinks the payload every time) or browser caching (which is client-side).
+- Simplest way to activate it, two directives:
+  - `proxy_cache_path` -- defined once in the `http {}` block of `/etc/nginx/nginx.conf` (see [Logs](#logs) for where that file lives). Sets up the cache: where on disk it's stored, a named shared-memory `keys_zone` NGINX uses to check HIT/MISS quickly without touching disk, and `inactive` for how long an unused entry is kept before eviction.
+  - `proxy_cache <zone-name>;` -- placed inside a `location` block to turn caching on for just that location, reusing the zone declared above.
+- Useful refinements on top of the minimal setup:
+  - `proxy_cache_valid <status-codes> <time>;` controls how long responses with specific status codes stay cached (e.g. cache `200`/`302` for 10 minutes, `404` for 1 minute).
+  - `add_header X-Cache-Status $upstream_cache_status;` is a common debugging aid: it exposes whether a given response was a `HIT`, `MISS`, `EXPIRED`, or `BYPASS`.
+- When it makes sense: content that's expensive for the backend to generate but doesn't change per request or per user -- computed reports, mostly-static API responses, public `GET` endpoints. It cuts backend load and speeds up repeat responses.
+- When it doesn't: highly dynamic or personalized responses (dashboards, account pages), or non-idempotent requests -- NGINX only caches `GET`/`HEAD` by default.
+  - NGINX also refuses to cache any response carrying a `Set-Cookie` header by default, specifically to avoid leaking one user's session/cookie into a cached response served to someone else. Overriding that with `proxy_ignore_headers Set-Cookie;` is possible but risky, and only safe if the cache key is also changed to distinguish users (e.g. by including the `Authorization` header) so one user's cached response is never served to another.
+- NGINX-level caching isn't the same tradeoff as pushing [authentication](#username-password-auth) down to the backend: it's often the opposite. NGINX caching is popular specifically because a cache hit is served without ever invoking the backend, cutting latency and app-server load in a way backend-side caching (e.g. Django's cache framework backed by Redis) can't match. The tradeoff is granularity: the backend has direct visibility into the data model, so it can invalidate one specific cache entry the instant something changes (e.g. right after a user updates their profile), while NGINX only reasons about paths/headers and needs workarounds (`proxy_cache_bypass`, short TTLs, manual purging) to stay fresh. In practice the two are usually layered: NGINX/a CDN caches the genuinely public, rarely-changing responses, and the backend's own cache handles anything that needs precise, data-aware invalidation.
+  - Good fits for NGINX-level caching: public marketing/content pages and docs that render the same for every visitor; a public, infrequently-changing API response such as a country list, feature-flag/config endpoint, or exchange-rate snapshot; a precomputed report or leaderboard that's regenerated on a schedule; versioned static assets (e.g. `app.a1b2c3.js`) where a content change simply means a new URL, so there's nothing to invalidate.
+  - Micro-caching is a related pattern: caching an endpoint that does change, but only for a few seconds (`proxy_cache_valid 200 5s;`), to absorb a traffic spike (e.g. a trending-posts or search-suggestions endpoint) without needing the response to be perfectly fresh on every single request.
+  - Poor fits: anything per-user or session-specific (dashboards, account pages, cart contents) -- exactly the case above where the backend's own cache, keyed by user/row, is the safer and more precise choice.
 
+```conf
+# /etc/nginx/nginx.conf -- inside the http {} block (declared once)
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=backend_cache:10m max_size=1g inactive=60m use_temp_path=off;
+```
+
+```conf
+# conf.d/reverse-proxy.conf -- inside the location block for an endpoint to cache
+location /Backend1end1 {
+    proxy_pass http://backend-1:3000/;
+    proxy_cache backend_cache;
+    proxy_cache_valid 200 302 10m;
+    proxy_cache_valid 404 1m;
+    add_header X-Cache-Status $upstream_cache_status;  # HIT / MISS / EXPIRED / BYPASS
+}
+```
 
 ## Extra: Notes on Gunicorn / Uvicorn
 
@@ -2948,5 +3040,191 @@ gunicorn myproject.asgi:application \
 
 ## Extra: Caddy -- Alternative to NGINX
 
+[Caddy](https://caddyserver.com/) is a modern, open-source web server and reverse proxy, positioned as a simpler alternative to NGINX -- same core job (serving static files, reverse proxying, load balancing, TLS termination), configured with far less boilerplate, and with automatic HTTPS as a headline feature rather than something bolted on by hand (see [SSL Certificates](#ssl-certificates), all of which Caddy does for free with zero config, for a real domain).
 
+- **Installation** (Debian/Ubuntu, official apt repo -- a direct swap for this doc's `apt-get install nginx`):
+
+```bash
+sudo apt install -y ca-certificates curl gnupg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install caddy
+```
+
+- **Config file**: a single **Caddyfile**, at `/etc/caddy/Caddyfile` by default -- plays the same role as `nginx.conf` + `conf.d/*.conf` combined (see [Logs](#logs) for where those NGINX files live), just far less verbose. Caddy's actual native config format is JSON, served live through an admin API on `:2019`; the Caddyfile is a human-friendly format that gets adapted into that JSON under the hood.
+- **Management commands**, direct NGINX equivalents:
+
+  | NGINX | Caddy | Purpose |
+  |---|---|---|
+  | `nginx -t` | `caddy validate --config Caddyfile` | validate config syntax |
+  | `nginx -s reload` / `service nginx reload` | `caddy reload --config Caddyfile` | apply config with zero downtime |
+  | `nginx -g "daemon off;"` | `caddy run --config Caddyfile` | run in foreground (container `CMD`) |
+  | -- | `caddy fmt --overwrite Caddyfile` | auto-format the Caddyfile (no NGINX equivalent) |
+
+- **Concept mapping**:
+
+  | NGINX | Caddy | Notes |
+  |---|---|---|
+  | `server { listen 80; server_name X; }` | a site block: `X { ... }` | the address is the block header itself |
+  | `location /path { ... }` | matcher + directive, e.g. `handle /path { ... }` | `handle` blocks are mutually exclusive and auto-sorted by specificity, regardless of declaration order |
+  | `proxy_pass http://backend/;` | `reverse_proxy backend:3000` | a `rewrite` directive sets the path forwarded, since `reverse_proxy` alone keeps the original request path |
+  | `upstream name { server a; server b; }` + round robin by default | `reverse_proxy a b { lb_policy round_robin }` | **Caddy's default `lb_policy` is `random`, not round robin** -- worth calling out explicitly, see [Simple Load Balancer](#simple-load-balancer) for NGINX's default |
+  | `max_fails`/`fail_timeout` (passive checks) | `fail_duration`, `max_fails`, `unhealthy_status` | same idea inside the `reverse_proxy` block, different names, see [Extra: Passive Health Checks](#extra-passive-health-checks) |
+  | active health checks (NGINX Plus **paid** only) | `health_uri`, `health_interval` | built into open-source Caddy for free |
+  | `gzip on; gzip_types ...;` | `encode gzip` | one line, content-negotiated automatically, see [HTTP Compression](#http-compression) |
+  | manual `certbot` install + cron renewal | nothing -- automatic for real domains | Caddy's headline feature; not exercised here since this lab has no public domain |
+
+### Quick-Start Example: 1 Caddy Node + 2 Backend Replicas
+
+Reproduces the exact same architecture as in the latest NGINX example [lab/nginx-security-load-balancing-optimization](./lab/nginx-security-load-balancing-optimization) (see [Simple Load Balancer](#simple-load-balancer)), swapping only the reverse-proxy node from NGINX to Caddy, in [lab/caddy-example](./lab/caddy-example):
+
+```text
+lab/caddy-example/
+├── Dockerfile              # base (Ubuntu + student user) -> backend-node / caddy-node
+├── compose.yaml             # caddy + backend-1 + backend-2, same lab-net
+├── backend-1-app/main.py    # unchanged copy of the NGINX lab's FastAPI app
+├── backend-2-app/main.py    # unchanged copy of the NGINX lab's FastAPI app
+└── caddy-server/
+    ├── Caddyfile             # equivalent to nginx-server/conf.d/reverse-proxy.conf
+    └── static.html           # unchanged copy of the NGINX lab's landing page
+```
+
+The multi-stage `Dockerfile` mirrors the NGINX lab's shape exactly: a shared `base` stage (Ubuntu 24.04 + `student` user), an unmodified `backend-node` stage (same two FastAPI replicas), and a `caddy-node` stage that installs Caddy via the same apt-repo commands shown above instead of `apt-get install nginx`:
+
+```dockerfile
+# lab/caddy-example/Dockerfile (caddy-node stage)
+FROM base AS caddy-node
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+        | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+        | tee /etc/apt/sources.list.d/caddy-stable.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends caddy \
+    && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 80
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+```
+
+The Caddyfile itself, with the same five routes as the NGINX lab's `reverse-proxy.conf` -- the static landing page, one `handle` block proxying straight to each backend endpoint, and a `/lb` block load-balancing between `backend-1`'s and `backend-2`'s `/`:
+
+```caddyfile
+# lab/caddy-example/caddy-server/Caddyfile
+:80 {
+	# "/" -> static.html, equivalent to NGINX's
+	# `root /home/student/html; index static.html;`
+	handle {
+		root * /srv
+		file_server {
+			index static.html
+		}
+	}
+
+	# Direct proxy to one backend endpoint each. `rewrite` sets the path
+	# actually requested from the backend -- equivalent to NGINX's
+	# `proxy_pass http://backend-N:3000/<path>;`.
+	handle /Backend1end1 {
+		rewrite * /
+		reverse_proxy backend-1:3000
+	}
+
+	handle /Backend1end2 {
+		rewrite * /test
+		reverse_proxy backend-1:3000
+	}
+
+	handle /Backend2end1 {
+		rewrite * /
+		reverse_proxy backend-2:3000
+	}
+
+	handle /Backend2end2 {
+		rewrite * /testing
+		reverse_proxy backend-2:3000
+	}
+
+	# Load balancer between backend-1's and backend-2's "/" endpoint --
+	# equivalent to NGINX's `upstream endpoints { ... }` +
+	# `location /lb { proxy_pass http://endpoints/; }`.
+	# lb_policy is explicit because Caddy's default is `random`, not
+	# round robin like NGINX -- see "Simple Load Balancer" in the README.
+	handle /lb {
+		rewrite * /
+		reverse_proxy backend-1:3000 backend-2:3000 {
+			lb_policy round_robin
+		}
+	}
+}
+```
+
+`compose.yaml` mirrors the NGINX lab's structure (same `lab-net` network, same `backend-1`/`backend-2` services reusing one built image), swapping the `nginx` service for `caddy` and adding two named volumes Caddy expects even though they're unused for a plain-HTTP `:80` site -- `/data` (TLS certificates) and `/config` (autosaved JSON config), both load-bearing the moment a real domain is added:
+
+```yaml
+# lab/caddy-example/compose.yaml (excerpt)
+services:
+  caddy:
+    build:
+      context: .
+      target: caddy-node
+    ports:
+      - "8080:80"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+      - ./caddy-server/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy-server/static.html:/srv/static.html
+    networks:
+      - lab-net
+  # backend-1 / backend-2: identical to the NGINX lab
+```
+
+Tests and results:
+
+```bash
+cd lab/caddy-example
+docker compose up -d --build
+docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+curl.exe -s http://localhost:8080/Backend1end1
+curl.exe -s http://localhost:8080/Backend1end2
+curl.exe -s http://localhost:8080/Backend2end1
+curl.exe -s http://localhost:8080/Backend2end2
+
+# Linux
+for i in $(seq 1 10); do curl -s http://localhost:8080/lb; echo; done
+# PowerShell
+1..10 | ForEach-Object { curl.exe -s http://localhost:8080/lb; "" }
+```
+
+```text
+Valid configuration
+
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-2</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-2</h2>
+
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+```
+
+- All four direct backend routes and the static landing page work identically to the NGINX lab, with `caddy validate` standing in for `nginx -t`.
+- `/lb` alternates perfectly, `backend-2`, `backend-1`, `backend-2`, `backend-1`, ... -- a cleaner strict alternation than the NGINX lab's per-worker-process round robin (see [Simple Load Balancer](#simple-load-balancer)), because Caddy runs as a single process with one shared load-balancer state rather than NGINX's multiple worker processes each keeping their own counter.
+- Hitting a caveat during setup was itself instructive: the official Caddy install docs list `debian-keyring`/`debian-archive-keyring` alongside `curl`/`gnupg` for the apt-repo step, but installing them on this `ubuntu:24.04` base corrupted `/etc/ssl/certs/ca-certificates.crt`, breaking TLS for the very `curl` call fetching Caddy's signing key (`error setting certificate file`). Dropping those two packages (not actually needed for this method, just `ca-certificates curl gnupg`) fixed it.
 
