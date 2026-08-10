@@ -116,11 +116,11 @@ Table of Contents:
     - [Load Balancing Strategies](#load-balancing-strategies)
       - [Simple Load Balancer](#simple-load-balancer)
       - [Server Weights \& Least Connections](#server-weights--least-connections)
-      - [Extra: Health Checks](#extra-health-checks)
+      - [Extra: Passive Health Checks](#extra-passive-health-checks)
     - [Monitoring, Optimization, and Project Wrap-Up](#monitoring-optimization-and-project-wrap-up)
       - [Logs](#logs)
       - [HTTP Compression](#http-compression)
-  - [Extra: Concept Definitions](#extra-concept-definitions)
+      - [Extra: Caching](#extra-caching)
   - [Extra: Notes on Gunicorn / Uvicorn](#extra-notes-on-gunicorn--uvicorn)
     - [Gunicorn](#gunicorn)
       - [Scaling Gunicorn with Nginx](#scaling-gunicorn-with-nginx)
@@ -2680,22 +2680,70 @@ upstream endpoints {
 }
 ```
 
-#### Extra: Health Checks
+#### Extra: Passive Health Checks
 
-NGINX supports active health checks (proactively probing backends) and passive health checks (reacting to failed requests as they happen). Active checks are an NGINX Plus (paid) feature only; passive checks are available in the open-source/community edition. See the official NGINX documentation for configuration details.
+- NGINX supports
+  - active health checks (proactively probing backends on a timer)
+  - and passive health checks (reacting to failed requests as they actually happen).
+- Active checks are an NGINX Plus (paid) feature only; passive checks are available in the open-source/community edition. See the [official NGINX documentation](https://docs.nginx.com/nginx/admin-guide/load-balancer/http-health-check/) for full configuration details.
+- Passive checks are configured per `server` entry inside the `upstream` block, with two parameters:
+  - `max_fails=N` -- number of failed attempts to reach that server, within `fail_timeout`, before NGINX marks it "down" (default: `1`).
+  - `fail_timeout=<time>` -- both the window in which those failures must occur, and how long the server then stays marked "down" and gets skipped for new requests (default: `10s`).
+- While a server is down, NGINX doesn't just error out: by default (`proxy_next_upstream error timeout;`) a request that fails to reach one backend is transparently retried against the next one in the `upstream` block, so the client never sees the failure -- only the response gets slower for the requests that had to fail over.
+- Since each NGINX worker process keeps its own independent view of which servers are marked down (workers don't share state, same as with round robin, see [Simple Load Balancer](#simple-load-balancer)), a stopped backend isn't cut off instantly everywhere -- each worker only stops trying it after that worker itself accumulates `max_fails` failures.
+- Implemented and tested in [lab/nginx-security-load-balancing-optimization](./lab/nginx-security-load-balancing-optimization), added to the same `upstream endpoints` block used by [Simple Load Balancer](#simple-load-balancer):
+
+```nginx
+# lab/nginx-security-load-balancing-optimization/nginx-server/conf.d/reverse-proxy.conf
+upstream endpoints {
+    server backend-1:3000 max_fails=2 fail_timeout=10s;
+    server backend-2:3000 max_fails=2 fail_timeout=10s;
+}
+```
+
+Tests and results -- simulate an outage by stopping `backend-2`, confirm `/lb` keeps responding (failover), inspect the error log for the passive check kicking in, then restart `backend-2` and confirm it rejoins the pool once `fail_timeout` elapses:
+
+```bash
+cd lab/nginx-security-load-balancing-optimization
+docker exec nginx nginx -t && docker exec nginx nginx -s reload
+
+docker compose stop backend-2
+for i in $(seq 1 40); do curl -s -o /dev/null http://localhost:8080/lb; done   # all succeed via failover
+docker exec nginx cat /var/log/nginx/error.log
+
+docker compose start backend-2
+sleep 12   # let fail_timeout expire
+for i in $(seq 1 20); do curl -s http://localhost:8080/lb; echo; done | sort | uniq -c
+```
+
+```text
+2026/08/10 14:55:39 [error] 49#49: *117 connect() failed (113: No route to host) while connecting to upstream, client: 172.31.0.1, server: localhost, request: "GET /lb HTTP/1.1", upstream: "http://172.31.0.4:3000/", host: "localhost:8080"
+2026/08/10 14:55:43 [error] 49#49: *122 connect() failed (113: No route to host) while connecting to upstream, client: 172.31.0.1, server: localhost, request: "GET /lb HTTP/1.1", upstream: "http://172.31.0.4:3000/", host: "localhost:8080"
+2026/08/10 14:55:47 [error] 50#50: *151 connect() failed (113: No route to host) while connecting to upstream, client: 172.31.0.1, server: localhost, request: "GET /lb HTTP/1.1", upstream: "http://172.31.0.4:3000/", host: "localhost:8080"
+2026/08/10 14:55:50 [error] 50#50: *156 connect() failed (113: No route to host) while connecting to upstream, client: 172.31.0.1, server: localhost, request: "GET /lb HTTP/1.1", upstream: "http://172.31.0.4:3000/", host: "localhost:8080"
+2026/08/10 14:55:54 [error] 52#52: *185 connect() failed (113: No route to host) while connecting to upstream, client: 172.31.0.1, server: localhost, request: "GET /lb HTTP/1.1", upstream: "http://172.31.0.4:3000/", host: "localhost:8080"
+
+     10 <h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+     10 <h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+```
+
+- Despite 40 requests while `backend-2` was down, only 5 failures were logged (one or two per worker process that happened to pick `backend-2` before marking it down) -- and all 40 `curl` calls still got a `200` response, confirming the failover was transparent to the client.
+- `connect() failed (113: No route to host)` rather than "connection refused" because stopping the container removes it from the Docker network entirely, unlike a crashed-but-still-running process.
+- After the restart and the 12s wait (past the 10s `fail_timeout`), traffic to `/lb` is split evenly again between `backend-1` and `backend-2`, confirming NGINX retried and re-admitted the recovered server.
 
 ### Monitoring, Optimization, and Project Wrap-Up
 
 #### Logs
 
+Hello guys, welcome back. In this section, we learn about the locks available with Nginx, how they are configured, how the locations can be configured, how they can be customized and the different options available with Nginx locks. Let's log into our Nginx server. So we are in the Nginx console. Let's move over to our configuration file. Let's first check the configuration file. If you remember, there is one main configuration file that's known by the name Nginx.com. Let's open it. If you remember, we studied two types of locks available in Nginx. So if you remember, there are two kinds of locks that we studied there in Nginx.com section. So in Nginx, we have two locks. One is access lock. Another one is error lock. This is the error lock and the other one is the access lock. So as the name suggests, access lock includes the logging information when someone is trying to hit the Nginx server. So like from which mode it's hitting the Nginx server, then what kind of request it's making, what kind of API request it is like a get request or a put request and what type of code it is getting in response. So all those things comprises this access lock. While the error log comprises of the errors related to the Nginx working. So suppose when you have done some kind of Nginx configuration change and there is some error coming and you are not able to find it out, just go to this error log and you will easily find out like what's the actual problem is. Apart from this, any other issue related to Nginx working can be easily find it here. So it's up to us like how we want to configure this access lock. If you can see here by default, the Nginx locks are found in this var log Nginx in this directory by the name access.log. And while the error log is found in this var log Nginx directory with the name as error.log. Well, the formats for these logs are, you know, predefined. We have the option to change the log format of the access log, but we cannot change the log format of error log because the errors related to Nginx can't be customized while the access log totally depends on the type of need that we want. So the log format that's provided here is actually the access log, log format. So we'll start as there will be a remote address, like then what will be the user, the time, the request, what's the HTTP status, what's the byte, I mean, like how many bytes are sent, then other useful stuff. So there may be situations like you just need only the remote address and the time only, and you need not to have all those things while there may be some requirement when you just need only the HTTP status code and you just need to, you know, send the log to some other place. So it is good to just customize this log format as per our need. Let's go to these log directories and check like how these log flows. Let's move to this directory var log that's Nginx. So we can easily find out two types of logs. One is this access.log. Another one is this error.log. Let's first open this access.log. Let's do tail minus app access.log. If you can see here, there are multiple logs available. Thus, you can say the last 10 logs are available. Just take any one log and analyze it. So it's simply telling like what's the IP from it was accessed the username that we provided by, you know, logging into the static web page, date, the time, the zone, and the type of request, like what are the different requests that we made, the status code, the HTTP status code actually, and then where it was redirected, what's the browser and the different things done. Let's analyze a fresh log here. Let's pick the Nginx IP here and we'll open the static web page here. So it's asking for username and password. I have entered it. So the website is now open. Let's check what are the logs that we received. So it's like some request has come till this tab, we have not provided any username and password, and it was simply requesting for a get request. Then when we supply it, so we have logged in into the browser, you can check like by the name admin, we have logged in. Now let's check another logs that are coming when we are trying to hit another IP. Let's try to hit this endpoint 2. So we are getting the response. Let's go back to a console. And we can easily check like there was one request being done that is get slash backend 1 endpoint 2. If you remember, in one of the lectures for this backend server 1 endpoint 1, we configured whitelisting and we placed some random IP there. So it will be like we won't be able to access that page from my PC. Let's try to hit it. It's giving 403 forbidden. Let's go to our console. So it said 403. That means the web page has not been accessed because the access was denied. Let's check one more endpoint. So it's giving the appropriate response. And we're getting HTTP 200 code. So that's it for access log. Let's check what's there in the error logs. Let's do tail minus F error dot log. So if you can see here, there are multiple logs available here. It's in their pre customized format. This is the log type. That's it's like we're getting some error. That's like when a connection was refused when we were trying to access some server. Let's do some changes. Well, this error log won't get affected whenever there is any sort of issue with the backend servers. This log will only get populated only when we have some issue with the Nginx. Changes with the Nginx.conf file. And let's try to restart the server and we'll come here and check like what's the error that it's giving. So let's go back to the config file slash etc. Nginx.conf.d. Then we need to open this sudo nano virtual.conf. Let's do one thing. We'll just remove this closing code. Just remove this closing code. Save the file. Syntax is failing. Let's restart the Nginx server in it. Sudo service Nginx restart. I've done so it's failing because the control process excited with error code. Let's go and check what's the error code. So when I'm trying to you know read these websites, it's not accessible just because our Nginx is not working properly. Let's check the error log. It's in cd slash or log Nginx. Let's do tail to error log. Open it. So this is so two things it's showing. The first one is like there is a log of emergency type. Well that means there is some problem in the line 17 of the virtual.conf. So any error related with the Nginx configuration it's working will be displayed here. Well I think that's enough for you know on the logging part and this is almost everything related to logging.
+
 #### HTTP Compression
 
-## Extra: Concept Definitions
 
-Reverse proxy
-Load balancing
-Authentication
-SSL certificates
+
+#### Extra: Caching
+
+
 
 ## Extra: Notes on Gunicorn / Uvicorn
 
