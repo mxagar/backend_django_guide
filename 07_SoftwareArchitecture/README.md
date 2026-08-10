@@ -17,4 +17,6 @@ From these specializations, I have selected the following topics/courses:
 
 This module deals with the seventh topic/course: **Software Architecture Patterns**.
 
-TBD.
+I have moved the contents of this section to a separate repository:
+
+[https://github.com/mxagar/software_architecture_guide](https://github.com/mxagar/software_architecture_guide)
