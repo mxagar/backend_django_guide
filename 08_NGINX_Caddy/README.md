@@ -110,8 +110,16 @@ Table of Contents:
     - [Access Control and SSL Security](#access-control-and-ssl-security)
       - [Username-Password Auth](#username-password-auth)
       - [Whitelisting IPs](#whitelisting-ips)
-    - [Advanced SSL and Load Balancing Strategies](#advanced-ssl-and-load-balancing-strategies)
+      - [SSL Certificates](#ssl-certificates)
+      - [Advanced SSL Certificate Configuration](#advanced-ssl-certificate-configuration)
+      - [Final Notes on SSL Certificates](#final-notes-on-ssl-certificates)
+    - [Load Balancing Strategies](#load-balancing-strategies)
+      - [Simple Load Balancer](#simple-load-balancer)
+      - [Server Weights \& Least Connections](#server-weights--least-connections)
+      - [Extra: Health Checks](#extra-health-checks)
     - [Monitoring, Optimization, and Project Wrap-Up](#monitoring-optimization-and-project-wrap-up)
+      - [Logs](#logs)
+      - [HTTP Compression](#http-compression)
   - [Extra: Concept Definitions](#extra-concept-definitions)
   - [Extra: Notes on Gunicorn / Uvicorn](#extra-notes-on-gunicorn--uvicorn)
     - [Gunicorn](#gunicorn)
@@ -2466,9 +2474,221 @@ allow 203.xxx.xxx.xx2;
 # ... one line per allowed IP or range
 ```
 
-### Advanced SSL and Load Balancing Strategies
+#### SSL Certificates
+
+- SSL (secure socket layer) is the encryption protocol that secures a connection between a browser and a server: it authenticates the site's identity via a certificate and encrypts the data exchanged, so it can't be read or tampered with in transit.
+  - TLS (transport layer security) is the modern successor to SSL; "SSL" is still used colloquially/commercially for both, but the protocol actually in use today is TLS.
+  - HTTPS is not a separate encryption scheme -- it's plain HTTP run over that SSL/TLS-encrypted channel. A "SSL certificate" is what enables the TLS handshake and proves the server's identity; HTTPS is the visible result in the browser.
+  - SSL/TLS isn't HTTP-specific -- the same protocol secures other traffic too (e.g. FTPS, SMTPS).
+- Enabling HTTPS on NGINX has two parts:
+  - generating/configuring a certificate (covered here),
+  - and redirecting port 80 (HTTP) requests to port 443 (HTTPS), covered separately.
+- Certificates are domain-specific, so a registered domain is required (purchasable from providers such as AWS or GoDaddy); the demo uses `learncloud.xyz`.
+- Manual NGINX configuration is required; we edit in the virtual host the NGINX configuration file (e.g. `conf.d/virtual.conf`):
+  - Add a `server` block listening on port 443, with `server_name` set to the domain (instead of `localhost`) and a test `location /` returning a `200` response.
+  - Enabling SSL on that block needs the `listen ... ssl;` parameter plus `ssl_certificate <path-to-cert>;` and `ssl_certificate_key <path-to-key>;`, pointing at the certificate and its private key.
+- Certificates can be obtained for free with Certbot [https://certbot.eff.org/](https://certbot.eff.org/): the EFF's (Electronic Frontier Foundation) client) or purchased directly from a certificate authority/domain provider.
+  - We need to select the web server (NGINX) and the OS (Ubuntu) on the Certbot site to get the correct installation instructions. Follow the instructions to install Certbot.
+  - Installation creates `/etc/letsencrypt`, where issued certificates are stored.
+  - Certbot supports two approaches:
+    - automatic: `sudo certbot --nginx` issues the certificate and edits the NGINX config for you.
+    - manual: issues only the certificate, leaving the config untouched.
+  - The automatic flow prompts for an email address, agreement to the terms of service, optionally sharing the email with the EFF, and the domain(s) to secure.
+  - After issuing the certificate, Certbot offers to auto-redirect HTTP to HTTPS or make no further config changes; choosing "no redirect" is safer when the server block was already hand-configured, since the automatic redirect can conflict with existing settings.
+  - The certificate and chain are saved at `/etc/letsencrypt/live/<domain>/fullchain.pem`, with the private key alongside as `privkey.pem`.
+
+```conf
+# Block added to conf.d/virtual.conf for SSL/TLS support on port 443
+server {
+    listen 443 ssl;
+    server_name learncloud.xyz;
+
+    ssl_certificate     /etc/letsencrypt/live/learncloud.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/learncloud.xyz/privkey.pem;
+
+    location / {
+        return 200 "Hello, folks";
+    }
+}
+```
+
+```bash
+# Install Certbot (Ubuntu) and its NGINX plugin
+# https://certbot.eff.org/
+# ...
+
+# Generate a certificate and let Certbot edit the NGINX config automatically
+sudo certbot --nginx
+# Prompts: email address -> agree to terms of service -> (optional) share email with the EFF -> select domain(s)
+# When asked about redirecting HTTP to HTTPS, choose "No redirect" to avoid touching an already-customized config.
+
+# Certificate and key are saved at:
+# /etc/letsencrypt/live/learncloud.xyz/fullchain.pem
+# /etc/letsencrypt/live/learncloud.xyz/privkey.pem
+```
+
+#### Advanced SSL Certificate Configuration
+
+- After running Certbot, `virtual.conf` already has an auto-generated port 443 `server` block with `ssl_certificate` and `ssl_certificate_key` paths, plus an optional `ssl_dhparam` line (a Diffie-Hellman parameters file that strengthens the TLS key exchange); the demo keeps only the certificate and key, commenting out the `dhparam` line, though enabling it is also valid.
+- Running `nginx -t` at this point warns that the `ssl` directive (`ssl on;`) is deprecated -- Certbot's generated config still uses the older syntax -- so it's replaced with the current form, `listen 443 ssl;`.
+- After `sudo service nginx restart`, a `curl https://learncloud.xyz` request returns the expected `Hello, folks` response, confirming the certificate works end-to-end.
+- Enforcing HTTPS-only access needs two further changes to `virtual.conf`:
+  - Move every existing `location` block (reverse proxy, basic auth, IP whitelist, etc.) from the port 80 `server` block into the port 443 (SSL) `server` block, so all routes are served only over HTTPS.
+  - Add a new, minimal port 80 `server` block whose only job is to redirect: `return 301 https://<domain>$request_uri;`, so any plain HTTP request is redirected (status code 301, permanent redirect) to the same path over HTTPS.
+- After validating (`nginx -t`) and restarting NGINX, both a `curl` to the HTTPS domain and a browser visit succeed: the browser shows a secure/valid-certificate padlock, and the HTTP-to-HTTPS redirect (together with any configured basic auth) works end-to-end.
+
+```conf
+server {
+    listen 443 ssl;
+    server_name learncloud.xyz;
+
+    ssl_certificate     /etc/letsencrypt/live/learncloud.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/learncloud.xyz/privkey.pem;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;  # optional: strengthens key exchange
+
+    # All location blocks (reverse proxy, basic auth, IP whitelist, ...) now live here.
+    location / {
+        return 200 "Hello, folks";
+    }
+}
+
+server {
+    listen 80;
+    server_name learncloud.xyz;
+
+    # Redirect every plain HTTP request to HTTPS, keeping the original path/query.
+    return 301 https://learncloud.xyz$request_uri;
+}
+```
+
+#### Final Notes on SSL Certificates
+
+- DNS must already resolve before requesting a certificate: the domain (e.g. `learncloud.xyz`) needs an A/AAAA record pointing at the server's public IP, otherwise Certbot's HTTP-01 challenge fails.
+- Ports 80 and 443 must be reachable from the internet (open in the firewall/security group, e.g. the AWS EC2 security group from the earlier demo), both for the Certbot challenge and for serving HTTPS traffic afterward.
+- Let's Encrypt certificates expire every 90 days:
+  - Certbot normally installs a systemd timer/cron job that runs `certbot renew` automatically, so renewal doesn't need to be triggered manually.
+  - [https://certbot.eff.org/](https://certbot.eff.org/) documents how to set up and verify this automatic renewal, including testing it with `sudo certbot renew --dry-run`.
+- This Certbot flow needs a real internet-facing host with a public IP, like the EC2/Azure VM from the earlier demo sections -- it doesn't apply to the isolated three-node Docker Compose lab used elsewhere in this chapter, since a local container has no public IP or real domain to validate against.
+
+### Load Balancing Strategies
+
+#### Simple Load Balancer
+
+- A load balancer is software/hardware that distributes incoming traffic across two or more backend servers; NGINX can act as a reverse proxy that also load balances, which increases an application's capacity and reliability.
+- NGINX supports three load-balancing methods:
+  - round robin (the default, used here),
+  - weighted (`server ... weight=N;`),
+  - least connections (`least_conn;`).
+- Demo scenario: `backend-1`'s endpoint 1 and `backend-2`'s endpoint 1 are treated as replicas in a high-availability (HA) setup, so requests to a new `/lb` path should be balanced between the two. Implemented in [lab/nginx-security-load-balancing-optimization](./lab/nginx-security-load-balancing-optimization).
+- Configuration, in `nginx-server/conf.d/reverse-proxy.conf`:
+  - An `upstream` block (named e.g. `endpoints`) lists the backend servers to balance between via `server <host>:<port>;` entries.
+    - `server` entries take a host:port, not a path -- appending a trailing `/` there is invalid and causes an "invalid host in upstream" syntax error at `nginx -t`.
+  - A new `location /lb` block then uses `proxy_pass`, pointing at the upstream's name (e.g. `http://endpoints/`) instead of a literal backend IP/port.
+  - `static.html` gets a new link pointing at `/lb` so the round-robin behavior can be tested from the browser.
+- Round robin is NGINX's default load-balancing method whenever an `upstream` lists multiple servers without a method directive: each new request is handed to the next server in the list.
+  - In a single-worker NGINX, this alternates strictly (1st request to server 1, 2nd to server 2, 3rd back to server 1, and so on). With the default `worker_processes auto;` (one worker per CPU core), each worker keeps its **own** round-robin counter -- they don't share state -- so consecutive requests can land on different workers and the observed order looks clustered (e.g. `1,1,1,1,1,1,2,1,2,1`) rather than strictly alternating, though it still balances out over enough requests.
+
+```conf
+# lab/nginx-security-load-balancing-optimization/nginx-server/conf.d/reverse-proxy.conf
+upstream endpoints {
+    server backend-1:3000;
+    server backend-2:3000;
+}
+
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        root /home/student/html;
+        index static.html;
+    }
+
+    location /Backend1end1 {
+        proxy_pass http://backend-1:3000/;
+    }
+
+    location /Backend2end1 {
+        proxy_pass http://backend-2:3000/;
+    }
+
+    # New load-balancing location
+    location /lb {
+        proxy_pass http://endpoints/;
+    }
+}
+```
+
+```html
+<!-- lab/nginx-security-load-balancing-optimization/nginx-server/static.html (excerpt) -->
+<a href="/lb">load-balancer (between 1st endpoints of the two Backend servers)</a>
+```
+
+Tests and results:
+
+```bash
+cd lab/nginx-security-load-balancing-optimization
+docker compose up -d
+docker exec nginx nginx -t
+
+# Linux
+for i in $(seq 1 10); do curl -s http://localhost:8080/lb; echo; done
+# Powershell
+1..10 | ForEach-Object { curl.exe -s http://localhost:8080/lb; "" }
+```
+
+```text
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-2: endpoint-1</h2>
+<h2>This is the response coming from Backend-Server-1: endpoint-1</h2>
+```
+
+#### Server Weights & Least Connections
+
+- Plain round robin only fits when the backend servers being balanced have equal resources (e.g. both have 2 GB of RAM); if one server is bigger than the other (e.g. server 1 has 1 GB of RAM, server 2 has 4 GB), splitting requests evenly is unfair -- the bigger server should handle more of them.
+- Server weights fix this: add `weight=N;` to a `server` entry in the `upstream` block; a server without an explicit weight defaults to `weight=1`.
+  - Example: `server-2` (the bigger machine) gets `weight=3`, `server-1` keeps the default `weight=1`. Requests to `/lb` are then split roughly 3:1 in `server-2`'s favor -- in the demo, refreshing the browser repeatedly showed the 1st request going to `server-1`, then three in a row to `server-2`, then back to `server-1`, matching that ratio.
+  - As with any config change: save, validate (`nginx -t`), and restart/reload NGINX before testing.
+- Least connections is an alternative to weighting: instead of a fixed ratio, NGINX tracks each backend's current number of active connections and sends each new request to whichever server has the fewest -- e.g. if server 1 is handling ~20 requests and server 2 ~40, the next request goes to server 1. Enabled with the `least_conn;` directive inside the `upstream` block, no weights required.
+
+
+```conf
+# lab/nginx-security-load-balancing-optimization/nginx-server/conf.d/reverse-proxy.conf
+# Option A: weighted round robin:
+# backend-2 gets ~3x the requests of backend-1.
+upstream endpoints {
+    server backend-1:3000;  # no weight given -> defaults to weight=1
+    server backend-2:3000 weight=3;
+}
+
+# Option B: least connections -- each request goes to whichever backend
+# currently has the fewest active connections; no weights involved.
+upstream endpoints {
+    least_conn;
+    server backend-1:3000;
+    server backend-2:3000;
+}
+```
+
+#### Extra: Health Checks
+
+NGINX supports active health checks (proactively probing backends) and passive health checks (reacting to failed requests as they happen). Active checks are an NGINX Plus (paid) feature only; passive checks are available in the open-source/community edition. See the official NGINX documentation for configuration details.
 
 ### Monitoring, Optimization, and Project Wrap-Up
+
+#### Logs
+
+#### HTTP Compression
 
 ## Extra: Concept Definitions
 
